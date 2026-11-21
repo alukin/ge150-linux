@@ -16,7 +16,8 @@ from ge150.usb.device_ids import PRODUCT_ID, REPORT_SIZE, VENDOR_ID
 from ge150.usb.transport import TransportDisconnected, TransportError
 
 SYSFS_HIDRAW = Path("/sys/class/hidraw")
-_GONE = {errno.ENODEV, errno.EIO, errno.ENXIO, errno.EPIPE}
+#: EPROTO appears while the host resets the pedal's USB link (e.g. after a restore).
+_GONE = {errno.ENODEV, errno.EIO, errno.ENXIO, errno.EPIPE, errno.EPROTO}
 UDEV_HINT = (
     "install the udev rule: sudo cp udev/70-mooer-ge150.rules /etc/udev/rules.d/ && "
     "sudo udevadm control --reload && sudo udevadm trigger, then replug the pedal"
@@ -54,6 +55,7 @@ def find_hidraw_devices(
 
 class HidrawTransport:
     def __init__(self, path: str | None = None) -> None:
+        self._requested = path
         self._path = path
         self._fd: int | None = None
 
@@ -64,17 +66,19 @@ class HidrawTransport:
     def open(self) -> None:
         if self._fd is not None:
             return
-        if self._path is None:
+        if self._requested is None:
+            # Re-discover on every open: the node can change after a replug or a reset.
             devices = find_hidraw_devices()
             if not devices:
                 raise TransportError("GE150 not found (no hidraw node with HID_ID 0483:5703)")
             self._path = devices[0].path
+        path = self._path or self._requested or ""
         try:
-            self._fd = os.open(self._path, os.O_RDWR | os.O_NONBLOCK)
+            self._fd = os.open(path, os.O_RDWR | os.O_NONBLOCK)
         except PermissionError as exc:
-            raise TransportError(f"no permission to open {self._path}: {UDEV_HINT}") from exc
+            raise TransportError(f"no permission to open {path}: {UDEV_HINT}") from exc
         except OSError as exc:
-            raise TransportError(f"cannot open {self._path}: {exc}") from exc
+            raise TransportError(f"cannot open {path}: {exc}") from exc
 
     def close(self) -> None:
         if self._fd is not None:

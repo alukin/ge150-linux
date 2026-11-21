@@ -7,6 +7,7 @@ then ``0xBB`` (restore end). Progress is reported in the vendor's 212 steps.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from ge150.formats.mbf import Backup, IrItem
@@ -14,8 +15,10 @@ from ge150.model.preset import PRESET_COUNT
 from ge150.protocol import messages as msg
 from ge150.protocol.framing import Frame
 from ge150.protocol.opcodes import Op
+from ge150.protocol.session import DeviceSession, SessionError
 from ge150.services import reader
 from ge150.services.editor import Editor, EditorError
+from ge150.usb.transport import TransportError
 
 RESTORE_STEPS = 212
 Progress = Callable[[str, int, int], None]
@@ -43,7 +46,8 @@ def create_backup(editor: Editor, progress: Progress | None = None) -> Backup:
 
 
 def restore_backup(editor: Editor, backup: Backup, progress: Progress | None = None,
-                   include_irs: bool = True) -> None:
+                   include_irs: bool = True, reconnect: bool = True,
+                   reconnect_settle: float = 3.0) -> None:
     """Write a whole backup to the pedal. DESTRUCTIVE: overwrites all presets."""
     if len(backup.presets) != PRESET_COUNT:
         raise EditorError(f"the backup has {len(backup.presets)} presets, expected {PRESET_COUNT}")
@@ -64,6 +68,27 @@ def restore_backup(editor: Editor, backup: Backup, progress: Progress | None = N
         for i, ir in enumerate(backup.irs):
             report(f"IR {ir.slot + 1}", 202 + i, RESTORE_STEPS)
             editor.upload_user_slot(Op.USER_IR, ir.slot, ir.name, ir.data)
+    if reconnect:
+        session.expect_reset()
     session.send(Frame(Op.RESTORE_END, b"\x01"), delay=session.multipart_delay)
     session.flush()
+    report("pedal saving", RESTORE_STEPS - 1, RESTORE_STEPS)
+    if reconnect:
+        wait_for_pedal(session, settle=reconnect_settle)
     report("done", RESTORE_STEPS, RESTORE_STEPS)
+
+
+def wait_for_pedal(session: DeviceSession, settle: float = 3.0, timeout: float = 60.0) -> None:
+    """After ``0xBB`` the pedal writes its flash for a few seconds, then reboots and
+    re-enumerates (verified on hardware). Reconnect and identify until it answers."""
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            session.reconnect(timeout=max(1.0, deadline - time.monotonic()), settle=settle)
+            reader.identify(session, timeout=2.0)
+            return
+        except (TransportError, SessionError):
+            if time.monotonic() > deadline:
+                raise
+            session.expect_reset()  # the reboot may still be ahead: stay quiet
+            settle = 1.0

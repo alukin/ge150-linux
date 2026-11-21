@@ -79,12 +79,21 @@ def test_restore_writes_everything(editor: Editor, sim: SimTransport) -> None:
     backup.presets[9].name = "RESTORED"
     steps: list[int] = []
     sim.device.received.clear()
-    restore_backup(editor, backup, lambda _, step, total: steps.append(step))
+    restore_backup(editor, backup, lambda _, step, total: steps.append(step),
+                   reconnect_settle=0)
     ops = [f.opcode for f in sim.device.received]
-    assert ops[0] == Op.RESTORE_BEGIN and ops[-1] == Op.RESTORE_END
+    assert ops[0] == Op.RESTORE_BEGIN and ops[-2:] == [Op.RESTORE_END, Op.IDENTIFY]
     assert ops.count(Op.WRITE_PRESET) == 200
     assert sim.device.presets[10].name == "RESTORED"
     assert sim.device.rhythm == bytes([1, 2, 3, 4, 5, 6])
     assert sim.device.system[Op.WRITE_SYSTEM_3] == bytes([4, 5, 6, 7])
     assert sim.device.ir_names[2] == "MY CAB"
     assert steps[-1] == 212
+
+
+def test_session_reconnect(editor: Editor, sim: SimTransport) -> None:
+    editor.session.reconnect(settle=0)
+    assert editor.session.connected
+    from ge150.services import reader
+
+    assert reader.identify(editor.session).name == "MOOER_GE150"

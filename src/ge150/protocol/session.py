@@ -80,6 +80,7 @@ class DeviceSession:
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
         self._error: BaseException | None = None
+        self._reset_expected = False
 
     # --- lifecycle -----------------------------------------------------------
 
@@ -106,6 +107,33 @@ class DeviceSession:
                 thread.join(timeout=2)
         self._threads = []
         self.transport.close()
+
+    def expect_reset(self) -> None:
+        """The next link loss is expected (restore): stop quietly, without notifying
+        disconnect listeners. :meth:`reconnect` clears the flag."""
+        self._reset_expected = True
+
+    def reconnect(self, timeout: float = 20.0, settle: float = 1.0) -> None:
+        """Close and reopen the transport, retrying until it opens or ``timeout`` expires.
+
+        Used after a restore: on ``0xBB`` the pedal writes its flash and its USB link is
+        reset by the host (observed on hardware), which invalidates the open node.
+        """
+        self.close()
+        self._error = None
+        self._reset_expected = False
+        self._out = queue.Queue()
+        self.decoder = FrameDecoder()
+        time.sleep(settle)
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                self.start()
+                return
+            except TransportError:
+                if time.monotonic() > deadline:
+                    raise
+                time.sleep(0.5)
 
     def __enter__(self) -> DeviceSession:
         return self.start()
@@ -221,6 +249,9 @@ class DeviceSession:
         self._error = exc
         self._stop.set()
         self._out.put(None)
+        if self._reset_expected:
+            log.info("link reset (expected): %s", exc)
+            return
         log.warning("session stopped: %s", exc)
         for listener in list(self._disconnect_listeners):
             try:
