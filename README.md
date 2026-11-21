@@ -88,6 +88,7 @@ ge150ctl ir-delete 8
 ge150ctl nr-upload 1 captura.amp       # .amp → ranura NR 1 (AMP 56)
 ge150ctl backup GE150.mbf              # backup completo (solo lectura)
 ge150ctl restore GE150.mbf             # SOBRESCRIBE toda la pedalera
+ge150ctl factory-reset --backup antes.mbf  # BORRA TODO: valores de fábrica (pide «BORRAR TODO»)
 
 ge150ctl --sim <comando>               # cualquier comando contra el simulador
 ge150ctl --raw <comando>               # muestra cada reporte USB de 64 bytes

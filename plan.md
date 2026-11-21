@@ -593,7 +593,10 @@ ge150-linux/
 - [x] BPM 40..260 confirmado en la pedalera.
 - [ ] Confirmar los rangos de VOL y SCREEN, y los nombres de los estilos de ritmo.
 - [x] Diálogo de sistema y ritmo en la GUI (`ui/settings_dialog.py`); envía cada cambio al instante.
-- [ ] Reset de fábrica (`0x8B`) con doble confirmación.
+- [x] Reset de fábrica (`0x8B 01`): `services/backup.factory_reset` (espera el reinicio y relee todo), CLI
+      `factory-reset` (exige `--backup FILE` o `--no-backup` y escribir «BORRAR TODO») y GUI (Herramientas, dos
+      confirmaciones y backup opcional). Probado solo con el simulador: **no ejecutado en la pedalera real** [?]
+      (falta confirmar si se reinicia y cuánto tarda).
 
 ### Fase 7 — IR y NR de usuario (IR ✅)
 - [x] `formats/wav_ir.py`: WAV PCM 8/16/24/32 y float, canal izquierdo, remuestreo lineal a 44,1 kHz, 512
