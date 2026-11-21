@@ -236,16 +236,12 @@ for gid, entry in G.items():
         entry["generic"] = True
 
 # --- reference photos -------------------------------------------------------------------
-# Mooer originals that are clear clones of a commercial pedal (or that the manual names)
-# show a photo of that pedal as a *reference* ("foto de referencia"), never as "based on".
-# Only pedals: everything without a clear match keeps its drawing.
+# Effects the manual ties to a classic pedal without being based on a Mooer unit show a
+# photo of that pedal as a *reference* ("foto de referencia"), never as "based on". Mooer
+# originals use the photo of the Mooer pedal itself. Everything else keeps its drawing.
 REFERENCES: dict[str, tuple[str, str]] = {
-    "mod1": ("MXR Phase 90", "MXR Phase 90"),  # Mooer Ninety Orange
-    "mod4": ("Electro-Harmonix Electric Mistress", "Electric Mistress flanger"),  # E-Lady
-    "mod6": ("Demeter Tremulator", "Demeter Tremulator"),  # Mooer Trelicopter
     "mod9": ("DigiTech Whammy", "DigiTech Whammy"),  # manual: "simulate classic whammy"
     "mod18": ("BOSS SG-1 Slow Gear", "Boss Slow Gear"),
-    "mooer_noisekiller": ("ISP Decimator", "ISP Decimator"),  # Mooer Noise Killer
 }
 for gid, (reference, query) in REFERENCES.items():
     G[gid]["reference"] = reference

@@ -43,9 +43,10 @@ def test_every_shipped_photo_is_credited() -> None:
 def test_captions() -> None:
     ts808 = gear.gear_for(1, 2)
     assert gear.describe(ts808, True) == "Basado en Ibanez TS808 Tube Screamer"
-    ninety = gear.gear_for(6, 1)  # PHASER: Mooer Ninety Orange, photo of an MXR Phase 90
-    assert gear.describe(ninety, False) == "Basado en Mooer Ninety Orange"
-    assert "foto de referencia: MXR Phase 90" in gear.describe(ninety, True)
+    ninety = gear.gear_for(6, 1)  # PHASER: based on the Mooer Ninety Orange (its own photo)
+    assert gear.describe(ninety, True) == "Basado en Mooer Ninety Orange"
+    pitch = gear.gear_for(6, 9)  # PITCH SHIFT: manual names the whammy -> reference photo
+    assert gear.describe(pitch, True) == "Pitch shifter  ·  foto de referencia: DigiTech Whammy"
     digital = gear.gear_for(7, 1)  # generic Mooer algorithm: no "based on", no photo
     assert digital.generic and not digital.reference
     assert gear.describe(digital, False) == "Digital delay"
