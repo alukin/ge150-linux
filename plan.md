@@ -12,7 +12,7 @@
 - **Estado (2026-11-21):** fases 0, 1, 3 y 5 completas; 2, 4, 6, 7 y 8 en curso (ver §6). CLI `ge150ctl`
   y GUI `ge150` funcionando contra la pedalera real (lectura y edición en vivo verificadas).
   Lo marcado [V] está verificado con la decompilación, con hardware o con ambos; lo [I] y [?] sigue
-  pendiente. Guardar y renombrar están verificados en hardware (preset 30); IR/NR y restore, solo en el simulador.
+  pendiente. Todas las escrituras (guardar, renombrar, IR, NR, restore completo) están verificadas en hardware.
 
 ---
 
@@ -236,7 +236,7 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | `0x41` | 10 nombres × 16 B + 10 nombres × 16 B (offset +0xA0) | Nombres de IR y NR de usuario (los bytes ≥ 0x80 se convierten en espacio) **[?]** cuál lista es cuál | [V] |
 | `0x43` | `slot` | **Ack de `0xC3`** (escritura de preset); el dato es el slot escrito | [V] hardware |
 | `0x44` | `idx`, … | Trozo de backup. `idx=0`: `data[1]` = total de trozos. `idx>0`: `data[1]` = ?, y 0x610 B de datos. Termina cuando `idx == total`. | [V] |
-| `0xB5` | 1 B estado | ACK o estado de una subida de IR/NR **[I]** | [V] |
+| `0xB5` / `0xB7` | `part` | Ack de cada parte de una subida de IR (`B5 00..04`) o NR (`B7 00..05`) | [V] hardware |
 
 ### 2.7 Estructura del preset (72 × u16 = 144 B)
 
@@ -286,11 +286,11 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
 
 ### 2.8 Subida y borrado de IR (`0xB5`) y NR (`0xB7`) [V]
 
-Ranuras: **IR** = CAB 27..36 → `slot` `0x1A..0x23`. **NR** = AMP 56..65 → `slot` `0x37..0x40`
-(índice de modelo en base 0). Secuencia de tramas, con 100 ms de pausa entre ellas:
+Ranuras: **IR** = CAB 27..36 y **NR** = AMP 56..65. En el cable va la **ranura de usuario 0..9** [V hardware]
+(la app la calcula como `índice_modelo − 0x1A` / `− 0x37`). Secuencia de tramas, con 100 ms de pausa entre ellas:
 
 ```
-parte 0: LEN=5     OP 00 slot 00 01         (cabecera)
+parte 0: LEN=5     OP 00 slot 00 01         (cabecera; slot = ranura de usuario 0-9 [V])
 parte 1: LEN=0x12  OP 01 nombre[16]         (nombre del archivo sin extensión, máx. 16)
 parte 2..k: LEN=0x202  OP n datos[512]     IR: n=2,3,4 (1536 B)   NR: n=2..5 (2048 B)
 ```
@@ -562,11 +562,15 @@ ge150-linux/
       muestras de 24 bits **planar** (verificado con los IR del backup de la pedalera real).
 - [x] `Editor.upload_user_slot` / `delete_user_slot` / `read_ir_backup`; CLI `ir-upload`, `ir-delete`, `ir-export`
       (este último probado en hardware: exporta los 7 IR del usuario a WAV).
-- [ ] Probar `ir-upload`/`ir-delete` en hardware sobre una ranura vacía (8-10), con autorización del usuario.
+- [x] **IR verificado en hardware** (ranura 10, autorizado): un WAV de 48 kHz subido se guarda y el volcado `0xC4`
+      devuelve **exactamente los mismos bytes**; borrar deja "Empty". Los otros 7 IR siguen idénticos.
+      Corrección importante: la parte 0 lleva la **ranura en base 0 (0-9)**. Con `0x1A + n` la pedalera confirma
+      pero no guarda nada. La pedalera confirma **cada parte** con el mismo opcode: `B5 [00..04]` (IR), `B7 [00..05]` (NR).
+      Durante la subida la página pasa a `0x19` y luego vuelve a 5. Log: `reference/captures/ir_nr_test.log`.
 - [x] `formats/amp_nr.py`: `.amp` = 512 int32 LE + int32 de suma + `"2.0"` al final (`FUN_0041f700`) [V];
       subida `0xB7` en 4 planos de bytes, del MSB al LSB (`FUN_004153b0`) [V]. CLI `nr-upload`/`nr-delete`.
-- [ ] Probar NR en hardware (en la app oficial V1.3.8 los AMP 56-65 están comentados en el XML: puede que
-      la pedalera no los exponga).
+- [x] **NR verificado en hardware** (ranura 10): aparece en la lista NR de `0x41` y se borra correctamente.
+      Falta confirmar que la pedalera muestra o usa los AMP 56-65 (en la app oficial están comentados).
 
 ### Fase 8 — Archivos: `.mo` y `.mbf` (`.mo` ✅)
 - [x] `.mo` (`formats/mo_json.py`): mismo JSON que la app oficial (claves ordenadas, sangría de 4),
@@ -581,9 +585,12 @@ ge150-linux/
       hecho con éxito (solo lectura): `reference/captures/GE150_2026-11-21.mbf`.
 - [x] Acks: tras cada `0xC3` llega **`0x43 [slot]`** [V en hardware]; tras subir un IR, el restore oficial espera
       **`0xB5` con `data[0] = 4`** (última parte) [I]. El `Editor` espera ambos y tolera su ausencia.
-- [ ] Ojo: el restore oficial envía el slot del IR **en base 0** en la parte 0 de `0xB5`, mientras que la subida
-      normal usa `0x1A + n`. Usamos `0x1A + n` en ambos casos; verificar en hardware.
-- **Aceptación:** un `.mbf` hecho con la app oficial se restaura con la nuestra, y al revés.
+- [x] **Restore completo verificado en hardware** (3 veces, con el backup del mismo día): la escritura dura 27,8 s,
+      con 200 acks `0x43` y 35 acks de IR. Tras `0xBB` la pedalera graba la flash, **se reinicia sola** (unos 5 s
+      después) y vuelve a enumerarse. `services/backup.wait_for_pedal` reconecta e identifica hasta que responde (unos
+      7 s), sin avisar de desconexión (`DeviceSession.expect_reset`/`reconnect`). El backup posterior es **byte a byte
+      idéntico** al anterior: presets, sistema (`0xA4..0xA7`), rhythm (`0x8D`) e IR. Log: `reference/captures/restore_test.log`.
+- [ ] **Aceptación pendiente:** restaurar con nuestra app un `.mbf` hecho por la app oficial, y al revés.
 
 ### Fase 9 — Actualización de firmware (opcional, alto riesgo)
 - [ ] Decompilar en detalle `GE150.exe` `FUN_004026b0`, `FUN_00403de0`, `FUN_00406eb0` y `FUN_00406fd0`.
