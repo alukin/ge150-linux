@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from importlib import resources
 
+from PySide6.QtCore import QLoggingCategory
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -38,9 +40,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
+    # Before the QApplication exists: Qt registers the app ID with the desktop portal at
+    # start-up, and setting it later makes a second registration that the portal rejects.
+    QApplication.setApplicationName("GE150 Editor")
+    QApplication.setDesktopFileName("ge150")
+    if "QT_LOGGING_RULES" not in os.environ:
+        # Harmless Qt Wayland bug when the focus moves between text fields.
+        QLoggingCategory.setFilterRules("qt.qpa.wayland.textinput.warning=false")
     app = QApplication(sys.argv[:1])
-    app.setApplicationName("GE150 Editor")
-    app.setDesktopFileName("ge150")
     apply_theme(app)
     icon = resources.files("ge150.data").joinpath("ge150.svg")
     app.setWindowIcon(QIcon(str(icon)))
