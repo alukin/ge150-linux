@@ -41,8 +41,8 @@ def test_snapshot(session: DeviceSession) -> None:
 
 
 def test_rename_and_write_preset(session: DeviceSession, sim: SimTransport) -> None:
-    answer = session.request(msg.rename_preset(3, "CRUNCH"), expect=Op.PRESET_RENAMED)
-    assert msg.parse_preset_renamed(answer) == (3, "CRUNCH")
+    session.send(msg.rename_preset(3, "CRUNCH"))
+    session.flush()
     preset = sim.device.presets[10].copy()
     preset.name, preset.words[0] = "NEW", 1
     session.send(msg.write_preset(preset))

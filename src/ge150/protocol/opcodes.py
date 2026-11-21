@@ -39,7 +39,7 @@ class Op(IntEnum):
     EXP_B = 0x33
     PAGE = 0x34
     USER_NAMES = 0x41
-    PRESET_WRITE_ACK = 0x43  # the vendor restore waits for it after each 0xC3 [I]
+    PRESET_WRITE_ACK = 0x43  # answer to 0xC3: [slot], verified on hardware
     BACKUP_CHUNK = 0x44
 
     # --- host -> device ----------------------------------------------------

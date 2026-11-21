@@ -167,8 +167,8 @@ class Editor:
     # --- persistent operations -------------------------------------------------
 
     def _write_preset(self, preset: Preset, ack_timeout: float = 2.0) -> None:
-        """``0xB4 5`` + ``0xC3``, then wait for the 0x43 acknowledgement the vendor
-        restore waits for (not confirmed on hardware yet: a timeout is tolerated)."""
+        """``0xB4 5`` + ``0xC3``, then wait for the ``0x43 [slot]`` acknowledgement
+        (verified on hardware; a missing ack is tolerated)."""
         self.session.send(msg.set_page(SAVE_PAGE))
         with self.session.expecting({Op.PRESET_WRITE_ACK}) as acks:
             self.session.send(msg.write_preset(preset), delay=self.session.multipart_delay)

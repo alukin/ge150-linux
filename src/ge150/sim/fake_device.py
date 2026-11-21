@@ -149,19 +149,23 @@ class FakeGE150:
     def _write_module(self, index: int, d: bytes) -> list[Frame]:
         layout = MODULES[index]
         self.edit_buffer.words[layout.slice] = unpack_words(d, layout.words)
-        return []  # [?] the pedal may echo the block
+        page = 6 + index  # the real pedal jumps to the module page (MOD 0x0C, REVERB 0x0E) [V]
+        if page == self.page:
+            return []
+        self.page = page
+        return [Frame(Op.PAGE, pack_words([page]))]
 
     def _select_preset(self, d: bytes) -> list[Frame]:
         if 1 <= d[0] <= PRESET_COUNT:
             self._select(d[0])
-        return []  # [?] the pedal may answer 0x16
+        self.page = 5
+        return [Frame(Op.PAGE, pack_words([5]))]  # the real pedal answers 0x34 [05 00] [V]
 
     def _rename(self, d: bytes) -> list[Frame]:
         slot, name = d[0], decode_name(d[1:16])[:NAME_LEN]
         if 1 <= slot <= PRESET_COUNT:
             self.presets[slot].name = name
-            return [Frame(Op.PRESET_RENAMED, bytes([slot]) + encode_name(name))]  # [I]
-        return []
+        return []  # the real pedal does not answer a rename [V]
 
     def _write_preset(self, d: bytes) -> list[Frame]:
         slot = d[0]
@@ -170,7 +174,7 @@ class FakeGE150:
             self.presets[slot] = p
             if slot == self.current_slot:
                 self._edit = p.copy()
-        return [Frame(Op.PRESET_WRITE_ACK, b"\x01")]  # acknowledged like the vendor expects [I]
+        return [Frame(Op.PRESET_WRITE_ACK, bytes([slot]))]  # 0x43 [slot], as the real pedal [V]
 
     def _write_exp(self, part: slice, d: bytes) -> list[Frame]:
         self.edit_buffer.words[part] = unpack_words(d, 3)
