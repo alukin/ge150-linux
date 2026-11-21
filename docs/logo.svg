@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 256" width="900" height="256">
+  <!-- GE150 Editor banner: dark background so it reads on light and dark pages. -->
+  <rect x="0" y="0" width="900" height="256" rx="40" fill="#15181d"/>
+  <g transform="translate(14 14) scale(0.89)">
+  <!-- GE150 Editor icon: the app's knob (orange value arc) on a graphite tile. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c323b"/>
+      <stop offset="1" stop-color="#14171c"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff6a00"/>
+      <stop offset="1" stop-color="#ffb347"/>
+    </linearGradient>
+    <radialGradient id="cap" cx="0.38" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#4a515c"/>
+      <stop offset="0.55" stop-color="#262b33"/>
+      <stop offset="1" stop-color="#121418"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff8a1f" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#ff8a1f" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#tile)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#3a414c" stroke-width="1"/>
+  <circle cx="128" cy="134" r="104" fill="url(#glow)"/>
+  <!-- track (270 degrees) and value arc (75 %) -->
+  <path d="M 72.85 189.15 A 78 78 0 1 1 183.15 189.15" fill="none" stroke="#3a3f47"
+        stroke-width="20" stroke-linecap="round"/>
+  <path d="M 72.85 189.15 A 78 78 0 1 1 200.06 104.15" fill="none" stroke="url(#arc)"
+        stroke-width="20" stroke-linecap="round"/>
+  <!-- knob cap and pointer -->
+  <circle cx="128" cy="138" r="50" fill="#0c0e11"/>
+  <circle cx="128" cy="134" r="50" fill="url(#cap)" stroke="#0d0f12" stroke-width="2"/>
+  <line x1="144.2" y1="127.3" x2="166.8" y2="117.9" stroke="#f4f4f4" stroke-width="9"
+        stroke-linecap="round"/>
+  <!-- power LED -->
+  <circle cx="128" cy="222" r="7" fill="#ff8a1f"/>
+  <circle cx="128" cy="222" r="14" fill="#ff8a1f" fill-opacity="0.25"/>
+</g>
+  <text x="560" y="134" text-anchor="end" font-family="Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="88"
+        font-weight="800" fill="#e9edf2">GE150</text>
+  <text x="586" y="134" font-family="Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="88" font-weight="300"
+        fill="#ff8a1f">Editor</text>
+  <text x="290" y="186" font-family="Inter, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="26" font-weight="500"
+        letter-spacing="4" fill="#8b95a3">EDITOR LIBRE PARA LINUX</text>
+</svg>

@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/logo.svg" alt="GE150 Editor" width="560"></p>
+
 # ge150-linux
 
 Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge150`) y línea de comandos
