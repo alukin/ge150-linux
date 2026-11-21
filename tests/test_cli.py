@@ -63,3 +63,14 @@ def test_mo_export_and_import(capsys: pytest.CaptureFixture[str], tmp_path: Path
     assert code == 0 and "-> 9: PRESET 007" in out
     assert run(capsys, "export", "all", str(tmp_path / "all"))[0] == 0
     assert len(list((tmp_path / "all").glob("*.mo"))) == 200
+
+
+def test_backup_and_restore_commands(capsys: pytest.CaptureFixture[str], tmp_path: Path,
+                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "GE150.mbf"
+    code, out = run(capsys, "backup", str(path))
+    assert code == 0 and "200 presets" in out and path.stat().st_size > 0x400
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    assert main(["--sim", "restore", str(path)]) == 1  # needs --yes
+    capsys.readouterr()
+    assert run(capsys, "restore", str(path), "-y")[0] == 0

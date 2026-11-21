@@ -12,6 +12,8 @@ class StateBridge(QObject):
     #: kind, slot (-1 if none), module (-1 if none). Delivered on the GUI thread.
     changed = Signal(str, int, int)
     disconnected = Signal(str)
+    #: label, step, total; emitted from worker threads for long operations.
+    progress = Signal(str, int, int)
 
     def __init__(self, state: DeviceState, session: DeviceSession,
                  parent: QObject | None = None) -> None:

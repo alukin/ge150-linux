@@ -11,12 +11,13 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from ge150.formats import mo_json, wav_ir
+from ge150.formats import mbf, mo_json, wav_ir
 from ge150.model.catalog import load_catalog
 from ge150.model.preset import MODULES
 from ge150.protocol import messages as msg
 from ge150.protocol.opcodes import Op
 from ge150.protocol.session import DeviceSession
+from ge150.services import backup as backup_service
 from ge150.services import reader
 from ge150.services.editor import Editor, EditorError
 
@@ -209,6 +210,37 @@ def cmd_import(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- full backup ---------------------------------------------------------------
+
+
+def _progress(label: str, step: int, total: int) -> None:
+    print(f"\r[{step:3d}/{total}] {label:<16}", end="", flush=True, file=sys.stderr)
+
+
+def cmd_backup(args: argparse.Namespace) -> int:
+    """Read-only: save presets, system, rhythm and user IRs as a vendor .mbf file."""
+    session, editor = _editor(args)
+    with session:
+        backup = backup_service.create_backup(editor, _progress)
+    print(file=sys.stderr)
+    mbf.save(args.file, backup)
+    print(f"saved {args.file}: {len(backup.presets)} presets, {len(backup.irs)} IRs")
+    return 0
+
+
+def cmd_restore(args: argparse.Namespace) -> int:
+    backup = mbf.load(args.file)
+    if not _confirm(args, f"OVERWRITE ALL 200 presets (and {len(backup.irs)} IRs) from "
+                          f"{args.file}"):
+        return 1
+    session, editor = _editor(args, presets=True)
+    with session:
+        backup_service.restore_backup(editor, backup, _progress, include_irs=not args.no_ir)
+    print(file=sys.stderr)
+    print(f"restored {args.file}")
+    return 0
+
+
 # --- IR slots ------------------------------------------------------------------
 
 
@@ -316,6 +348,12 @@ def _setup_import(p: argparse.ArgumentParser) -> None:
     _yes(p)
 
 
+def _setup_restore(p: argparse.ArgumentParser) -> None:
+    p.add_argument("file", help=".mbf backup")
+    p.add_argument("--no-ir", action="store_true", help="do not restore the user IRs")
+    _yes(p)
+
+
 def _setup_ir_upload(p: argparse.ArgumentParser) -> None:
     p.add_argument("slot", type=int, choices=range(1, 11), metavar="SLOT", help="1..10")
     p.add_argument("file", help="WAV impulse response")
@@ -341,6 +379,9 @@ EDIT_COMMANDS: dict[str, tuple[Handler, str, ArgSetup]] = {
     "copy": (cmd_copy, "STORE a copy of a preset into another slot", _setup_copy),
     "export": (cmd_export, "save stored presets as .mo files", _setup_export),
     "import": (cmd_import, "STORE a .mo preset file into a slot", _setup_import),
+    "backup": (cmd_backup, "save a full .mbf backup (read-only)",
+               lambda p: p.add_argument("file")),
+    "restore": (cmd_restore, "OVERWRITE the whole pedal from a .mbf backup", _setup_restore),
     "ir-export": (cmd_ir_export, "save the pedal's user IRs as WAV files",
                   lambda p: p.add_argument("directory")),
     "ir-upload": (cmd_ir_upload, "STORE a WAV into a user IR slot", _setup_ir_upload),

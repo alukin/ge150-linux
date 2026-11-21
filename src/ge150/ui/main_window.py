@@ -21,10 +21,11 @@ from PySide6.QtWidgets import (
 )
 
 from ge150 import __version__
-from ge150.formats import mo_json
+from ge150.formats import mbf, mo_json
 from ge150.model import device_state as ds
 from ge150.model.preset import NAME_LEN, is_valid_name
 from ge150.protocol.session import DeviceSession
+from ge150.services import backup as backup_service
 from ge150.services import reader
 from ge150.services.editor import Editor
 from ge150.ui.bridge import StateBridge
@@ -90,6 +91,7 @@ class MainWindow(QMainWindow):
         self.module_editor.error.connect(self._error)
         self.bridge.changed.connect(self._on_change)
         self.bridge.disconnected.connect(self._on_disconnect)
+        self.bridge.progress.connect(self._on_progress)
         self.runner.busy_changed.connect(lambda busy: self.progress.setVisible(busy))
         self.central.setEnabled(False)
 
@@ -111,6 +113,8 @@ class MainWindow(QMainWindow):
         self._action("&Archivo", "Exportar preset seleccionado…", self.export_mo, "Ctrl+E")
         self._action("&Archivo", "Exportar los 200 presets…", self.export_all)
         self._action("&Archivo", "Guardar snapshot JSON…", self.save_snapshot)
+        self._action("&Archivo", "Backup completo (.mbf)…", self.backup)
+        self._action("&Archivo", "Restaurar backup (.mbf)…", self.restore)
         self._action("&Archivo", "Salir", self.close, "Ctrl+Q")
         self._action("&Preset", "Guardar", self.save_current, "Ctrl+S")
         self._action("&Preset", "Guardar en otra ranura…", self.save_as, "Ctrl+Shift+S")
@@ -316,6 +320,45 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Snapshot guardado en {path}", 4000)
 
         self.runner.run(lambda: reader.snapshot(self.session), done, self._error)
+
+    def _progress(self, label: str, step: int, total: int) -> None:
+        # Called from the worker thread: only touch Qt through queued signals.
+        self.bridge.progress.emit(label, step, total)
+
+    def backup(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(self, "Backup completo", "GE150.mbf",
+                                              "Backup GE150 (*.mbf)")
+        if not path:
+            return
+
+        def done(result: object) -> None:
+            assert isinstance(result, mbf.Backup)
+            mbf.save(path, result)
+            self.statusBar().showMessage(
+                f"Backup guardado: {len(result.presets)} presets, {len(result.irs)} IR", 6000)
+
+        self.runner.run(lambda: backup_service.create_backup(self.editor, self._progress),
+                        done, self._error)
+
+    def restore(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Restaurar backup", "", "Backup GE150 (*.mbf)")
+        if not path:
+            return
+        try:
+            data = mbf.load(path)
+        except (OSError, mbf.MbfError) as exc:
+            self._error(str(exc))
+            return
+        if not self._confirm(f"Se SOBRESCRIBIRÁN los 200 presets y {len(data.irs)} IR de la "
+                             "pedalera con el backup. ¿Continuar?"):
+            return
+        self.runner.run(lambda: backup_service.restore_backup(self.editor, data, self._progress),
+                        lambda _: self.start_sync(), self._error)
+
+    def _on_progress(self, label: str, step: int, total: int) -> None:
+        self.progress.setRange(0, total)
+        self.progress.setValue(step)
+        self.statusBar().showMessage(label)
 
     # --- tools -----------------------------------------------------------------
 
