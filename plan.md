@@ -9,9 +9,10 @@
   ajustes de sistema, pedal de expresión, rhythm, carga de IR (cabinas) y NR (capturas de amplificador),
   backup/restore, importar/exportar presets y, en la última fase, actualizar el firmware.
 - **Fecha de inicio del análisis:** 2026-11-21.
-- **Estado:** fase 0 (ingeniería inversa estática) completada. Aún no hay código de la app.
-  Casi todo lo de abajo sale de análisis estático y debe confirmarse con hardware (fase 2).
-  Los descriptores USB/HID sí están verificados con el equipo real (2026-11-21, ver 2.1).
+- **Estado (2026-11-21):** fases 0, 1, 3 y 5 completas; 2, 4, 6, 7 y 8 en curso (ver §6). CLI `ge150ctl`
+  y GUI `ge150` funcionando contra la pedalera real (lectura y edición en vivo verificadas).
+  Lo marcado [V] está verificado con la decompilación, con hardware o con ambos; lo [I] y [?] sigue
+  pendiente. Las escrituras persistentes (guardar, renombrar, IR) solo se han probado con el simulador.
 
 ---
 
@@ -440,23 +441,20 @@ ge150-linux/
 ├── .gitignore                   # reference/, GE150_V1.3.8_Win/, __pycache__, .venv
 ├── udev/70-mooer-ge150.rules    # acceso sin root a hidraw y usb (VID 0483 PID 5703), TAG+="uaccess"
 ├── packaging/                   # .desktop, icono propio, PKGBUILD (Arch) en el futuro
-├── src/ge150/
-│   ├── __init__.py, __main__.py, cli.py
-│   ├── usb/      transport.py, hidraw_transport.py, usb_transport.py, device_ids.py, hotplug.py
-│   ├── protocol/ crc.py, framing.py, opcodes.py, messages.py, session.py
-│   ├── model/    catalog.py, preset.py, settings.py, device_state.py
-│   ├── services/ reader.py (solo lectura, hecho), presets.py, settings.py, user_slots.py,
-│   │             backup.py, firmware.py
-│   ├── formats/  mo_json.py, mbf.py, wav_ir.py, amp_nr.py, mr_firmware.py
-│   ├── sim/      fake_device.py (emulador con estado), sim_transport.py
-│   ├── data/     effects.json (generado), translations/
-│   └── ui/       app.py, main_window.py, preset_list.py, chain_view.py, module_editor.py,
-│                 param_widgets.py, settings_dialog.py, exp_dialog.py, rhythm_dialog.py,
-│                 user_slots_dialog.py, backup_dialog.py, theme.qss
-├── tests/        test_crc.py, test_framing.py, test_messages.py, test_session_sim.py,
-│                 test_formats_*.py, fixtures/ (capturas .pcapng, .mo/.mbf/.wav de ejemplo)
-├── tools/        extract_qrc.py (hecho), build_catalog.py, decode_usbmon.py
-└── reference/    (no versionado) ver 1.3
+├── src/ge150/                   (✓ = existe)
+│   ├── __init__.py, __main__.py ✓, cli.py ✓ (lectura), cli_edit.py ✓ (edición)
+│   ├── usb/      transport.py ✓, hidraw_transport.py ✓, usb_transport.py ✓, device_ids.py ✓
+│   ├── protocol/ crc.py ✓, framing.py ✓, opcodes.py ✓, messages.py ✓, session.py ✓
+│   ├── model/    catalog.py ✓, preset.py ✓, device_state.py ✓
+│   ├── services/ reader.py ✓ (lectura), editor.py ✓ (edición, guardado, IR); pendientes: backup.py, firmware.py
+│   ├── formats/  wav_ir.py ✓, mo_json.py ✓; pendientes: mbf.py, amp_nr.py, mr_firmware.py
+│   ├── sim/      fake_device.py ✓ (emulador con estado), sim_transport.py ✓
+│   ├── data/     effects.json ✓ (generado)
+│   └── ui/       app.py ✓, main_window.py ✓, preset_list.py ✓, chain_view.py ✓, module_editor.py ✓,
+│                 param_widgets.py ✓, dialogs.py ✓ (IR, EXP), bridge.py ✓, worker.py ✓
+├── tests/        framing, messages, catalog, hidraw, session, editor, cli, wav_ir, mo_json, gui ✓
+├── tools/        extract_qrc.py ✓, build_catalog.py ✓; pendiente: decode_usbmon.py
+└── reference/    (no versionado) ver 1.3; reference/captures/ = datos de la pedalera del usuario
 ```
 
 ### 5.4 Concurrencia
@@ -522,35 +520,51 @@ ge150-linux/
 - [ ] Resolver los [?] de 2.1, 2.6, 2.7 y 3, y actualizar este documento.
 - **Aceptación:** la secuencia de arranque completa funciona contra el equipo real y los 200 nombres coinciden con la pantalla.
 
-### Fase 3 — Lectura completa y CLI
-- [ ] `ge150ctl list | show <slot> | select <slot> | get-system | get-exp | get-rhythm | user-slots`.
-- **Aceptación:** `show` muestra los módulos con los nombres de modelos y parámetros correctos.
+### Fase 3 — Lectura completa y CLI ✅ (2026-11-21)
+- [x] `ge150ctl presets | current [--all-words] | system | rhythm | user-names | snapshot | models | sniff | send`.
+- [x] Verificado con la pedalera real: `current` decodifica el preset 19 completo, con los nombres de IR de usuario.
 
-### Fase 4 — Edición en vivo y guardado
-- [ ] `set-param <módulo> <param> <valor>`, `toggle <módulo>`, `set-type <módulo> <modelo>`.
-- [ ] `save <slot>` (`0xB4 5` + `0xC3`), `rename <slot> <nombre>` (`0x97`), copiar/pegar entre slots.
+### Fase 4 — Edición en vivo y guardado (parcial)
+- [x] `services/editor.py` (`Editor`) + `model/device_state.py` (`DeviceState`, aplica todas las notificaciones).
+- [x] CLI: `set <módulo> <parámetro> <valor>`, `on`/`off`, `type`, `exp`, `select`, `save`, `rename`, `copy`
+      (las persistentes piden confirmación o `--yes`). Implementado en `cli_edit.py`.
+- [x] Escritura en vivo verificada en hardware: `0x88` sobre MOD apagado (RATE 8→9→8), con relectura `0xB0`.
+      La pedalera responde `0x34` (página `0x0C`) tras escribir un módulo.
+- [ ] **Pendiente de autorización del usuario:** probar en hardware `select` (`0x96`), `save` (`0xB4 5` + `0xC3`),
+      `rename` (`0x97`) y `copy`, sobre un slot que el usuario indique y con un snapshot previo.
 - **Aceptación:** el cambio se oye y se ve en la pedalera; persiste tras apagar y encender.
 
-### Fase 5 — GUI principal
-- [ ] Ventana: lista de 200 presets (con búsqueda), cadena de 9 módulos (on/off y selección), editor
-      de parámetros generado desde el catálogo, barra de estado (conexión y versión de firmware).
-- [ ] Sincronización bidireccional: los cambios en la pedalera (`0x02..0x0A`, `0x16`, `0x17`) actualizan la UI.
-- [ ] Aviso de "preset modificado sin guardar" (como el original).
-- **Aceptación:** paridad funcional con la vista principal del editor oficial.
+### Fase 5 — GUI principal ✅ (2026-11-21, falta uso interactivo real)
+- [x] `ge150` (`ui/app.py`): lista de 200 presets con búsqueda y menú contextual (cargar, renombrar,
+      copiar/pegar, exportar/importar `.mo`), cadena de 9 módulos (on/off en vivo y selección), editor de
+      parámetros generado desde el catálogo (sliders agrupados en 40 ms → un `0x82+i`), barra de estado.
+- [x] Sincronización bidireccional por `StateBridge` (notificaciones `0x02..0x0A`, `0x16`, `0x17` → señales Qt).
+- [x] Aviso de cambios sin guardar (Guardar / Descartar / Cancelar al cambiar de preset), marca `*` y "(modificado)".
+- [x] Diálogos: IR de usuario (cargar WAV, borrar, exportar) y pedal de expresión (valores crudos).
+- [x] Probada offscreen con el simulador (tests) y sincronizada con la pedalera real (2,9 s, solo lectura).
+- [ ] Prueba interactiva del usuario en su escritorio.
 
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
-- [ ] Diálogos de sistema (`0xA4..0xA7`, con `0xB4 page` previo), EXP (`0x98`, `0xB3`) y Rhythm (`0x8D`).
+- [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
+- [ ] Identificar el significado de los bloques de sistema `0x24..0x27` y de Rhythm `0x0C` (6 B; en la
+      pedalera real: `00 00 00 0a 04 01`) con capturas de la app oficial o cambiando ajustes en la pedalera
+      y releyendo. Después, diálogos con nombres.
 - [ ] Reset de fábrica (`0x8B`) con doble confirmación.
 
-### Fase 7 — IR y NR de usuario
-- [ ] `formats/wav_ir.py`: WAV PCM 16/24/32 y float, mono o estéreo (tomar el canal L), remuestreo a
-      44.1 kHz, recorte o relleno a 512 muestras y empaquetado a 24 bits. Tests con WAV sintéticos.
-- [ ] `formats/amp_nr.py` (requiere un `.amp` de ejemplo).
-- [ ] Subir y borrar (`0xB5`, `0xB7`), refrescar nombres (`0xC1`).
+### Fase 7 — IR y NR de usuario (IR ✅)
+- [x] `formats/wav_ir.py`: WAV PCM 8/16/24/32 y float, canal izquierdo, remuestreo lineal a 44,1 kHz, 512
+      muestras de 24 bits **planar** (verificado con los IR del backup de la pedalera real).
+- [x] `Editor.upload_user_slot` / `delete_user_slot` / `read_ir_backup`; CLI `ir-upload`, `ir-delete`, `ir-export`
+      (este último probado en hardware: exporta los 7 IR del usuario a WAV).
+- [ ] Probar `ir-upload`/`ir-delete` en hardware sobre una ranura vacía (8-10), con autorización del usuario.
+- [ ] `formats/amp_nr.py` (requiere un `.amp` de ejemplo; formato por analizar en `FUN_0041f700`).
 
-### Fase 8 — Archivos: `.mo` y `.mbf`
-- [ ] Importar y exportar `.mo`, compatibles con la app oficial (fixtures reales).
-- [ ] Backup (`0xC4` → `0x44`) a `.mbf`; restore (`0xBA` … `0xBB`) con barra de progreso de 212 pasos.
+### Fase 8 — Archivos: `.mo` y `.mbf` (`.mo` ✅)
+- [x] `.mo` (`formats/mo_json.py`): mismo JSON que la app oficial (claves ordenadas, sangría de 4),
+      conversión del TIME del DELAY por subdivisión. Ida y vuelta exacta en 180 de los 200 presets reales; el
+      resto difiere 1-3 ms en tiempos subdivididos, porque el formato los guarda redondeados. CLI `export`/`import`, GUI.
+- [ ] Validar con un `.mo` exportado por la app oficial (sobre todo el TIME con subdivisión).
+- [ ] `.mbf`: decompilar `FUN_00436a40` (escritor) y `FUN_00437a00` (lector); el backup del IR viene de `0xC4`.
 - **Aceptación:** un `.mbf` hecho con la app oficial se restaura con la nuestra, y al revés.
 
 ### Fase 9 — Actualización de firmware (opcional, alto riesgo)
