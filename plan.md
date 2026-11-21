@@ -531,9 +531,9 @@ ge150-linux/
 - [x] Lecturas `0xA0`, `0xB0`, `0xC1`, `0x8C` OK; `0x31` sin respuesta; `0x32` tras `0xA0` (ver 2.9).
       Snapshot de la pedalera del usuario en `reference/captures/` (no versionado).
 - [x] `TYPE` en base 0, y mapeo de palabras y codificación de valores deducidos de los 200 presets (ver 2.7).
-- [ ] Confirmar en pantalla el preset 19 "Burden Clean" (`ge150ctl current`): YELLOW COMP, PURE BOOST,
-      65 US TW, CAB 33 (IR de usuario), INTEL REDUCER, HALL; y el valor de SUB-D del DELAY.
-- [ ] `ge150ctl sniff`: volcar en hex todas las tramas recibidas durante 30 s mientras se tocan knobs y footswitches.
+- [x] Preset 19 "Burden Clean" confirmado en la pantalla por el usuario. Falta [?] ver el valor de SUB-D del DELAY.
+- [x] `ge150ctl sniff`: notificaciones de knobs y footswitch verificadas. Los cambios en SYSTEM/RHYTHM hechos a mano
+      **no** se notifican por USB (§2.11).
 - [ ] Captura de referencia de la app oficial: Windows en una VM (QEMU/VirtualBox) con USB passthrough y
       `usbmon` + Wireshark en el host Linux (`modprobe usbmon`, capturar en `usbmonN`).
       `tools/decode_usbmon.py` (hecho) decodifica el `.pcap`/`.pcapng` a tramas y opcodes. Capturar: arranque, cambio de
@@ -569,6 +569,8 @@ ge150-linux/
 - [x] Aviso de cambios sin guardar (Guardar / Descartar / Cancelar al cambiar de preset), marca `*` y "(modificado)".
 - [x] Diálogos: IR de usuario (cargar WAV, borrar, exportar) y pedal de expresión (valores crudos).
 - [x] Probada offscreen con el simulador (tests) y sincronizada con la pedalera real (2,9 s, solo lectura).
+- [x] Interfaz renovada (5b) sincronizada con la pedalera real en modo offscreen (solo lectura, preset 22): presets,
+      IR de usuario con sus nombres, cadena y galerías correctas; el estado no queda modificado.
 - [ ] Prueba interactiva del usuario en su escritorio.
 
 ### Fase 5b — Interfaz renovada (2026-11-21)
@@ -581,10 +583,15 @@ ge150-linux/
       [?]: CENTER 0 = al centro del cono, DISTANCE 0 = pegado a la rejilla (`CENTER_AT_CAP` lo invierte).
 - [x] Fotos de Wikimedia Commons con `tools/fetch_photos.py` (autor y licencia en `data/photos/CREDITS.md`).
       El repo es privado: las fotos son de sus autores y no están bajo la licencia MIT.
+- [x] Fotos de producto (fabricantes y tiendas, `tools/fetch_product_photo.py` + recorte automático en
+      `tools/pick_photo.py`) para los pedales Mooer, Cry Baby, ShredMaster, Direct Drive, ENGL (cabezales y 4x12),
+      EVH (cabezal y 4x12), JCM800, Rockerverb, SLO-100, Maz 18, Twin Reverb, JC-120 y Rectifier 4x12. Pendientes:
+      Fender Deluxe/Blues Deluxe/Bassman (fender.com responde 429), Blackstar, Diezel, Two-Rock, Tone King, Jet City,
+      Koch, Plexi y Mark III/V.
 - [x] Criterio de fotos: solo el equipo real en que se basa el modelo (manual) o, para clones claros de Mooer y
       efectos que el manual nombra, una "foto de referencia" de ese pedal (Ninety Orange → MXR Phase 90, Noise Killer
       → ISP Decimator, Pitch shift → Whammy, Slow Gear → BOSS SG-1...). Solo pedales y equipos; los algoritmos genéricos
-      (`generic` en `gear.json`) y lo que no tiene asociación clara usan el dibujo. 45 fotos.
+      (`generic` en `gear.json`) y lo que no tiene asociación clara usan el dibujo. 59 fotos.
 
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
