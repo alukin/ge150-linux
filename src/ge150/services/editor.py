@@ -24,6 +24,7 @@ from ge150.model.preset import (
     Preset,
     is_valid_name,
 )
+from ge150.model.settings import RhythmValues, SystemValues
 from ge150.protocol import messages as msg
 from ge150.protocol.framing import Frame
 from ge150.protocol.opcodes import Op
@@ -225,6 +226,25 @@ class Editor:
     def set_rhythm(self, data: bytes) -> None:
         self.session.send(msg.write_rhythm(data))
         self.state.apply(Frame(Op.RHYTHM, data))
+
+    def system_values(self) -> SystemValues | None:
+        system = self.state.system
+        return SystemValues.from_blocks(system.blocks) if system else None
+
+    def rhythm_values(self) -> RhythmValues | None:
+        return RhythmValues.from_bytes(self.state.rhythm) if self.state.rhythm else None
+
+    def set_system_values(self, values: SystemValues) -> None:
+        """Write only the system blocks that changed (all of them if none were read)."""
+        values.validate()
+        current = self.state.system.blocks if self.state.system else {}
+        for op, data in values.to_blocks().items():
+            if current.get(op) != data:
+                self.set_system(Op(op), data)
+
+    def set_rhythm_values(self, values: RhythmValues) -> None:
+        values.validate()
+        self.set_rhythm(values.to_bytes())
 
     # --- user IR / NR slots ----------------------------------------------------
 

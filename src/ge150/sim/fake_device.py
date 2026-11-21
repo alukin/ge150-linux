@@ -23,6 +23,7 @@ from ge150.model.preset import (
     pack_words,
     unpack_words,
 )
+from ge150.model.settings import RhythmValues, SystemValues
 from ge150.protocol import messages as msg
 from ge150.protocol.framing import Frame
 from ge150.protocol.opcodes import Op
@@ -60,10 +61,9 @@ class FakeGE150:
     )
     current_slot: int = 1
     page: int = 0
-    system: dict[int, bytes] = field(
-        default_factory=lambda: {op: bytes(size) for op, size in msg.SYSTEM_SIZES.items()}
-    )
-    rhythm: bytes = bytes([120, 0, 0, 0, 0, 0])
+    # Real pedal defaults: 0 dB input, screen 20, both CAB outputs ON, 0 dB OTG [V].
+    system: dict[int, bytes] = field(default_factory=lambda: SystemValues().to_blocks())
+    rhythm: bytes = RhythmValues().to_bytes()  # off, RHYTHM, style 1, vol 5, 120 BPM
     nr_names: list[str] = field(default_factory=lambda: ["EMPTY"] * msg.USER_SLOTS)
     ir_names: list[str] = field(default_factory=lambda: ["EMPTY"] * msg.USER_SLOTS)
     user_data: dict[tuple[int, int], bytes] = field(default_factory=dict)
