@@ -88,6 +88,20 @@ class Editor:
         names = ", ".join(p.name for p in self.model_params(index))
         raise EditorError(f"{MODULES[index].name} has no parameter {name!r} (have: {names})")
 
+    def model_label(self, index: int, type_index: int) -> str:
+        """``NN:NAME``; user IR/NR slots show the name loaded on the pedal."""
+        model = self.catalog[index].model_for_type(type_index)
+        if model is None:
+            return f"?{type_index}"
+        names = self.state.user_names
+        if model.user_slot and names is not None:
+            # CAB 27-36 = IR slots 0-9, AMP 56-65 = NR slots 0-9 (plan.md §2.8).
+            first, bank = (27, names.ir) if MODULES[index].name == "CAB" else (56, names.nr)
+            slot = model.number - first
+            if 0 <= slot < len(bank) and not msg.is_empty_slot_name(bank[slot]):
+                return f"{model.number:02d}:{bank[slot]}"
+        return model.label
+
     @staticmethod
     def module_index(name: str) -> int:
         key = name.upper().replace("_", " ")

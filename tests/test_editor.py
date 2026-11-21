@@ -138,3 +138,10 @@ def test_ir_upload_backup_and_delete(editor: Editor, sim: SimTransport) -> None:
     editor.delete_user_slot(Op.USER_IR, 3)
     assert editor.state.user_names.ir[3] == "Empty"
     assert editor.read_ir_backup() == []
+
+
+def test_model_label_uses_user_slot_names(editor: Editor) -> None:
+    editor.upload_user_slot(Op.USER_IR, 6, "VOX AC30", b"")
+    assert editor.model_label(3, 32) == "33:VOX AC30"  # CAB 33 = IR slot 7
+    assert editor.model_label(3, 33) == "34:EMPTY"
+    assert editor.model_label(3, 0) == "01:US DLX 112"

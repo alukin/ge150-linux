@@ -38,6 +38,7 @@ class ModuleTile(QFrame):
         self.model.setObjectName("modelLabel")
         self.model.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.model.setWordWrap(True)
+        self.model.setMinimumHeight(self.model.fontMetrics().height() * 2 + 4)
         layout.addWidget(self.power)
         layout.addWidget(self.model)
         self.set_selected(False)
@@ -87,8 +88,7 @@ class ChainView(QWidget):
             return
         for tile in self.tiles:
             block = self.editor.module(tile.index)
-            model = self.editor.catalog[tile.index].model_for_type(block.type)
-            tile.set_state(block.switch, model.label if model else f"?{block.type}")
+            tile.set_state(block.switch, self.editor.model_label(tile.index, block.type))
 
     def _on_toggle(self, index: int, on: bool) -> None:
         try:

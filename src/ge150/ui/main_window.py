@@ -147,6 +147,9 @@ class MainWindow(QMainWindow):
             self.presets.update_slot(slot)
         elif kind in (ds.KIND_CURRENT, ds.KIND_SELECTED):
             self._refresh_current()
+        elif kind == ds.KIND_USER_NAMES:
+            self.chain.refresh()
+            self.module_editor.show_module(self.module_editor.index)
         elif kind in (ds.KIND_MODULE, ds.KIND_EXP):
             self.chain.refresh()
             if module in (-1, self.module_editor.index):

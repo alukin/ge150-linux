@@ -75,8 +75,9 @@ class ModuleEditor(QGroupBox):
         self._loading = True
         try:
             self.model.clear()
-            for m in self.info.models:
-                self.model.addItem(m.label + ("  (usuario)" if m.user_slot else ""))
+            for i, m in enumerate(self.info.models):
+                label = self.editor.model_label(index, i)
+                self.model.addItem(label + ("  (usuario)" if m.user_slot else ""))
         finally:
             self._loading = False
         self.refresh()
