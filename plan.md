@@ -277,7 +277,8 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
   EQ 3, MOD 18, DELAY 8, REVERB 6.
   En el `.mo`, el TIME del DELAY se exporta como `raw·a/b − 40`, limitado a 0..2460, con `a/b` sacado de
   una lista de subdivisiones indexada por SUB-D (`DAT_00497480`, sin leer todavía).
-- **Codificación de valores [I] fuerte:** `raw = round((valor − min(mín, 0)) / paso)`. Los rangos
+- **Codificación de valores [V]** (confirmada en la pantalla de la pedalera: PITCH `raw 65` = −5,5):
+  `raw = round((valor − min(mín, 0)) / paso)`. Los rangos
   negativos se desplazan (EQ, PITCH, DETUNE) y los positivos se guardan tal cual (TIME 40..2500 se guarda en ms;
   el mínimo observado es 40). Enumerados = índice de la opción (SUB-D=1 → "1/4" [?] por confirmar en pantalla).
 - El orden EXP `MODULE_CTRL, PARA_CTRL, FUN_SWITCH, VOL_SWITCH, VOL_MIN, VOL_MAX` es el del escritor
@@ -535,8 +536,8 @@ ge150-linux/
       (descarta la edición en vivo) y responde `0x34 [05 00]`; guardar `0xB4 5` + `0xC3` → **ack `0x43 [slot]`**
       (0,39 s); renombrar `0x97` → **sin respuesta**. En cada paso, los otros 199 presets siguen idénticos al
       backup. El preset 30 se restauró exactamente a su estado original. Log: `reference/captures/p030_write_test.log`.
-- [ ] Pendiente: confirmar con la pantalla de la pedalera que la codificación de los valores negativos y
-      fraccionarios (`raw = (valor − min(mín,0))/paso`) muestra lo esperado.
+- [x] Codificación de valores negativos y fraccionarios confirmada en pantalla: MOD PITCH SHIFT con
+      `raw = 65` → la pedalera muestra **−5,5** (`raw = (valor − min(mín,0))/paso`) [V].
 - **Aceptación:** el cambio se oye y se ve en la pedalera; persiste tras apagar y encender.
 
 ### Fase 5 — GUI principal ✅ (2026-11-21, falta uso interactivo real)
