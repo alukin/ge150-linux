@@ -5,7 +5,7 @@ pkgrel=1
 pkgdesc="Linux editor (GUI and CLI) for the Mooer GE150 multi-effects pedal"
 arch=('any')
 url="https://github.com/wh01s17/ge150-linux"
-license=('custom:unknown')
+license=('MIT')
 depends=('python' 'pyside6' 'python-pyusb')
 makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 provides=('ge150-linux')
@@ -29,5 +29,6 @@ package() {
   install -Dm644 udev/70-mooer-ge150.rules "$pkgdir/usr/lib/udev/rules.d/70-mooer-ge150.rules"
   install -Dm644 packaging/ge150.desktop "$pkgdir/usr/share/applications/ge150.desktop"
   install -Dm644 packaging/ge150.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/ge150.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
 }

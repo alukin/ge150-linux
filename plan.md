@@ -600,7 +600,7 @@ ge150-linux/
 ### Fase 10 — Empaquetado (parcial)
 - [x] `packaging/ge150.desktop`, icono propio `packaging/ge150.svg` (también en `ge150/data` como icono de ventana),
       `packaging/PKGBUILD` (Arch, desde git: instala los scripts, la regla udev, el .desktop y el icono).
-- [ ] Definir la licencia del proyecto (el PKGBUILD usa `custom:unknown` mientras tanto).
+- [x] Licencia: **MIT** (`LICENSE`; declarada en `pyproject.toml` y en el PKGBUILD).
 - [ ] AUR, AppImage o Flatpak.
 
 ---

@@ -88,3 +88,8 @@ python3 -I tools/build_catalog.py       # regenera src/ge150/data/effects.json d
 
 Regla del proyecto: ningún archivo de código supera 1000 líneas (ver `plan.md` §0).
 El material del fabricante (`reference/`) no se versiona.
+
+## Licencia
+
+[MIT](LICENSE). El software oficial de Mooer y su material (`reference/`) no forman parte del proyecto ni se
+distribuyen aquí.
