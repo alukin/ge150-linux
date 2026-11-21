@@ -213,26 +213,49 @@ class SystemSettings:
         return cls(blocks)
 
 
-def parse_user_names(frame: Frame) -> tuple[list[str], list[str]]:
-    """0x41: two lists of 10 x 16-byte names (which one is IR or NR is unknown [?])."""
+@dataclass(frozen=True)
+class UserNames:
+    """0x41 answer: first list = NR (amp captures), second list = IR (cabinets) [V].
+
+    Verified on hardware: the second list matches the IR names of the backup dump and the
+    CAB user model selected by the current preset. Factory blank = "EMPTY"; slots deleted
+    by the vendor editor read "Empty".
+    """
+
+    nr: list[str]
+    ir: list[str]
+
+
+def parse_user_names(frame: Frame) -> UserNames:
     d = frame.data
 
     def names(base: int) -> list[str]:
         return [decode_name(d[base + i * USER_NAME_LEN : base + (i + 1) * USER_NAME_LEN])
                 for i in range(USER_SLOTS)]
 
-    return names(0), names(USER_SLOTS * USER_NAME_LEN)
+    return UserNames(nr=names(0), ir=names(USER_SLOTS * USER_NAME_LEN))
+
+
+def is_empty_slot_name(name: str) -> bool:
+    return name.strip().upper() in ("", "EMPTY")
 
 
 @dataclass(frozen=True)
 class BackupChunk:
+    """0x44 frame of the 0xC4 dump [V]: header (``index`` 0, ``total`` chunks) or one used
+    IR slot: ``index`` (1-based), ``slot`` (0-based IR slot), 16-byte name, 1536 B data."""
+
     index: int
-    total: int | None  # only in chunk 0
-    data: bytes
+    total: int | None = None
+    slot: int | None = None
+    name: str = ""
+    data: bytes = b""
 
 
 def parse_backup_chunk(frame: Frame) -> BackupChunk:
     d = frame.data
     if d[0] == 0:
-        return BackupChunk(0, d[1], b"")
-    return BackupChunk(d[0], None, bytes(d[2 : 2 + BACKUP_CHUNK_SIZE]))
+        return BackupChunk(0, total=d[1])
+    body = bytes(d[2 : 2 + BACKUP_CHUNK_SIZE])
+    return BackupChunk(d[0], slot=d[1], name=decode_name(body[:USER_NAME_LEN]),
+                       data=body[USER_NAME_LEN:])

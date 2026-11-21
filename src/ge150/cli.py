@@ -122,9 +122,10 @@ def cmd_rhythm(args: argparse.Namespace) -> int:
 
 def cmd_user_names(args: argparse.Namespace) -> int:
     with _session(args) as session:
-        names_a, names_b = reader.read_user_names(session)
-    for i, (a, b) in enumerate(zip(names_a, names_b, strict=True)):
-        print(f"{i:2d}  A={a:16}  B={b}")
+        names = reader.read_user_names(session)
+    print("slot  IR (CAB 27-36)      NR (AMP 56-65)")
+    for i, (ir, nr) in enumerate(zip(names.ir, names.nr, strict=True)):
+        print(f"{i:4d}  {ir:18}  {nr}")
     return 0
 
 

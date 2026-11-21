@@ -78,8 +78,8 @@ def test_parse_identify_real_device_frame() -> None:
 def test_parse_user_names_two_lists() -> None:
     names = [f"A{i}" for i in range(10)] + [f"B{i}" for i in range(10)]
     frame = Frame(Op.USER_NAMES, b"".join(encode_name(n, 16) for n in names))
-    a, b = msg.parse_user_names(frame)
-    assert a[3] == "A3" and b[9] == "B9"
+    names = msg.parse_user_names(frame)
+    assert names.nr[3] == "A3" and names.ir[9] == "B9"
 
 
 def test_decode_name_replaces_high_bytes() -> None:

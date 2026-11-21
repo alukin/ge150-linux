@@ -56,10 +56,9 @@ class FakeGE150:
         default_factory=lambda: {op: bytes(size) for op, size in msg.SYSTEM_SIZES.items()}
     )
     rhythm: bytes = bytes([120, 0, 0, 0, 0, 0])
-    user_names_a: list[str] = field(default_factory=lambda: ["Empty"] * msg.USER_SLOTS)
-    user_names_b: list[str] = field(default_factory=lambda: ["Empty"] * msg.USER_SLOTS)
+    nr_names: list[str] = field(default_factory=lambda: ["EMPTY"] * msg.USER_SLOTS)
+    ir_names: list[str] = field(default_factory=lambda: ["EMPTY"] * msg.USER_SLOTS)
     user_data: dict[tuple[int, int], bytes] = field(default_factory=dict)
-    backup_blob: bytes = bytes(range(256)) * 20
     received: list[Frame] = field(default_factory=list)
     unhandled: list[Frame] = field(default_factory=list)
     _edit: Preset | None = None
@@ -129,7 +128,7 @@ class FakeGE150:
 
     def _read_user_names(self, d: bytes) -> list[Frame]:
         data = b"".join(encode_name(n, msg.USER_NAME_LEN)
-                        for n in self.user_names_a + self.user_names_b)
+                        for n in self.nr_names + self.ir_names)
         return [Frame(Op.USER_NAMES, data)]
 
     def _read_rhythm(self, d: bytes) -> list[Frame]:
@@ -174,11 +173,13 @@ class FakeGE150:
         return []
 
     def _read_backup(self, d: bytes) -> list[Frame]:
-        size = msg.BACKUP_CHUNK_SIZE
-        chunks = [self.backup_blob[i : i + size] for i in range(0, len(self.backup_blob), size)]
-        out = [Frame(Op.BACKUP_CHUNK, bytes([0, len(chunks)]))]
-        for i, chunk in enumerate(chunks, start=1):
-            out.append(Frame(Op.BACKUP_CHUNK, bytes([i, 0]) + chunk.ljust(size, b"\x00")))
+        """Like the real pedal: header + one chunk per used IR slot [V]."""
+        used = [i for i, n in enumerate(self.ir_names) if not msg.is_empty_slot_name(n)]
+        out = [Frame(Op.BACKUP_CHUNK, bytes([0, len(used)]))]
+        for chunk, slot in enumerate(used, start=1):
+            data = self.user_data.get((Op.USER_IR, slot), bytes(msg.USER_CHUNKS[Op.USER_IR] * 512))
+            body = encode_name(self.ir_names[slot], msg.USER_NAME_LEN) + data
+            out.append(Frame(Op.BACKUP_CHUNK, bytes([chunk, slot]) + body))
         return out
 
     def _user_slot(self, op: Op, d: bytes) -> list[Frame]:
@@ -196,7 +197,7 @@ class FakeGE150:
         if len(upload.chunks) < msg.USER_CHUNKS[op]:
             return []
         index = upload.slot - msg.USER_FIRST_SLOT[op]
-        names = self.user_names_a if op == Op.USER_IR else self.user_names_b  # [?] order
+        names = self.ir_names if op == Op.USER_IR else self.nr_names
         if 0 <= index < msg.USER_SLOTS:
             names[index] = upload.name
             self.user_data[(op, index)] = b"".join(upload.chunks[k] for k in sorted(upload.chunks))

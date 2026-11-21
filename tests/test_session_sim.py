@@ -78,8 +78,7 @@ def test_user_slot_upload(session: DeviceSession, sim: SimTransport) -> None:
     for frame in frames[:-1]:
         session.send(frame)
     session.request(frames[-1], expect=Op.USER_IR)
-    names_a, _ = reader.read_user_names(session)
-    assert names_a[2] == "V30"
+    assert reader.read_user_names(session).ir[2] == "V30"
     assert sim.device.user_data[(Op.USER_IR, 2)] == b"\x11" * 1536
 
 

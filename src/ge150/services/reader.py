@@ -23,7 +23,7 @@ def read_rhythm(session: DeviceSession) -> bytes:
     return session.request(msg.read(Op.READ_RHYTHM)).data
 
 
-def read_user_names(session: DeviceSession) -> tuple[list[str], list[str]]:
+def read_user_names(session: DeviceSession) -> msg.UserNames:
     return msg.parse_user_names(session.request(msg.read(Op.READ_USER_NAMES)))
 
 
@@ -81,7 +81,7 @@ def snapshot(session: DeviceSession) -> dict[str, Any]:
     """Everything readable, as JSON-serialisable data (keep one before any write)."""
     info = identify(session)
     presets, system = read_all_presets(session)
-    names_a, names_b = read_user_names(session)
+    names = read_user_names(session)
     current = read_current(session)
     rhythm = read_rhythm(session)
     return {
@@ -90,7 +90,7 @@ def snapshot(session: DeviceSession) -> dict[str, Any]:
         "system": ({f"0x{op:02X}": data.hex() for op, data in system.blocks.items()}
                    if system else None),
         "rhythm": rhythm.hex(),
-        "user_names": {"list_a": names_a, "list_b": names_b},
+        "user_names": {"nr": names.nr, "ir": names.ir},
         "current": {"slot": current.slot, "page": current.page, "words": current.words},
         "presets": [{"slot": p.slot, "name": p.name, "words": p.words}
                     for p in sorted(presets.values(), key=lambda p: p.slot)],
