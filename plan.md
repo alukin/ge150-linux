@@ -357,9 +357,10 @@ Lectura: el sistema llega en `0x32` tras el volcado `0xA0`; el ritmo, con `0x8C 
 
 Rhythm (6 B): `on u8 | mode u8 (0 RHYTHM, 1 METRONOME) | style u8 (0 = el primero: 8BEAT1 / METRO) | vol u8 | bpm u16 LE`.
 Ejemplos: `00 00 00 0a 04 01` = apagado, RHYTHM, 8BEAT1, VOL 10, 260 BPM; `01 01 00 05 79 00` = encendido, METRONOME,
-estilo 1, VOL 5, 121 BPM. El byte `on` pasa a 1 al pulsar RHYTHM. Rangos aún sin confirmar [?]: BPM 40..260,
+estilo 1, VOL 5, 121 BPM. El byte `on` pasa a 1 al pulsar RHYTHM. BPM 40..260 [V usuario]; rangos aún sin confirmar [?]:
 VOL 0..10, SCREEN 0..20; estilos: 40 ritmos y 10 de metrónomo (manual). Código: `model/settings.py`,
-CLI `system`, `rhythm`, `system-set`, `rhythm-set`.
+CLI `system`, `rhythm`, `system-set`, `rhythm-set`; GUI
+`ui/settings_dialog.py` (Herramientas → Sistema y caja de ritmos).
 
 ## 3. Formatos de archivo
 
@@ -574,8 +575,9 @@ ge150-linux/
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
 - [x] Bloques de sistema `0x24..0x27` y Rhythm `0x0C` identificados en hardware (§2.11); escritura verificada
       (SCREEN 18 → 19 y restauración de los valores originales). `model/settings.py`, CLI `system-set`/`rhythm-set`.
-- [ ] Confirmar los rangos de BPM, VOL y SCREEN, y los nombres de los estilos de ritmo.
-- [ ] Diálogo de sistema y ritmo en la GUI.
+- [x] BPM 40..260 confirmado en la pedalera.
+- [ ] Confirmar los rangos de VOL y SCREEN, y los nombres de los estilos de ritmo.
+- [x] Diálogo de sistema y ritmo en la GUI (`ui/settings_dialog.py`); envía cada cambio al instante.
 - [ ] Reset de fábrica (`0x8B`) con doble confirmación.
 
 ### Fase 7 — IR y NR de usuario (IR ✅)
