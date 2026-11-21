@@ -12,7 +12,7 @@
 - **Estado (2026-11-21):** fases 0, 1, 3 y 5 completas; 2, 4, 6, 7 y 8 en curso (ver §6). CLI `ge150ctl`
   y GUI `ge150` funcionando contra la pedalera real (lectura y edición en vivo verificadas).
   Lo marcado [V] está verificado con la decompilación, con hardware o con ambos; lo [I] y [?] sigue
-  pendiente. Las escrituras persistentes (guardar, renombrar, IR) solo se han probado con el simulador.
+  pendiente. Guardar y renombrar están verificados en hardware (preset 30); IR/NR y restore, solo en el simulador.
 
 ---
 
@@ -199,7 +199,7 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | `0x8C` | `01` | Leer la configuración de Rhythm → `0x0C` | [V] `FUN_00416210` |
 | `0x82..0x8A` | bloque del módulo (u16[]) | **Escribir módulo** en vivo. `0x82`+índice (ver 2.7) | [V] tablas `0x44d880`, `0x44e360`, `FUN_0041a9c0` |
 | `0x96` | `slot` (1..200) | **Seleccionar preset** | [V] `0x4152e0` |
-| `0x97` | `slot(1..200)` + nombre 15 B (ASCII, relleno con 0; se recorta a 15) | **Renombrar** preset | [V] `FUN_00414ed0` |
+| `0x97` | `slot(1..200)` + nombre 15 B (ASCII, relleno con 0; se recorta a 15) | **Renombrar** preset. La pedalera **no responde** | [V] hardware |
 | `0x98` | 3 × u16 (EXP bloque A) | Escribir EXP: `MODULE_CTRL, PARA_CTRL, FUN_SWITCH` | [V] envío / [I] orden |
 | `0xB3` | 3 × u16 (EXP bloque B) | Escribir EXP: `VOL_SWITCH, VOL_MIN, VOL_MAX` | [V] envío / [I] orden |
 | `0x8D` | 6 B | Escribir Rhythm (BPM, etc.) | [V] envío / [?] campos |
@@ -232,9 +232,9 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | `0x30` | `slot` + `page`(1 B) + parámetros | Buffer de edición actual | [V] |
 | `0x32` | 10 B (= bloques 0x24..0x27 concatenados) | Todos los ajustes de sistema. **Llega sola justo después del preset 200 del volcado `0xA0`** | [V] hardware |
 | `0x33` | 3 × u16 | EXP bloque B | [V] |
-| `0x34` | `page` | Página o modo actual del equipo | [V] |
+| `0x34` | `page` (u16) | Página actual de la pantalla. Tras escribir un módulo: `6 + índice` (MOD `0x0C`, REVERB `0x0E`); tras `0x96`: `5` | [V] hardware |
 | `0x41` | 10 nombres × 16 B + 10 nombres × 16 B (offset +0xA0) | Nombres de IR y NR de usuario (los bytes ≥ 0x80 se convierten en espacio) **[?]** cuál lista es cuál | [V] |
-| `0x43` | 1 B | **[?]** desconocido (se guarda en `0x49f3bc`) | [V] |
+| `0x43` | `slot` | **Ack de `0xC3`** (escritura de preset); el dato es el slot escrito | [V] hardware |
 | `0x44` | `idx`, … | Trozo de backup. `idx=0`: `data[1]` = total de trozos. `idx>0`: `data[1]` = ?, y 0x610 B de datos. Termina cuando `idx == total`. | [V] |
 | `0xB5` | 1 B estado | ACK o estado de una subida de IR/NR **[I]** | [V] |
 
@@ -530,8 +530,13 @@ ge150-linux/
       (las persistentes piden confirmación o `--yes`). Implementado en `cli_edit.py`.
 - [x] Escritura en vivo verificada en hardware: `0x88` sobre MOD apagado (RATE 8→9→8), con relectura `0xB0`.
       La pedalera responde `0x34` (página `0x0C`) tras escribir un módulo.
-- [ ] **Pendiente de autorización del usuario:** probar en hardware `select` (`0x96`), `save` (`0xB4 5` + `0xC3`),
-      `rename` (`0x97`) y `copy`, sobre un slot que el usuario indique y con un snapshot previo.
+- [x] **Escrituras persistentes verificadas en hardware (2026-11-21, preset 30 "Dr Zee18", autorizado por el usuario):**
+      edición en vivo `0x8A` → la pedalera responde `0x34 [0x0E 00]`; `0x96 30` → recarga el preset guardado
+      (descarta la edición en vivo) y responde `0x34 [05 00]`; guardar `0xB4 5` + `0xC3` → **ack `0x43 [slot]`**
+      (0,39 s); renombrar `0x97` → **sin respuesta**. En cada paso, los otros 199 presets siguen idénticos al
+      backup. El preset 30 se restauró exactamente a su estado original. Log: `reference/captures/p030_write_test.log`.
+- [ ] Pendiente: confirmar con la pantalla de la pedalera que la codificación de los valores negativos y
+      fraccionarios (`raw = (valor − min(mín,0))/paso`) muestra lo esperado.
 - **Aceptación:** el cambio se oye y se ve en la pedalera; persiste tras apagar y encender.
 
 ### Fase 5 — GUI principal ✅ (2026-11-21, falta uso interactivo real)
@@ -573,8 +578,8 @@ ge150-linux/
       Reconstruido de `FUN_004389d0`/`FUN_00435a80`/`FUN_00436a40` (escritor) y `FUN_00437330`/`FUN_00434c20`/`FUN_00437a00` (lector) [V].
 - [x] `services/backup.py` + CLI `backup`/`restore` + GUI (Archivo → Backup/Restaurar). Backup real de la pedalera
       hecho con éxito (solo lectura): `reference/captures/GE150_2026-11-21.mbf`.
-- [x] Acks del restore oficial: tras cada `0xC3` espera **`0x43`**; tras subir un IR espera **`0xB5` con
-      `data[0] = 4`** (última parte). El `Editor` los espera, pero tolera su ausencia hasta verificarlos [I].
+- [x] Acks: tras cada `0xC3` llega **`0x43 [slot]`** [V en hardware]; tras subir un IR, el restore oficial espera
+      **`0xB5` con `data[0] = 4`** (última parte) [I]. El `Editor` espera ambos y tolera su ausencia.
 - [ ] Ojo: el restore oficial envía el slot del IR **en base 0** en la parte 0 de `0xB5`, mientras que la subida
       normal usa `0x1A + n`. Usamos `0x1A + n` en ambos casos; verificar en hardware.
 - **Aceptación:** un `.mbf` hecho con la app oficial se restaura con la nuestra, y al revés.

@@ -4,8 +4,8 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 (`ge150ctl`). El protocolo USB se obtuvo por ingeniería inversa del software oficial *Mooer Studio for GE150*
 (Windows). El protocolo, la arquitectura y la hoja de ruta están en [`plan.md`](plan.md).
 
-> **Estado:** lectura completa y edición en vivo verificadas con una pedalera real. Guardar, renombrar y
-> cargar IR solo se han probado con el simulador integrado. Haz un `ge150ctl snapshot` antes de escribir.
+> **Estado:** lectura, edición en vivo, guardar y renombrar verificados con una pedalera real. La carga de
+> IR/NR y el restore solo se han probado con el simulador integrado. Haz un `ge150ctl backup` antes de escribir.
 
 ## Qué puede hacer
 
