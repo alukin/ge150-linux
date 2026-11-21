@@ -196,7 +196,7 @@ class FakeGE150:
 
     def _user_slot(self, op: Op, d: bytes) -> list[Frame]:
         part = d[0]
-        ack = [Frame(Op.USER_IR, bytes([part]))]  # B5 [part], last part = 4 for IR [I]
+        ack = [Frame(op, bytes([part]))]  # same opcode + part number, as the real pedal [V]
         if part == 0:
             self._uploads[op] = _Upload(slot=d[1])
             return ack
@@ -209,7 +209,7 @@ class FakeGE150:
         upload.chunks[part] = bytes(d[1:])
         if len(upload.chunks) < msg.USER_CHUNKS[op]:
             return ack
-        index = upload.slot - msg.USER_FIRST_SLOT[op]
+        index = upload.slot  # 0-based user slot [V]
         names = self.ir_names if op == Op.USER_IR else self.nr_names
         if 0 <= index < msg.USER_SLOTS:
             names[index] = upload.name

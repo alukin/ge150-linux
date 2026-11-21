@@ -34,8 +34,10 @@ USER_SLOTS = 10
 USER_CHUNK = 512
 #: Data chunks per upload: IR = 1536 B (512 x 24-bit samples), NR = 2048 B.
 USER_CHUNKS = {Op.USER_IR: 3, Op.USER_NR: 4}
-#: First wire slot of each user bank (0-based model index: CAB 27 / AMP 56).
-USER_FIRST_SLOT = {Op.USER_IR: 0x1A, Op.USER_NR: 0x37}
+#: The header part carries the 0-based user slot (0..9) for both banks: the vendor
+#: computes ``model_index - 0x1A`` (CAB 27) / ``model_index - 0x37`` (AMP 56) in
+#: FUN_004153b0 [V]. Sending the model index instead is acknowledged but ignored by the
+#: pedal (verified on hardware).
 BACKUP_CHUNK_SIZE = 0x610
 
 
@@ -118,8 +120,7 @@ def user_slot_frames(op: Op, slot_index: int, name: str, payload: bytes) -> list
     if len(payload) > size:
         raise ValueError(f"payload too long: {len(payload)} > {size}")
     payload = payload + bytes(size - len(payload))
-    wire_slot = USER_FIRST_SLOT[op] + slot_index
-    frames = [Frame(op, bytes([0, wire_slot, 0, 1])),
+    frames = [Frame(op, bytes([0, slot_index, 0, 1])),
               Frame(op, bytes([1]) + encode_name(name, USER_NAME_LEN))]
     for part in range(USER_CHUNKS[op]):
         chunk = payload[part * USER_CHUNK : (part + 1) * USER_CHUNK]

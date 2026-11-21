@@ -43,11 +43,11 @@ def test_write_module_checks_size() -> None:
 def test_user_slot_frames_layout() -> None:
     frames = msg.user_slot_frames(Op.USER_IR, 0, "MY IR", b"\x01" * 1536)
     assert [len(f.payload) for f in frames] == [5, 0x12, 0x202, 0x202, 0x202]
-    assert frames[0].data == bytes([0, 0x1A, 0, 1])
+    assert frames[0].data == bytes([0, 0, 0, 1])
     assert frames[1].data[0] == 1 and frames[1].data[1:6] == b"MY IR"
     assert [f.data[0] for f in frames[2:]] == [2, 3, 4]
     nr = msg.user_slot_frames(Op.USER_NR, 9, "AMP", b"")
-    assert nr[0].data[1] == 0x40 and len(nr) == 6
+    assert nr[0].data[1] == 9 and len(nr) == 6
 
 
 def test_delete_user_slot_uses_empty_name() -> None:

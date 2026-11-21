@@ -28,6 +28,6 @@ def test_planar_layout_msb_first() -> None:
 def test_nr_upload_frames_use_four_parts() -> None:
     payload = amp_nr.pack_planar(words())
     frames = msg.user_slot_frames(Op.USER_NR, 0, "MY AMP", payload)
-    assert frames[0].data[1] == 0x37  # AMP 56 (0-based 55)
+    assert frames[0].data[1] == 0  # 0-based user slot (AMP 56)
     assert [f.data[0] for f in frames[2:]] == [2, 3, 4, 5]
     assert b"".join(f.data[1:] for f in frames[2:]) == payload
