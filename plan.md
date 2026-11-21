@@ -571,6 +571,17 @@ ge150-linux/
 - [x] Probada offscreen con el simulador (tests) y sincronizada con la pedalera real (2,9 s, solo lectura).
 - [ ] Prueba interactiva del usuario en su escritorio.
 
+### Fase 5b — Interfaz renovada (2026-11-21)
+- [x] Tema oscuro (`ui/theme.py`), barra superior con el preset y botón Guardar, cadena de efectos fija abajo
+      (`ui/chain_view.py`) con miniaturas; un clic abre la página del módulo (`ui/module_editor.py`).
+- [x] Equipo original de cada modelo en `data/gear.json` (generado por `tools/build_gear.py` con el "Effects List"
+      del manual): forma, colores, parlantes. `model/gear.py` busca la foto en `~/.local/share/ge150/photos/` y luego
+      en `ge150/data/photos/`; si no hay, `ui/gear_art.py` dibuja el equipo con las perillas del preset.
+- [x] Perillas propias (`ui/knob.py`) y colocación del micrófono en CAB (`ui/mic_view.py`). Significado supuesto
+      [?]: CENTER 0 = al centro del cono, DISTANCE 0 = pegado a la rejilla (`CENTER_AT_CAP` lo invierte).
+- [x] Fotos de Wikimedia Commons con `tools/fetch_photos.py` (autor y licencia en `data/photos/CREDITS.md`).
+      El repo es privado: las fotos son de sus autores y no están bajo la licencia MIT.
+
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
 - [x] Bloques de sistema `0x24..0x27` y Rhythm `0x0C` identificados en hardware (§2.11); escritura verificada

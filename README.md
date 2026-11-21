@@ -48,6 +48,14 @@ ge150            # con la pedalera conectada
 ge150 --sim      # con el simulador, sin hardware
 ```
 
+- Abajo, siempre visible, la cadena de efectos: cada módulo con la imagen de su equipo, el modelo y su
+  botón de encendido. Un clic abre su página.
+- La página del módulo muestra el equipo original en grande (foto o dibujo), el modelo y perillas: se giran
+  arrastrando, con la rueda o con las flechas, y con doble clic se escribe el valor.
+- En las cabinas, el micrófono se arrastra frente al parlante para cambiar CENTER y DISTANCE.
+- Fotos propias: pon `<id>.jpg` o `.png` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en
+  `src/ge150/data/gear.json`). Tienen prioridad sobre las incluidas; si no hay foto, se dibuja el equipo.
+
 ## Línea de comandos
 
 ```bash
