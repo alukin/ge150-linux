@@ -453,7 +453,7 @@ ge150-linux/
 │   └── ui/       app.py ✓, main_window.py ✓, preset_list.py ✓, chain_view.py ✓, module_editor.py ✓,
 │                 param_widgets.py ✓, dialogs.py ✓ (IR, EXP), bridge.py ✓, worker.py ✓
 ├── tests/        framing, messages, catalog, hidraw, session, editor, cli, wav_ir, mo_json, gui ✓
-├── tools/        extract_qrc.py ✓, build_catalog.py ✓; pendiente: decode_usbmon.py
+├── tools/        extract_qrc.py ✓, build_catalog.py ✓, decode_usbmon.py ✓ (pcap/pcapng de usbmon → tramas)
 └── reference/    (no versionado) ver 1.3; reference/captures/ = datos de la pedalera del usuario
 ```
 
@@ -514,7 +514,7 @@ ge150-linux/
 - [ ] `ge150ctl sniff`: volcar en hex todas las tramas recibidas durante 30 s mientras se tocan knobs y footswitches.
 - [ ] Captura de referencia de la app oficial: Windows en una VM (QEMU/VirtualBox) con USB passthrough y
       `usbmon` + Wireshark en el host Linux (`modprobe usbmon`, capturar en `usbmonN`).
-      `tools/decode_usbmon.py` decodifica el `.pcapng` a tramas y opcodes. Capturar: arranque, cambio de
+      `tools/decode_usbmon.py` (hecho) decodifica el `.pcap`/`.pcapng` a tramas y opcodes. Capturar: arranque, cambio de
       preset, mover cada tipo de parámetro (incluidos los negativos y fraccionarios), guardar, renombrar, EXP,
       ajustes de sistema, rhythm, subir y borrar un IR, backup. Guardar en `tests/fixtures/`.
 - [ ] Resolver los [?] de 2.1, 2.6, 2.7 y 3, y actualizar este documento.
