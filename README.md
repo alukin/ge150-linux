@@ -14,6 +14,7 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
   estado del pedal de expresión.
 - Editar en vivo: encender/apagar módulos, cambiar el modelo y mover parámetros.
 - Guardar, renombrar y copiar presets.
+- Ver y cambiar los ajustes de sistema (INPUT LEVEL, SCREEN, CAB SIM THRU, OTG LEVEL) y la caja de ritmos.
 - Importar y exportar presets `.mo`, compatibles con la app oficial.
 - Cargar IR desde WAV a las ranuras de usuario (CAB 27-36), borrarlas y exportarlas a WAV.
 - Cargar capturas NR (`.amp`) a las ranuras de amplificador de usuario (AMP 56-65).
@@ -60,6 +61,11 @@ ge150ctl set reverb level 40           # en vivo (no se guarda)
 ge150ctl off mod / on mod
 ge150ctl type amp "65 US TW"           # o por número: type amp 2
 ge150ctl select 12
+
+ge150ctl system                        # INPUT LEVEL, SCREEN, CAB SIM THRU, OTG LEVEL
+ge150ctl system-set input 0.5          # input|otg: dB (- = silencio); screen 0-20; cab-left|cab-right on/thru
+ge150ctl rhythm                        # caja de ritmos: estado, modo, estilo, BPM, volumen
+ge150ctl rhythm-set bpm 120            # state on/off, mode rhythm/metronome, style N, bpm, vol
 
 ge150ctl save [--slot N] [--name X]    # persistentes: piden confirmación (o -y)
 ge150ctl rename 12 "Mi Preset"

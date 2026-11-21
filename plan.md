@@ -202,11 +202,11 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | `0x97` | `slot(1..200)` + nombre 15 B (ASCII, relleno con 0; se recorta a 15) | **Renombrar** preset. La pedalera **no responde** | [V] hardware |
 | `0x98` | 3 × u16 (EXP bloque A) | Escribir EXP: `MODULE_CTRL, PARA_CTRL, FUN_SWITCH` | [V] envío / [I] orden |
 | `0xB3` | 3 × u16 (EXP bloque B) | Escribir EXP: `VOL_SWITCH, VOL_MIN, VOL_MAX` | [V] envío / [I] orden |
-| `0x8D` | 6 B | Escribir Rhythm (BPM, etc.) | [V] envío / [?] campos |
-| `0xA4` | 2 B | Ajuste de sistema #1 | [V] envío / [?] cuál |
-| `0xA5` | 2 B | Ajuste de sistema #2 | [V] envío / [?] |
-| `0xA6` | 4 B | Ajuste de sistema #3 (p. ej. CAB-L/CAB-R THRU) | [V] envío / [?] |
-| `0xA7` | 2 B | Ajuste de sistema #4 | [V] envío / [?] |
+| `0x8D` | 6 B | Escribir Rhythm (campos en §2.11) | [V] hardware |
+| `0xA4` | u16 | INPUT LEVEL (§2.11) | [V] hardware |
+| `0xA5` | u16 | SCREEN, brillo (§2.11) | [V] hardware |
+| `0xA6` | 2 × u16 | CAB SIM THRU: CAB-L, CAB-R (§2.11) | [V] hardware |
+| `0xA7` | u16 | OTG LEVEL (§2.11) | [V] hardware |
 | `0xB4` | u16 `page` | Sincronizar página o modo de la UI con la pantalla del equipo (antes de cada ajuste de sistema se envía la página; `5` antes de guardar un preset) | [V] envío / [I] semántica |
 | `0xC3` | `slot(1..200)` + nombre 14 B + 72 × u16 (LEN = 0xA0) | **Escribir preset completo** en un slot. El editor envía antes `0xB4 page=5` | [V] `FUN_00414d50`, `0x415160` |
 | `0xC4` | `01` | Pedir **volcado de backup** → stream `0x44` | [V] `FUN_004389d0` |
@@ -223,12 +223,12 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 |---|---|---|---|
 | **`0x01`** | 62 B, ver 2.10 | Respuesta a `0x00` (nombre, versiones). **Opcode `0x01`, no `0x00`** | [V] hardware |
 | `0x02..0x0A` | bloque del módulo | Cambio de un módulo (al girar un knob en la pedalera o como respuesta) | [V] |
-| `0x0C` | 6 B | Configuración de Rhythm | [V] |
+| `0x0C` | 6 B | Configuración de Rhythm (§2.11) | [V] hardware |
 | `0x16` | `slot` | El equipo cambió de preset (footswitch) | [V] |
 | `0x17` | `slot` + nombre 14 B | Nombre de preset actualizado | [V] |
 | `0x18` | 3 × u16 | EXP bloque A | [V] |
 | `0x20` | `slot` + nombre 14 B + parámetros (la app copia 0x94 B; usar 72 × u16) | **Volcado de un preset** (uno por slot, del 1 al 200) | [V] |
-| `0x24`/`0x25`/`0x26`/`0x27` | 2/2/4/2 B | Ajustes de sistema individuales | [V] |
+| `0x24`/`0x25`/`0x26`/`0x27` | 2/2/4/2 B | Ajustes de sistema individuales (§2.11) | [V] |
 | `0x30` | `slot` + `page`(1 B) + parámetros | Buffer de edición actual | [V] |
 | `0x32` | 10 B (= bloques 0x24..0x27 concatenados) | Todos los ajustes de sistema. **Llega sola justo después del preset 200 del volcado `0xA0`** | [V] hardware |
 | `0x33` | 3 × u16 | EXP bloque B | [V] |
@@ -340,6 +340,26 @@ Los nombres de preset vienen rellenados con **espacios** (0x20), no con NUL.
   **Necesita un análisis dedicado antes de implementarlo (fase 9). Riesgo de dejar el equipo inservible.**
 
 ---
+
+### 2.11 Ajustes de sistema y caja de ritmos [V hardware, 2026-11-21]
+
+Identificados cambiando cada ajuste en la pedalera (botones **SYSTEM** y **RHYTHM**) y releyendo.
+La pedalera **no confirma** las escrituras `0xA4..0xA7` / `0x8D` (no llega ninguna trama), pero al releer
+aparecen los valores escritos, y la pantalla los aplica. Tampoco envía nada por USB cuando se cambian a mano.
+Lectura: el sistema llega en `0x32` tras el volcado `0xA0`; el ritmo, con `0x8C 01` → `0x0C`.
+
+| Bloque | Campo | Codificación | Visto en hardware |
+|---|---|---|---|
+| `0xA4` | INPUT LEVEL | u16 = índice en `- dB, -60, -45, -35, -30, -25, -20, -10, -5, 0, 0.5 … 6.0 dB` (22 valores, `FUN_004318d0`) | 9 = 0 dB, 10 = 0.5 dB |
+| `0xA5` | SCREEN | u16 = valor en pantalla | 18, 19, 20 (mín. [?]) |
+| `0xA6` | CAB SIM THRU | u16 CAB-L + u16 CAB-R; 0 = THRU, 1 = ON (no existe OFF) | `01 00 00 00` = L ON, R THRU |
+| `0xA7` | OTG LEVEL | la misma lista que INPUT LEVEL | 9 = 0 dB, 8 = -5 dB |
+
+Rhythm (6 B): `on u8 | mode u8 (0 RHYTHM, 1 METRONOME) | style u8 (0 = el primero: 8BEAT1 / METRO) | vol u8 | bpm u16 LE`.
+Ejemplos: `00 00 00 0a 04 01` = apagado, RHYTHM, 8BEAT1, VOL 10, 260 BPM; `01 01 00 05 79 00` = encendido, METRONOME,
+estilo 1, VOL 5, 121 BPM. El byte `on` pasa a 1 al pulsar RHYTHM. Rangos aún sin confirmar [?]: BPM 40..260,
+VOL 0..10, SCREEN 0..20; estilos: 40 ritmos y 10 de metrónomo (manual). Código: `model/settings.py`,
+CLI `system`, `rhythm`, `system-set`, `rhythm-set`.
 
 ## 3. Formatos de archivo
 
@@ -552,9 +572,10 @@ ge150-linux/
 
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
-- [ ] Identificar el significado de los bloques de sistema `0x24..0x27` y de Rhythm `0x0C` (6 B; en la
-      pedalera real: `00 00 00 0a 04 01`) con capturas de la app oficial o cambiando ajustes en la pedalera
-      y releyendo. Después, diálogos con nombres.
+- [x] Bloques de sistema `0x24..0x27` y Rhythm `0x0C` identificados en hardware (§2.11); escritura verificada
+      (SCREEN 18 → 19 y restauración de los valores originales). `model/settings.py`, CLI `system-set`/`rhythm-set`.
+- [ ] Confirmar los rangos de BPM, VOL y SCREEN, y los nombres de los estilos de ritmo.
+- [ ] Diálogo de sistema y ritmo en la GUI.
 - [ ] Reset de fábrica (`0x8B`) con doble confirmación.
 
 ### Fase 7 — IR y NR de usuario (IR ✅)
