@@ -84,3 +84,10 @@ def test_nr_upload(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     code, out = run(capsys, "nr-upload", "1", str(amp), "-y")
     assert code == 0 and "NR slot 1: Plexi" in out
     assert run(capsys, "nr-delete", "1", "-y")[0] == 0
+
+
+def test_factory_reset_needs_backup_choice_and_confirmation(tmp_path: Path) -> None:
+    assert main(["--sim", "factory-reset", "-y"]) == 1  # neither --backup nor --no-backup
+    backup = tmp_path / "before.mbf"
+    assert main(["--sim", "factory-reset", "--backup", str(backup), "-y"]) == 0
+    assert backup.stat().st_size > 0x400

@@ -241,6 +241,32 @@ def cmd_restore(args: argparse.Namespace) -> int:
     return 0
 
 
+RESET_PHRASE = "BORRAR TODO"
+
+
+def cmd_factory_reset(args: argparse.Namespace) -> int:
+    """DESTRUCTIVE: back up (unless --no-backup), then restore the factory state."""
+    if args.backup is None and not args.no_backup:
+        print("refusing: give --backup FILE.mbf (recommended) or --no-backup", file=sys.stderr)
+        return 1
+    if not args.yes:
+        if not sys.stdin.isatty():
+            print("refusing to reset without --yes", file=sys.stderr)
+            return 1
+        print("This ERASES all 200 presets, the user IR/NR slots and the system settings.")
+        if input(f'Type "{RESET_PHRASE}" to continue: ').strip() != RESET_PHRASE:
+            print("cancelled")
+            return 1
+    session, editor = _editor(args, presets=True)
+    with session:
+        if args.backup is not None:
+            mbf.save(args.backup, backup_service.create_backup(editor, _progress))
+            print(f"\nbackup saved to {args.backup}", file=sys.stderr)
+        backup_service.factory_reset(editor)
+    print("factory reset done")
+    return 0
+
+
 # --- IR slots ------------------------------------------------------------------
 
 
@@ -379,6 +405,12 @@ def _setup_restore(p: argparse.ArgumentParser) -> None:
     _yes(p)
 
 
+def _setup_factory_reset(p: argparse.ArgumentParser) -> None:
+    p.add_argument("--backup", type=Path, help="save a full .mbf backup first (recommended)")
+    p.add_argument("--no-backup", action="store_true", help="reset without a backup")
+    _yes(p)
+
+
 def _setup_ir_upload(p: argparse.ArgumentParser) -> None:
     p.add_argument("slot", type=int, choices=range(1, 11), metavar="SLOT", help="1..10")
     p.add_argument("file", help="WAV impulse response")
@@ -414,6 +446,8 @@ EDIT_COMMANDS: dict[str, tuple[Handler, str, ArgSetup]] = {
     "backup": (cmd_backup, "save a full .mbf backup (read-only)",
                lambda p: p.add_argument("file")),
     "restore": (cmd_restore, "OVERWRITE the whole pedal from a .mbf backup", _setup_restore),
+    "factory-reset": (cmd_factory_reset, "ERASE everything: back to the factory state",
+                      _setup_factory_reset),
     "ir-export": (cmd_ir_export, "save the pedal's user IRs as WAV files",
                   lambda p: p.add_argument("directory")),
     "ir-upload": (cmd_ir_upload, "STORE a WAV into a user IR slot", _setup_ir_upload),
