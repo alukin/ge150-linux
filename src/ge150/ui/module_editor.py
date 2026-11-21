@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -19,12 +18,14 @@ from PySide6.QtWidgets import (
 )
 
 from ge150.model.catalog import ModuleInfo
-from ge150.model.gear import FALLBACK
+from ge150.model.gear import FALLBACK, gear_for
 from ge150.model.preset import MODULES, ModuleBlock
 from ge150.services.editor import Editor
+from ge150.ui.gear_art import KnobState
 from ge150.ui.gear_view import GearView, module_look
 from ge150.ui.knob import EnumControl, Knob, make_control
 from ge150.ui.mic_view import MicPlacement
+from ge150.ui.model_gallery import ModelGallery
 
 DEBOUNCE_MS = 40
 COLUMNS = 4
@@ -64,10 +65,7 @@ class ModuleEditor(QFrame):
         self.switch.setCheckable(True)
         self.switch.setFixedWidth(78)
         self.switch.toggled.connect(self._on_switch)
-        self.model = QComboBox()
-        self.model.setObjectName("modelCombo")
-        self.model.setMinimumWidth(240)
-        self.model.setMaxVisibleItems(20)
+        self.model = ModelGallery()
         self.model.currentIndexChanged.connect(self._on_model)
         header = QHBoxLayout()
         header.addWidget(self.title)
@@ -85,13 +83,12 @@ class ModuleEditor(QFrame):
         self._mic_controls: tuple[Knob, Knob, EnumControl | None] | None = None
         right = QVBoxLayout()
         right.addLayout(header)
-        right.addWidget(self.model)
-        right.addSpacing(10)
+        right.addWidget(self.model, 1)
+        right.addSpacing(8)
         right.addLayout(self.grid)
-        right.addSpacing(10)
+        right.addSpacing(8)
         right.addWidget(self.mic)
         right.addWidget(self.note)
-        right.addStretch(1)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(18, 14, 18, 14)
@@ -116,7 +113,13 @@ class ModuleEditor(QFrame):
             self.model.clear()
             for i, m in enumerate(self.info.models):
                 label = self.editor.model_label(index, i)
-                self.model.addItem(label + ("  (usuario)" if m.user_slot else ""))
+                gear = gear_for(index, m.number)
+                title = label.split(":", 1)[-1].strip() if m.user_slot else m.name
+                knobs = [KnobState(p.name, 0.5) for p in m.params if p.kind == "number"]
+                based = f"\nBasado en {gear.name}" if gear.name else ""
+                self.model.add_model(label, gear, title, knobs,
+                                     label + (" (ranura de usuario)" if m.user_slot else "")
+                                     + based)
         finally:
             self._loading = False
         self.refresh()

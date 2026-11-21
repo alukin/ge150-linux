@@ -49,7 +49,15 @@ QPushButton#bigPower:checked {{ background: #1f7a3a; border-color: #2fb35a; colo
 QComboBox {{
     background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px 10px;
 }}
-QComboBox#modelCombo {{ font-size: 15px; font-weight: 700; padding: 8px 12px; }}
+QListWidget#modelGallery {{ background: {BG}; border-radius: 12px; padding: 6px; }}
+QListWidget#modelGallery::item {{
+    color: {MUTED}; font-size: 11px; font-weight: 700; border-radius: 10px; padding: 4px;
+    border: 2px solid transparent;
+}}
+QListWidget#modelGallery::item:hover {{ background: {RAISED}; color: {TEXT}; }}
+QListWidget#modelGallery::item:selected {{
+    background: #2d2620; border-color: {ACCENT}; color: {TEXT};
+}}
 QComboBox QAbstractItemView {{
     background: {PANEL}; border: 1px solid {BORDER}; selection-background-color: {ACCENT};
     selection-color: #1a1208;
