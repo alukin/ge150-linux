@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from ge150.formats import mbf, mo_json, wav_ir
+from ge150.formats import amp_nr, mbf, mo_json, wav_ir
 from ge150.model.catalog import load_catalog
 from ge150.model.preset import MODULES
 from ge150.protocol import messages as msg
@@ -286,6 +286,31 @@ def cmd_ir_delete(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_nr_upload(args: argparse.Namespace) -> int:
+    payload = amp_nr.load_nr_file(args.file)
+    name = (args.name or Path(args.file).stem)[: msg.USER_NAME_LEN]
+    session, editor = _editor(args)
+    with session:
+        old = reader.read_user_names(session).nr[args.slot - 1]
+        if not _confirm(args, f"replace NR slot {args.slot} ({old}) with {name!r}"):
+            return 1
+        editor.upload_user_slot(Op.USER_NR, args.slot - 1, name, payload)
+        names = editor.state.user_names
+        print(f"NR slot {args.slot}: {names.nr[args.slot - 1] if names else '?'}")
+    return 0
+
+
+def cmd_nr_delete(args: argparse.Namespace) -> int:
+    session, editor = _editor(args)
+    with session:
+        old = reader.read_user_names(session).nr[args.slot - 1]
+        if not _confirm(args, f"delete NR slot {args.slot} ({old})"):
+            return 1
+        editor.delete_user_slot(Op.USER_NR, args.slot - 1)
+        print(f"NR slot {args.slot} deleted")
+    return 0
+
+
 # --- registry ------------------------------------------------------------------
 
 
@@ -361,6 +386,13 @@ def _setup_ir_upload(p: argparse.ArgumentParser) -> None:
     _yes(p)
 
 
+def _setup_nr_upload(p: argparse.ArgumentParser) -> None:
+    p.add_argument("slot", type=int, choices=range(1, 11), metavar="SLOT", help="1..10")
+    p.add_argument("file", help=".amp NR capture")
+    p.add_argument("--name", help="name shown on the pedal (default: file name)")
+    _yes(p)
+
+
 def _setup_ir_delete(p: argparse.ArgumentParser) -> None:
     p.add_argument("slot", type=int, choices=range(1, 11), metavar="SLOT", help="1..10")
     _yes(p)
@@ -386,4 +418,6 @@ EDIT_COMMANDS: dict[str, tuple[Handler, str, ArgSetup]] = {
                   lambda p: p.add_argument("directory")),
     "ir-upload": (cmd_ir_upload, "STORE a WAV into a user IR slot", _setup_ir_upload),
     "ir-delete": (cmd_ir_delete, "DELETE a user IR slot", _setup_ir_delete),
+    "nr-upload": (cmd_nr_upload, "STORE an .amp capture into a user NR slot", _setup_nr_upload),
+    "nr-delete": (cmd_nr_delete, "DELETE a user NR slot", _setup_ir_delete),
 }

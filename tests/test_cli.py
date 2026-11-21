@@ -74,3 +74,13 @@ def test_backup_and_restore_commands(capsys: pytest.CaptureFixture[str], tmp_pat
     assert main(["--sim", "restore", str(path)]) == 1  # needs --yes
     capsys.readouterr()
     assert run(capsys, "restore", str(path), "-y")[0] == 0
+
+
+def test_nr_upload(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    from ge150.formats import amp_nr
+
+    amp = tmp_path / "Plexi.amp"
+    amp.write_bytes(amp_nr.build_amp(list(range(512))))
+    code, out = run(capsys, "nr-upload", "1", str(amp), "-y")
+    assert code == 0 and "NR slot 1: Plexi" in out
+    assert run(capsys, "nr-delete", "1", "-y")[0] == 0
