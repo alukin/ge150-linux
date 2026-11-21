@@ -581,6 +581,10 @@ ge150-linux/
       [?]: CENTER 0 = al centro del cono, DISTANCE 0 = pegado a la rejilla (`CENTER_AT_CAP` lo invierte).
 - [x] Fotos de Wikimedia Commons con `tools/fetch_photos.py` (autor y licencia en `data/photos/CREDITS.md`).
       El repo es privado: las fotos son de sus autores y no están bajo la licencia MIT.
+- [x] Criterio de fotos: solo el equipo real en que se basa el modelo (manual) o, para clones claros de Mooer y
+      efectos que el manual nombra, una "foto de referencia" de ese pedal (Ninety Orange → MXR Phase 90, Noise Killer
+      → ISP Decimator, Pitch shift → Whammy, Slow Gear → BOSS SG-1...). Solo pedales y equipos; los algoritmos genéricos
+      (`generic` en `gear.json`) y lo que no tiene asociación clara usan el dibujo. 45 fotos.
 
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
