@@ -33,10 +33,22 @@ class Gear:
     slant: bool = False
     diamond: bool = False
     stripes: bool = False
+    reference: str = ""  # classic unit shown in the photo when the model has no real origin
+    generic: bool = False  # Mooer algorithm not based on a named unit
     extra: dict[str, object] = field(default_factory=dict)
 
 
 FALLBACK = Gear("generic", "", "micro", "#3a3f47")
+
+
+def describe(gear: Gear, has_photo: bool) -> str:
+    """Caption under the picture: what the model is based on and what the photo shows."""
+    if not gear.name:
+        return ""
+    text = gear.name if gear.generic else f"Basado en {gear.name}"
+    if gear.reference and has_photo:
+        text += f"  ·  foto de referencia: {gear.reference}"
+    return text
 
 
 def user_photo_dir() -> Path:

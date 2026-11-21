@@ -18,11 +18,11 @@ from PySide6.QtWidgets import (
 )
 
 from ge150.model.catalog import ModuleInfo
-from ge150.model.gear import FALLBACK, gear_for
+from ge150.model.gear import FALLBACK, describe, gear_for
 from ge150.model.preset import MODULES, ModuleBlock
 from ge150.services.editor import Editor
 from ge150.ui.gear_art import KnobState
-from ge150.ui.gear_view import GearView, module_look
+from ge150.ui.gear_view import GearView, load_photo, module_look
 from ge150.ui.knob import EnumControl, Knob, make_control
 from ge150.ui.mic_view import MicPlacement
 from ge150.ui.model_gallery import ModelGallery
@@ -116,7 +116,7 @@ class ModuleEditor(QFrame):
                 gear = gear_for(index, m.number)
                 title = label.split(":", 1)[-1].strip() if m.user_slot else m.name
                 knobs = [KnobState(p.name, 0.5) for p in m.params if p.kind == "number"]
-                based = f"\nBasado en {gear.name}" if gear.name else ""
+                based = "\n" + describe(gear, load_photo(gear.gid) is not None)
                 self.model.add_model(label, gear, title, knobs,
                                      label + (" (ranura de usuario)" if m.user_slot else "")
                                      + based)
@@ -152,8 +152,8 @@ class ModuleEditor(QFrame):
     def _update_view(self) -> None:
         gear, title, knobs, on = module_look(self.editor, self.index)
         self.view.set_gear(gear, title, knobs, on)
-        self.based_on.setText(f"Basado en {gear.name}" if gear is not FALLBACK and gear.name
-                              else "")
+        has_photo = self.view.photo is not None
+        self.based_on.setText("" if gear is FALLBACK else describe(gear, has_photo))
 
     def _build_params(self, block: ModuleBlock) -> None:
         for widget in self.params:

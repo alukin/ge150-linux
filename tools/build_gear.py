@@ -226,6 +226,55 @@ for i, (name, colour) in enumerate(REVERBS, 1):
     gear(f"reverb{i}", f"{name} reverb", "micro", colour,
          text="#1a1a1a" if colour == "#b0bec5" else "#f2f2f2", query="")
 
+
+# Generic algorithms (no unit named in the manual): the GUI shows their name without
+# "based on".
+for gid, entry in G.items():
+    name = str(entry["name"])
+    if gid.startswith(("mod", "delay", "reverb", "mooer_", "custom_")) and not name.startswith(
+            "Mooer"):
+        entry["generic"] = True
+
+# --- reference photos -------------------------------------------------------------------
+# Mooer originals that are clear clones of a commercial pedal (or that the manual names)
+# show a photo of that pedal as a *reference* ("foto de referencia"), never as "based on".
+# Only pedals: everything without a clear match keeps its drawing.
+REFERENCES: dict[str, tuple[str, str]] = {
+    "mod1": ("MXR Phase 90", "MXR Phase 90"),  # Mooer Ninety Orange
+    "mod4": ("Electro-Harmonix Electric Mistress", "Electric Mistress flanger"),  # E-Lady
+    "mod6": ("Demeter Tremulator", "Demeter Tremulator"),  # Mooer Trelicopter
+    "mod9": ("DigiTech Whammy", "DigiTech Whammy"),  # manual: "simulate classic whammy"
+    "mod18": ("BOSS SG-1 Slow Gear", "Boss Slow Gear"),
+    "mooer_noisekiller": ("ISP Decimator", "ISP Decimator"),  # Mooer Noise Killer
+}
+for gid, (reference, query) in REFERENCES.items():
+    G[gid]["reference"] = reference
+    G[gid]["query"] = query
+
+# Broader searches for real gear the first pass did not find.
+RETRY = {
+    "crybaby535": "Cry Baby wah pedal", "tubedriver": "Tube Driver overdrive",
+    "directdrive": "Barber Direct Drive", "fulldrive": "Fulltone Fulldrive",
+    "metalmaster": "DigiTech Metal Master", "ocd": "OCD overdrive pedal",
+    "timmy": "Timmy overdrive", "shredmaster": "Marshall Shred Master",
+    "bbplus": "Xotic BB", "riot": "Suhr Riot", "tightrock": "Amptweaker",
+    "gt500": "Fulltone GT500", "bassman": "Fender Bassman",
+    "supersonic": "Fender Super Sonic", "plexi": "Marshall Plexi",
+    "engl_e645": "ENGL amplifier", "mark3": "Mesa Boogie Mark",
+    "mark5": "Mesa Boogie Mark V", "ad30": "Orange amplifier", "or50": "Orange OR",
+    "maz18": "Dr. Z amplifier", "zwreck": "Dr. Z Z Wreck", "jetcity": "Jet City amplifier",
+    "falcon": "Tone King", "tworock": "Two Rock amplifier", "cardiff": "Two Rock amp",
+    "evh5150": "EVH 5150", "blackstar": "Blackstar amplifier", "diezel": "Diezel amplifier",
+    "koch": "Koch amplifier", "c_bassman": "Fender Bassman", "c_supersonic": "Fender Super Sonic",
+    "c_englpro": "ENGL cabinet", "c_englvint": "ENGL cabinet", "c_soldano": "Soldano cabinet",
+    "c_hiwatt": "Hiwatt cabinet", "c_peavey": "Peavey 5150 cabinet", "c_evh": "EVH cabinet",
+    "c_blackstar": "Blackstar cabinet", "c_diezel": "Diezel cabinet",
+    "c_tworock212": "Two Rock cabinet", "c_tworock112": "Two Rock cabinet",
+    "c_maz": "Dr. Z cabinet", "c_zwreck": "Dr. Z cabinet", "c_falcon": "Tone King",
+}
+for gid, query in RETRY.items():
+    G[gid]["query"] = query
+
 # --- models -> gear -------------------------------------------------------------------
 FX = ["crybaby", "crybaby535", "mooer_envelope", "mooer_redkid", "mooer_redkid", "mooer_touchwah",
       "mooer_yellowcomp", "mooer_bluecomp"]

@@ -38,3 +38,14 @@ def test_every_shipped_photo_is_credited() -> None:
     for photo in photos.glob("*.jpg"):
         assert photo.stem in known, photo.name
         assert f"| `{photo.stem}` |" in credits, photo.name
+
+
+def test_captions() -> None:
+    ts808 = gear.gear_for(1, 2)
+    assert gear.describe(ts808, True) == "Basado en Ibanez TS808 Tube Screamer"
+    ninety = gear.gear_for(6, 1)  # PHASER: Mooer Ninety Orange, photo of an MXR Phase 90
+    assert gear.describe(ninety, False) == "Basado en Mooer Ninety Orange"
+    assert "foto de referencia: MXR Phase 90" in gear.describe(ninety, True)
+    digital = gear.gear_for(7, 1)  # generic Mooer algorithm: no "based on", no photo
+    assert digital.generic and not digital.reference
+    assert gear.describe(digital, False) == "Digital delay"
