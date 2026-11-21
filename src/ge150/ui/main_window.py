@@ -144,6 +144,7 @@ class MainWindow(QMainWindow):
         self._action("&Herramientas", "IR de usuario…", self.open_ir)
         self._action("&Herramientas", "Pedal de expresión…", self.open_exp)
         self._action("&Herramientas", "Sistema y caja de ritmos…", self.open_settings)
+        self._action("&Herramientas", "Restaurar valores de fábrica…", self.factory_reset)
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
         self._action("Ay&uda", "Acerca de", self.about)
 
@@ -382,6 +383,40 @@ class MainWindow(QMainWindow):
             return
         self.runner.run(lambda: backup_service.restore_backup(self.editor, data, self._progress),
                         lambda _: self.start_sync(), self._error)
+
+    def factory_reset(self) -> None:
+        """DESTRUCTIVE, with two confirmations and an optional backup first."""
+        box = QMessageBox(QMessageBox.Icon.Warning, "Restaurar valores de fábrica",
+                          "Se BORRARÁN los 200 presets, las IR y capturas NR de usuario y los "
+                          "ajustes de sistema: la pedalera vuelve a como salió de fábrica.\n\n"
+                          "Se recomienda hacer antes un backup completo.", parent=self)
+        with_backup = box.addButton("Hacer backup y continuar…",
+                                    QMessageBox.ButtonRole.AcceptRole)
+        without = box.addButton("Continuar sin backup", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        if box.clickedButton() not in (with_backup, without):
+            return
+        path = ""
+        if box.clickedButton() is with_backup:
+            path, _ = QFileDialog.getSaveFileName(self, "Backup antes del reset", "GE150.mbf",
+                                                  "Backup GE150 (*.mbf)")
+            if not path:
+                return
+        phrase = "BORRAR TODO"
+        text, ok = QInputDialog.getText(self, "Confirmar reset de fábrica",
+                                        f"Escribe «{phrase}» para restaurar la pedalera:")
+        if not ok or text.strip() != phrase:
+            return
+
+        def task() -> None:
+            if path:
+                mbf.save(path, backup_service.create_backup(self.editor, self._progress))
+            backup_service.factory_reset(self.editor)
+
+        self.central.setEnabled(False)
+        self.statusBar().showMessage("Restaurando valores de fábrica…")
+        self.runner.run(task, self._synced, self._error)
 
     def _on_progress(self, label: str, step: int, total: int) -> None:
         self.progress.setRange(0, total)
