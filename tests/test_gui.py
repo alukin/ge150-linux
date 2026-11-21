@@ -98,3 +98,23 @@ def test_pedal_notification_updates_list(window: MainWindow) -> None:
     sim = window.sim  # type: ignore[attr-defined]
     sim.inject(sim.device.footswitch(9))
     assert wait(lambda: window.header.text().strip().startswith("9"))
+
+
+def test_settings_dialog_writes_to_pedal(window: MainWindow) -> None:
+    from ge150.protocol.opcodes import Op
+    from ge150.ui.settings_dialog import SettingsDialog
+
+    device = window.sim.device  # type: ignore[attr-defined]
+    dialog = SettingsDialog(window.editor, window)
+    assert dialog.input_level.currentText() == "0 dB" and dialog.screen.value() == 20
+    dialog.input_level.setCurrentIndex(10)  # 0.5 dB
+    dialog.cab_right.setCurrentText("THRU")
+    dialog.bpm.setValue(121)
+    dialog.style.setValue(5)
+    dialog.mode.setCurrentText("METRONOME")
+    assert wait(lambda: device.rhythm[1] == 1)
+    assert device.system[Op.WRITE_SYSTEM_1] == bytes([10, 0])
+    assert device.system[Op.WRITE_SYSTEM_3] == bytes([1, 0, 0, 0])
+    assert device.rhythm == bytes([0, 1, 0, 5, 121, 0])  # style restarts with the mode
+    assert dialog.style.maximum() == 10
+    dialog.close()

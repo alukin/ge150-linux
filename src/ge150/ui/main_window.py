@@ -33,6 +33,7 @@ from ge150.ui.chain_view import ChainView
 from ge150.ui.dialogs import ExpDialog, IrDialog
 from ge150.ui.module_editor import ModuleEditor
 from ge150.ui.preset_list import PresetList
+from ge150.ui.settings_dialog import SettingsDialog
 from ge150.ui.worker import TaskRunner
 
 STYLE = """
@@ -122,6 +123,7 @@ class MainWindow(QMainWindow):
         self._action("&Preset", "Descartar cambios", self.discard)
         self._action("&Herramientas", "IR de usuario…", self.open_ir)
         self._action("&Herramientas", "Pedal de expresión…", self.open_exp)
+        self._action("&Herramientas", "Sistema y caja de ritmos…", self.open_settings)
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
         self._action("Ay&uda", "Acerca de", self.about)
 
@@ -368,6 +370,9 @@ class MainWindow(QMainWindow):
     def open_exp(self) -> None:
         if self.state.edit is not None:
             ExpDialog(self.editor, self).exec()
+
+    def open_settings(self) -> None:
+        SettingsDialog(self.editor, self).exec()
 
     def about(self) -> None:
         QMessageBox.about(self, "GE150 Editor",
