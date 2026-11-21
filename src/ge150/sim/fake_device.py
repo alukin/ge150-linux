@@ -10,6 +10,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from ge150.model.catalog import load_catalog
 from ge150.model.preset import (
     EXP_A,
     EXP_B,
@@ -28,9 +29,16 @@ from ge150.protocol.opcodes import Op
 
 
 def _default_preset(slot: int) -> Preset:
-    words = []
+    """A valid preset: factory model per module, every parameter at mid range."""
+    catalog = load_catalog()
+    words: list[int] = []
     for layout in MODULES:
-        block = [slot % 2, (slot + layout.index) % 5] + [50] * (layout.words - 2)
+        factory = [m for m in catalog[layout.index].models if not m.user_slot]
+        type_index = (slot + layout.index) % len(factory)
+        block = [slot % 2, type_index] + [0] * (layout.words - 2)
+        for p in factory[type_index].params:
+            block[p.word] = p.raw_max // 2 if p.kind != "number" or p.min < 0 else \
+                p.to_raw((p.min + p.max) // 2)
         words.extend(block)
     words.extend([0, 0, 0, 0, 0, 100])  # EXP: MODULE_CTRL .. VOL_MAX
     return Preset(slot, f"PRESET {slot:03d}", words)
