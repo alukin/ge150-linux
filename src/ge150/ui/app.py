@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 from ge150.protocol.session import DeviceSession
 from ge150.services.editor import Editor
 from ge150.ui.main_window import MainWindow
+from ge150.ui.theme import apply_theme
 from ge150.usb import open_transport
 from ge150.usb.transport import Transport, TransportError
 
@@ -40,6 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(sys.argv[:1])
     app.setApplicationName("GE150 Editor")
     app.setDesktopFileName("ge150")
+    apply_theme(app)
     icon = resources.files("ge150.data").joinpath("ge150.svg")
     app.setWindowIcon(QIcon(str(icon)))
     try:

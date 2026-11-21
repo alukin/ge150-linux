@@ -10,11 +10,14 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
+    QFrame,
+    QHBoxLayout,
     QInputDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
     QProgressBar,
+    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -36,18 +39,6 @@ from ge150.ui.preset_list import PresetList
 from ge150.ui.settings_dialog import SettingsDialog
 from ge150.ui.worker import TaskRunner
 
-STYLE = """
-QFrame#moduleTile { border: 1px solid palette(mid); border-radius: 6px; }
-QFrame#moduleTile[selected="true"] {
-    border: 2px solid #1e88e5; background: palette(alternate-base);
-}
-QPushButton#power { font-weight: bold; padding: 4px; border-radius: 4px; }
-QPushButton#power:checked { background: #2e7d32; color: white; }
-QPushButton#power:!checked { background: palette(button); color: #a0a0a0; }
-QLabel#modelLabel { font-size: 11px; }
-QLabel#modelLabel:disabled { color: #8c8c8c; }
-"""
-
 
 class MainWindow(QMainWindow):
     def __init__(self, editor: Editor, session: DeviceSession) -> None:
@@ -57,25 +48,54 @@ class MainWindow(QMainWindow):
         self.runner = TaskRunner(self)
         self.bridge = StateBridge(self.state, session, self)
         self.setWindowTitle("GE150 Editor")
-        self.setStyleSheet(STYLE)
-        self.resize(1200, 720)
+        self.resize(1280, 820)
 
         self.presets = PresetList(self.state)
-        self.header = QLabel("Conectando…")
-        self.header.setStyleSheet("font-size: 18px; font-weight: bold; padding: 4px;")
+        self.presets.setMinimumWidth(230)
+        self.header = QLabel("Conectando…")  # full text, kept for status and tests
+        self.header.hide()
+        self.number = QLabel("-")
+        self.number.setObjectName("presetNumber")
+        self.name = QLabel("Conectando…")
+        self.name.setObjectName("presetName")
+        self.dirty_badge = QLabel("MODIFICADO")
+        self.dirty_badge.setObjectName("dirtyBadge")
+        self.dirty_badge.hide()
+        self.save_button = QPushButton("Guardar")
+        self.save_button.setObjectName("saveButton")
+        self.save_button.setToolTip("Guardar el preset en su ranura (Ctrl+S)")
+        self.save_button.clicked.connect(self.save_current)
+        header_bar = QFrame()
+        header_bar.setObjectName("headerBar")
+        header_layout = QHBoxLayout(header_bar)
+        header_layout.setContentsMargins(18, 10, 18, 10)
+        header_layout.addWidget(self.number)
+        header_layout.addWidget(self.name)
+        header_layout.addWidget(self.dirty_badge)
+        header_layout.addStretch(1)
+        header_layout.addWidget(self.header)
+        header_layout.addWidget(self.save_button)
+
         self.chain = ChainView(editor)
         self.module_editor = ModuleEditor(editor)
-        right = QWidget()
-        right_layout = QVBoxLayout(right)
-        right_layout.addWidget(self.header)
-        right_layout.addWidget(self.chain)
-        right_layout.addWidget(self.module_editor, 1)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.presets)
-        splitter.addWidget(right)
-        splitter.setSizes([280, 920])
-        self.setCentralWidget(splitter)
-        self.central = splitter
+        splitter.addWidget(self.module_editor)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([260, 1020])
+        middle = QWidget()
+        middle_layout = QVBoxLayout(middle)
+        middle_layout.setContentsMargins(12, 12, 12, 12)
+        middle_layout.addWidget(splitter)
+        central = QWidget()
+        central_layout = QVBoxLayout(central)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+        central_layout.addWidget(header_bar)
+        central_layout.addWidget(middle, 1)
+        central_layout.addWidget(self.chain)
+        self.setCentralWidget(central)
+        self.central = central
 
         self.progress = QProgressBar()
         self.progress.setMaximumWidth(220)
@@ -176,6 +196,9 @@ class MainWindow(QMainWindow):
         name = stored.name if stored else ""
         mark = "   (modificado)" if self.state.dirty else ""
         self.header.setText(f"{slot or '-':>3}  {name}{mark}")
+        self.number.setText(f"{slot:03d}" if slot else "-")
+        self.name.setText(name.strip() or "-")
+        self.dirty_badge.setVisible(self.state.dirty)
 
     def _on_disconnect(self, reason: str) -> None:
         self.central.setEnabled(False)

@@ -58,8 +58,7 @@ def test_sync_populates_widgets(window: MainWindow) -> None:
 def test_editing_a_parameter_reaches_the_pedal(window: MainWindow) -> None:
     window.chain.select(8)  # REVERB
     widget = window.module_editor.params[1]  # LEVEL
-    assert widget.slider is not None
-    widget.slider.setValue(88)
+    widget.setValue(88)
     sim = window.sim  # type: ignore[attr-defined]
     assert wait(lambda: sim.device.edit_buffer.words[60 + 3] == 88)
     assert "(modificado)" in window.header.text()
@@ -86,7 +85,7 @@ def test_load_and_save_preset(window: MainWindow) -> None:
     assert wait(lambda: "PRESET 042" in window.header.text())
     assert window.state.current_slot == 42
     window.chain.select(0)
-    window.module_editor.params[0].slider.setValue(1)  # type: ignore[union-attr]
+    window.module_editor.params[0].setValue(1)
     assert wait(lambda: window.state.dirty)
     window.save_current()
     assert wait(lambda: not window.state.dirty)
@@ -118,3 +117,23 @@ def test_settings_dialog_writes_to_pedal(window: MainWindow) -> None:
     assert device.rhythm == bytes([0, 1, 0, 5, 121, 0])  # style restarts with the mode
     assert dialog.style.maximum() == 10
     dialog.close()
+
+
+def test_cab_microphone_drag_sets_center_and_distance(window: MainWindow) -> None:
+    window.chain.select(3)  # CAB
+    page = window.module_editor
+    assert page.mic.isVisibleTo(page)
+    page.mic.moved.emit(0.2, 0.8)
+    sim = window.sim  # type: ignore[attr-defined]
+    assert wait(lambda: sim.device.edit_buffer.words[19 + 4] == 20)
+    assert sim.device.edit_buffer.words[19 + 5] == 80
+    window.chain.select(1)  # DS has no microphone
+    assert not page.mic.isVisibleTo(page)
+
+
+def test_gear_pictures_follow_the_model(window: MainWindow) -> None:
+    window.chain.select(1)
+    window.module_editor.model.setCurrentIndex(1)  # 808
+    assert wait(lambda: window.module_editor.view.gear.gid == "ts808")
+    assert "TS808" in window.module_editor.based_on.text()
+    assert window.chain.tiles[1].view.gear.gid == "ts808"
