@@ -85,7 +85,9 @@ class MicPlacement(QWidget):
         radius = r.height() * 0.42
         axis = r.center().y()
         grille = r.left() + r.width() * 0.2
-        pad = QRectF(grille + 14, axis - radius, r.right() - grille - 30, radius * 2)
+        # Leave room on the right for the body of the microphone (head + shaft).
+        pad = QRectF(grille + 14, axis - radius, r.right() - grille - 14 - radius * 1.4,
+                     radius * 2)
         return pad, axis, radius, grille
 
     def _mic_point(self) -> QPointF:
