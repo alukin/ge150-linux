@@ -11,6 +11,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 from ge150.cli_edit import EDIT_COMMANDS
+from ge150.cli_settings import SETTINGS_COMMANDS
+from ge150.model.settings import RhythmValues, SystemValues
 from ge150.protocol.framing import FrameDecoder, report_data, split_reports
 from ge150.protocol.opcodes import op_name
 from ge150.protocol.session import DeviceSession, SessionError
@@ -111,14 +113,18 @@ def cmd_system(args: argparse.Namespace) -> int:
     if system is None:
         print("no system block received")
         return 1
-    for op, data in system.blocks.items():
-        print(f"{op_name(op)}: {data.hex(' ')}")
+    for name, value in SystemValues.from_blocks(system.blocks).describe():
+        print(f"{name:12} {value}")
+    print("raw          " + " | ".join(d.hex(" ") for d in system.blocks.values()))
     return 0
 
 
 def cmd_rhythm(args: argparse.Namespace) -> int:
     with _session(args) as session:
-        print(reader.read_rhythm(session).hex(" "))
+        data = reader.read_rhythm(session)
+    for name, value in RhythmValues.from_bytes(data).describe():
+        print(f"{name:12} {value}")
+    print(f"raw          {data.hex(' ')}")
     return 0
 
 
@@ -188,8 +194,8 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
     "sniff": (cmd_sniff, "print incoming reports/frames without sending anything"),
     "presets": (cmd_presets, "list the 200 preset names"),
     "current": (cmd_current, "show the current edit buffer decoded"),
-    "system": (cmd_system, "show raw system settings blocks"),
-    "rhythm": (cmd_rhythm, "show the raw rhythm block"),
+    "system": (cmd_system, "show the system settings"),
+    "rhythm": (cmd_rhythm, "show the rhythm box settings"),
     "user-names": (cmd_user_names, "show user IR/NR slot names"),
     "snapshot": (cmd_snapshot, "dump everything readable to JSON"),
     "frame": (cmd_frame, "encode a frame offline: OPCODE [DATA] in hex"),
@@ -220,7 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
         elif name == "send":
             p.add_argument("hex", nargs="+", help="opcode and data, e.g. 31 01")
             p.add_argument("--listen", type=float, default=3.0, help="seconds to listen")
-    for name, (_, help_text, setup) in EDIT_COMMANDS.items():
+    for name, (_, help_text, setup) in (EDIT_COMMANDS | SETTINGS_COMMANDS).items():
         setup(sub.add_parser(name, help=help_text))
     return parser
 
@@ -231,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
                         format="%(asctime)s %(threadName)s %(levelname)s %(message)s")
     args.make_session = lambda: _session(args)
     handler = (COMMANDS[args.command][0] if args.command in COMMANDS
-               else EDIT_COMMANDS[args.command][0])
+               else (EDIT_COMMANDS | SETTINGS_COMMANDS)[args.command][0])
     try:
         return handler(args)
     except (TransportError, SessionError, EditorError, ValueError, OSError) as exc:
