@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from PySide6.QtCore import QPoint, Qt, Signal
 from PySide6.QtGui import QAction, QFont, QFontDatabase
 from PySide6.QtWidgets import (
@@ -16,6 +18,7 @@ from PySide6.QtWidgets import (
 from ge150.model.device_state import DeviceState
 
 SLOT_ROLE = Qt.ItemDataRole.UserRole
+DOUBLE_CLICK_S = 0.6
 
 
 class PresetList(QWidget):
@@ -38,10 +41,31 @@ class PresetList(QWidget):
         self.list.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
         self.list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list.customContextMenuRequested.connect(self._menu)
-        self.list.itemActivated.connect(lambda item: self.activated.emit(item.data(SLOT_ROLE)))
+        # One click loads the preset; Enter too. A double click must not load it twice.
+        self.list.itemClicked.connect(self._chosen)
+        self.list.itemActivated.connect(self._chosen)
+        self._last_choice: tuple[int, float] = (0, 0.0)
         layout.addWidget(self.search)
         layout.addWidget(self.list, 1)
         self.clipboard: int | None = None
+
+    def _chosen(self, item: QListWidgetItem) -> None:
+        slot = int(item.data(SLOT_ROLE))
+        now = time.monotonic()
+        last_slot, last_time = self._last_choice
+        self._last_choice = (slot, now)
+        if slot == last_slot and now - last_time < DOUBLE_CLICK_S:
+            return
+        self.activated.emit(slot)
+
+    def select_slot(self, slot: int | None) -> None:
+        """Highlight ``slot`` (e.g. back to the current preset after a cancelled change)."""
+        for row in range(self.list.count()):
+            item = self.list.item(row)
+            if item.data(SLOT_ROLE) == slot:
+                self.list.setCurrentItem(item)
+                self.list.scrollToItem(item)
+                return
 
     def selected_slot(self) -> int | None:
         item = self.list.currentItem()

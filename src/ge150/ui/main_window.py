@@ -233,7 +233,10 @@ class MainWindow(QMainWindow):
         return True
 
     def load_preset(self, slot: int) -> None:
-        if slot == self.state.current_slot or not self._resolve_dirty():
+        if slot == self.state.current_slot:
+            return
+        if not self._resolve_dirty():
+            self.presets.select_slot(self.state.current_slot)  # cancelled: stay on it
             return
         self.runner.run(lambda: self.editor.select(slot), None, self._error)
 

@@ -137,3 +137,32 @@ def test_gear_pictures_follow_the_model(window: MainWindow) -> None:
     assert wait(lambda: window.module_editor.view.gear.gid == "ts808")
     assert "TS808" in window.module_editor.based_on.text()
     assert window.chain.tiles[1].view.gear.gid == "ts808"
+
+
+def test_single_click_loads_preset_and_asks_when_dirty(
+        window: MainWindow, monkeypatch: pytest.MonkeyPatch) -> None:
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    presets = window.presets.list
+
+    def click(slot: int) -> None:
+        item = presets.item(slot - 1)
+        QTest.mouseClick(presets.viewport(), Qt.MouseButton.LeftButton,
+                         pos=presets.visualItemRect(item).center())
+
+    click(5)
+    assert wait(lambda: window.state.current_slot == 5)
+    window.module_editor.params[0].setValue(3)
+    assert wait(lambda: window.state.dirty)
+    asked: list[str] = []
+
+    def cancel(*args: object, **kwargs: object) -> QMessageBox.StandardButton:
+        asked.append(str(args[2]))
+        return QMessageBox.StandardButton.Cancel
+
+    monkeypatch.setattr(QMessageBox, "question", cancel)
+    click(9)
+    assert asked and "sin guardar" in asked[0]
+    assert window.state.current_slot == 5
+    assert window.presets.selected_slot() == 5
