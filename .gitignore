@@ -1,0 +1,14 @@
+# Vendor material: never commit (see plan.md, rule 3)
+reference/
+GE150_V1.3.8_Win/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
