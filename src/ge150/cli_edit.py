@@ -11,7 +11,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from ge150.formats import wav_ir
+from ge150.formats import mo_json, wav_ir
 from ge150.model.catalog import load_catalog
 from ge150.model.preset import MODULES
 from ge150.protocol import messages as msg
@@ -41,6 +41,12 @@ def _editor(args: argparse.Namespace, presets: bool = False) -> tuple[DeviceSess
         reader.read_all_presets(session)
     reader.read_current(session)
     return session, editor
+
+
+def _safe(name: str) -> str:
+    """File-name friendly version of a preset or IR name."""
+    clean = "".join(c if c.isalnum() or c in " -_" else "_" for c in name).strip()
+    return clean or "unnamed"
 
 
 def _value(text: str) -> float | str:
@@ -171,6 +177,38 @@ def cmd_copy(args: argparse.Namespace) -> int:
     return 0
 
 
+# --- .mo preset files -----------------------------------------------------------
+
+
+def cmd_export(args: argparse.Namespace) -> int:
+    """Read-only: save stored presets as vendor-compatible .mo files."""
+    session, editor = _editor(args, presets=True)
+    with session:
+        presets = editor.state.presets
+    slots = range(1, 201) if args.slot == "all" else [int(args.slot)]
+    out = Path(args.path)
+    if args.slot == "all" or out.is_dir():
+        out.mkdir(parents=True, exist_ok=True)
+    for slot in slots:
+        preset = presets[slot]
+        target = out / f"{slot:03d} {_safe(preset.name)}.mo" if out.is_dir() else out
+        mo_json.save(target, preset)
+        print(f"{slot:3d} -> {target}")
+    return 0
+
+
+def cmd_import(args: argparse.Namespace) -> int:
+    session, editor = _editor(args, presets=True)
+    with session:
+        base = editor.state.presets[args.slot]
+        preset = mo_json.load(args.file, base)
+        if not _confirm(args, f"overwrite preset {args.slot} ({base.name}) with {preset.name!r}"):
+            return 1
+        editor.copy_preset_data(preset)
+        print(f"imported {args.file} -> {args.slot}: {preset.name}")
+    return 0
+
+
 # --- IR slots ------------------------------------------------------------------
 
 
@@ -182,8 +220,7 @@ def cmd_ir_export(args: argparse.Namespace) -> int:
     with session:
         chunks = editor.read_ir_backup()
     for chunk in chunks:
-        safe = "".join(c if c.isalnum() or c in " -_." else "_" for c in chunk.name).strip()
-        path = out / f"IR{(chunk.slot or 0) + 1:02d} {safe or 'unnamed'}.wav"
+        path = out / f"IR{(chunk.slot or 0) + 1:02d} {_safe(chunk.name)}.wav"
         path.write_bytes(wav_ir.ir_to_wav(wav_ir.unpack_planar(chunk.data)))
         print(f"slot {chunk.slot}: {path}")
     if not chunks:
@@ -268,6 +305,17 @@ def _setup_copy(p: argparse.ArgumentParser) -> None:
     _yes(p)
 
 
+def _setup_export(p: argparse.ArgumentParser) -> None:
+    p.add_argument("slot", help="1..200 or 'all'")
+    p.add_argument("path", help="output .mo file or directory")
+
+
+def _setup_import(p: argparse.ArgumentParser) -> None:
+    p.add_argument("file", help=".mo preset file")
+    p.add_argument("slot", type=int, help="target slot 1..200")
+    _yes(p)
+
+
 def _setup_ir_upload(p: argparse.ArgumentParser) -> None:
     p.add_argument("slot", type=int, choices=range(1, 11), metavar="SLOT", help="1..10")
     p.add_argument("file", help="WAV impulse response")
@@ -291,6 +339,8 @@ EDIT_COMMANDS: dict[str, tuple[Handler, str, ArgSetup]] = {
     "save": (cmd_save, "STORE the edit buffer into a preset slot", _setup_save),
     "rename": (cmd_rename, "STORE a new preset name", _setup_rename),
     "copy": (cmd_copy, "STORE a copy of a preset into another slot", _setup_copy),
+    "export": (cmd_export, "save stored presets as .mo files", _setup_export),
+    "import": (cmd_import, "STORE a .mo preset file into a slot", _setup_import),
     "ir-export": (cmd_ir_export, "save the pedal's user IRs as WAV files",
                   lambda p: p.add_argument("directory")),
     "ir-upload": (cmd_ir_upload, "STORE a WAV into a user IR slot", _setup_ir_upload),

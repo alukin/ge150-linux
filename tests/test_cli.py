@@ -53,3 +53,13 @@ def test_ir_upload_and_export(capsys: pytest.CaptureFixture[str], tmp_path: Path
     assert code == 0 and "IR slot 2: cab" in out
     # Each CLI call uses a fresh simulator, so the export of a new one is empty.
     assert "no user IRs" in run(capsys, "ir-export", str(tmp_path / "out"))[1]
+
+
+def test_mo_export_and_import(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+    target = tmp_path / "p.mo"
+    assert run(capsys, "export", "7", str(target))[0] == 0
+    assert '"schema": "GE150 Preset"' in target.read_text()
+    code, out = run(capsys, "import", str(target), "9", "-y")
+    assert code == 0 and "-> 9: PRESET 007" in out
+    assert run(capsys, "export", "all", str(tmp_path / "all"))[0] == 0
+    assert len(list((tmp_path / "all").glob("*.mo"))) == 200

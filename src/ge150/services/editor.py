@@ -191,6 +191,12 @@ class Editor:
         self._write_preset(preset)
         return preset
 
+    def copy_preset_data(self, preset: Preset) -> None:
+        """Store an arbitrary preset (e.g. imported from a file) into ``preset.slot``."""
+        if not is_valid_name(preset.name):
+            raise EditorError("invalid preset name")
+        self._write_preset(preset)
+
     def set_system(self, op: Op, data: bytes) -> None:
         self.session.send(msg.write_system(op, data))
         self.state.apply(Frame(op & 0x7F, data))
