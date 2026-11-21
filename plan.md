@@ -261,15 +261,21 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
 - Dentro de cada bloque: `word[0] = SWITCH` (solo 0/1 en los 200 presets) **[V]** y `word[1] = TYPE`
   = **índice del modelo en base 0** (`NN − 1`) **[V]**: en FX, NS, EQ, DELAY y REVERB va exactamente de
   0 a número de modelos − 1. (Una única anomalía: el preset 84 tiene DS `TYPE=54`.)
-- **Palabras de parámetros (deducido de 200 presets reales, [I] fuerte):** no siempre siguen el orden del XML.
-  Cada módulo tiene posiciones fijas y cada modelo usa las suyas (`tools/build_catalog.py` → `word`):
-  | Módulo | Palabras 2.. |
+- **Palabras de parámetros [V]** (tabla oficial `FUN_0041d470`, coherente con los 200 presets reales).
+  Por defecto el parámetro `k` del modelo va en la palabra `2 + k`. Excepciones (en `tools/build_catalog.py` → `WORD_MAP`):
+  | Módulo / modelo | Palabras de sus parámetros |
   |---|---|
-  | FX, DS, AMP, NS, REVERB | parámetros en orden del XML |
-  | CAB | TUBE, MIC, CENTER, DISTANCE; palabra 6 = **siempre 18** [?] |
-  | EQ | 2–7 = ganancias de banda 1–6 (16 = 0 dB); 8–10 = FREQ1–3 del CUSTOM EQ (Hz tal cual; por defecto 100/600/1250) |
-  | MOD | 2–5 = genéricos en orden del XML; 6 = PITCH de DETUNE (200 = 0,0); 7 = PITCH de PITCH SHIFT (120 = 0,0); 8 = ? (≈50) |
-  | DELAY | LEVEL, FEEDBACK, TIME(A), SUB(A), TIME B, SUB B, THRES (DYNAMIC) |
+  | EQ CUSTOM EQ (GAIN1, FREQ1, GAIN2, FREQ2, GAIN3, FREQ3) | 2, 8, 4, 9, 6, 10 (FREQ en Hz; por defecto 100/600/1250) |
+  | MOD PHASER / STEP PHASER / FAT PHASER (RATE, LEVEL, DEPTH) | 2, 3, 5 |
+  | MOD VIBRATO (RATE, DEPTH, TONE) | 2, 5, 4 |
+  | MOD PITCH SHIFT (PITCH, MIX, TONE) | 7, 3, 4 (PITCH 120 = 0,0) |
+  | MOD DETUNE (PITCH, MIX, TONE) | 6, 3, 4 (PITCH 200 = 0,0) |
+  | DELAY DYNAMIC (LEVEL, FEEDBACK, TIME, SUB-D, THRES) | 2, 3, 4, 5, 8 |
+  Significado fijo en MOD: 2 RATE, 3 MIX/LEVEL, 4 TONE, 5 DEPTH. Palabras sin uso conocido: CAB 6
+  (siempre 18), MOD 8 (≈50). Límite de `TYPE` por módulo (misma función): FX 7, DS 19, AMP 64, CAB 35, NS 2,
+  EQ 3, MOD 18, DELAY 8, REVERB 6.
+  En el `.mo`, el TIME del DELAY se exporta como `raw·a/b − 40`, limitado a 0..2460, con `a/b` sacado de
+  una lista de subdivisiones indexada por SUB-D (`DAT_00497480`, sin leer todavía).
 - **Codificación de valores [I] fuerte:** `raw = round((valor − min(mín, 0)) / paso)`. Los rangos
   negativos se desplazan (EQ, PITCH, DETUNE) y los positivos se guardan tal cual (TIME 40..2500 se guarda en ms;
   el mínimo observado es 40). Enumerados = índice de la opción (SUB-D=1 → "1/4" [?] por confirmar en pantalla).

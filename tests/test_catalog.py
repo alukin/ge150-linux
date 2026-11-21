@@ -48,7 +48,11 @@ def test_fixed_words() -> None:
     dual = next(m for m in cat[7].models if m.name == "DUAL DELAY")
     assert [p.word for p in dual.params] == [2, 3, 4, 5, 6, 7]
     custom = next(m for m in cat[5].models if m.name == "CUSTOM EQ")
-    assert [p.word for p in custom.params] == [2, 8, 3, 9, 4, 10]
+    assert [p.word for p in custom.params] == [2, 8, 4, 9, 6, 10]
+    vibrato = next(m for m in cat[6].models if m.name == "VIBRATO")
+    assert [p.word for p in vibrato.params] == [2, 5, 4]
+    pitch = next(m for m in cat[6].models if m.name == "PITCH SHIFT")
+    assert [p.word for p in pitch.params] == [7, 3, 4]
     for info, layout in zip(cat, MODULES, strict=True):
         for model in info.models:
             words = [p.word for p in model.params]

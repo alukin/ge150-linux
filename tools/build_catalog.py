@@ -43,35 +43,29 @@ def parse_param(elem: ET.Element) -> dict[str, Any]:
     }
 
 
-#: Module words with a fixed meaning, deduced from 200 real presets (plan.md §2.7) [I].
-#: Key: (module, parameter name) -> word index inside the module block.
-FIXED_WORDS = {
-    ("DELAY", "TIME B"): 6,
-    ("DELAY", "SUB B"): 7,
-    ("DELAY", "THRES"): 8,
-    ("EQ", "FREQ1"): 8,
-    ("EQ", "FREQ2"): 9,
-    ("EQ", "FREQ3"): 10,
+#: Parameter -> word index inside the module block, for the models that do not use the
+#: default ``2 + k``. Transcribed from the vendor's FUN_0041d470 [V] (plan.md §2.7) and
+#: consistent with 200 presets read from a real pedal.
+#: MOD words: 2 RATE, 3 MIX/LEVEL, 4 TONE, 5 DEPTH, 6 DETUNE pitch, 7 PITCH SHIFT pitch.
+WORD_MAP: dict[tuple[str, str], list[int]] = {
+    ("EQ", "CUSTOM EQ"): [2, 8, 4, 9, 6, 10],  # GAIN1 FREQ1 GAIN2 FREQ2 GAIN3 FREQ3
+    ("MOD", "PHASER"): [2, 3, 5],
+    ("MOD", "STEP PHASER"): [2, 3, 5],
+    ("MOD", "FAT PHASER"): [2, 3, 5],
+    ("MOD", "VIBRATO"): [2, 5, 4],
+    ("MOD", "PITCH SHIFT"): [7, 3, 4],
+    ("MOD", "DETUNE"): [6, 3, 4],
+    ("DELAY", "DYNAMIC"): [2, 3, 4, 5, 8],
 }
-#: MOD keeps one dedicated word per pitch parameter (default raw = centre value).
-MOD_PITCH_WORD = {"DETUNE": 6, "PITCH SHIFT": 7}
 
 
 def assign_words(module: str, params: list[dict[str, Any]],
                  model_name: str = "") -> list[dict[str, Any]]:
     """Copy ``params`` adding ``word`` (index inside the module block)."""
-    out, generic = [], 2
-    for p in params:
-        q = dict(p)
-        if (module, p["name"]) in FIXED_WORDS:
-            q["word"] = FIXED_WORDS[(module, p["name"])]
-        elif module == "MOD" and p["name"] == "PITCH" and model_name in MOD_PITCH_WORD:
-            q["word"] = MOD_PITCH_WORD[model_name]
-        else:
-            q["word"] = generic
-            generic += 1
-        out.append(q)
-    return out
+    words = WORD_MAP.get((module, model_name), [2 + k for k in range(len(params))])
+    if len(words) != len(params):
+        raise SystemExit(f"{module} {model_name}: word map does not match its parameters")
+    return [dict(p, word=w) for p, w in zip(params, words, strict=True)]
 
 
 def build(xml_path: Path) -> dict[str, Any]:
