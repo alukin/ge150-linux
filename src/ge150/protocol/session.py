@@ -28,7 +28,7 @@ FRAME_DELAY = 0.005
 MULTIPART_DELAY = 0.1
 READ_POLL = 0.2
 
-Listener = Callable[[Frame], None]
+Listener = Callable[[Frame], object]
 DisconnectListener = Callable[[BaseException | None], None]
 RawListener = Callable[[str, bytes], None]
 

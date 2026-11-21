@@ -26,7 +26,7 @@ from ge150.protocol.opcodes import MODULE_WRITE_OPS, Op
 READ_FLAG = b"\x01"
 
 # --- sizes ------------------------------------------------------------------
-SYSTEM_SIZES = {Op.WRITE_SYSTEM_1: 2, Op.WRITE_SYSTEM_2: 2, Op.WRITE_SYSTEM_3: 4,
+SYSTEM_SIZES: dict[int, int] = {Op.WRITE_SYSTEM_1: 2, Op.WRITE_SYSTEM_2: 2, Op.WRITE_SYSTEM_3: 4,
                 Op.WRITE_SYSTEM_4: 2}
 RHYTHM_SIZE = 6
 USER_NAME_LEN = 16
