@@ -39,7 +39,7 @@ class Op(IntEnum):
     EXP_B = 0x33
     PAGE = 0x34
     USER_NAMES = 0x41
-    UNKNOWN_43 = 0x43
+    PRESET_WRITE_ACK = 0x43  # the vendor restore waits for it after each 0xC3 [I]
     BACKUP_CHUNK = 0x44
 
     # --- host -> device ----------------------------------------------------
@@ -68,7 +68,7 @@ class Op(IntEnum):
     READ_CURRENT_PRESET = 0xB0
     WRITE_EXP_B = 0xB3
     SET_PAGE = 0xB4
-    USER_IR = 0xB5  # multipart upload/delete; also device ack
+    USER_IR = 0xB5  # multipart upload/delete; device acks with B5 [part] (last = 4) [I]
     USER_NR = 0xB7  # multipart upload/delete
     RESTORE_BEGIN = 0xBA  # destructive
     RESTORE_END = 0xBB

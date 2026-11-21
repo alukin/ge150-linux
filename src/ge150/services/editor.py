@@ -8,6 +8,8 @@ persistent: callers (CLI, GUI) must ask the user before calling them.
 from __future__ import annotations
 
 import contextlib
+import queue
+import time
 from collections.abc import Callable
 
 from ge150.model.catalog import ModuleInfo, Param, load_catalog
@@ -164,10 +166,15 @@ class Editor:
 
     # --- persistent operations -------------------------------------------------
 
-    def _write_preset(self, preset: Preset) -> None:
+    def _write_preset(self, preset: Preset, ack_timeout: float = 2.0) -> None:
+        """``0xB4 5`` + ``0xC3``, then wait for the 0x43 acknowledgement the vendor
+        restore waits for (not confirmed on hardware yet: a timeout is tolerated)."""
         self.session.send(msg.set_page(SAVE_PAGE))
-        self.session.send(msg.write_preset(preset), delay=self.session.multipart_delay)
-        self.session.flush()
+        with self.session.expecting({Op.PRESET_WRITE_ACK}) as acks:
+            self.session.send(msg.write_preset(preset), delay=self.session.multipart_delay)
+            self.session.flush()
+            with contextlib.suppress(queue.Empty):
+                acks.get(timeout=ack_timeout)
         self.state.store_preset(preset)
 
     def save(self, slot: int | None = None, name: str | None = None) -> Preset:
@@ -230,10 +237,20 @@ class Editor:
         self._send_multipart_and_wait(msg.delete_user_slot_frames(op, slot_index), timeout)
 
     def _send_multipart_and_wait(self, frames: list[Frame], timeout: float) -> None:
-        self.session.send_multipart(frames[:-1])
-        # The acknowledgement frame is not confirmed on hardware yet [?].
-        with contextlib.suppress(ResponseTimeout):
-            self.session.request(frames[-1], expect=Op.USER_IR, timeout=timeout)
+        """Send every part, then wait for ``B5 [last part]`` (vendor: last IR part = 4).
+
+        The acknowledgement is not confirmed on hardware yet [I]: a timeout is tolerated.
+        """
+        last = frames[-1].data[0]
+        with self.session.expecting({Op.USER_IR}) as acks:
+            self.session.send_multipart(frames)
+            deadline = time.monotonic() + timeout
+            while (remaining := deadline - time.monotonic()) > 0:
+                try:
+                    if acks.get(timeout=remaining).data[:1] == bytes([last]):
+                        break
+                except queue.Empty:
+                    break
         reader.read_user_names(self.session)
 
     def read_ir_backup(self, timeout: float = 3.0) -> list[msg.BackupChunk]:

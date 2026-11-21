@@ -15,7 +15,8 @@ import logging
 import queue
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 
 from ge150.protocol.framing import Frame, FrameDecoder, split_reports
@@ -176,22 +177,28 @@ class DeviceSession:
         preset dumps) do not need a huge global timeout.
         """
         opcodes = self._expected(frame, expect)
-        waiter = _Waiter(opcodes, queue.Queue())
-        with self._lock:
-            self._waiters.append(waiter)
-        try:
+        with self.expecting(opcodes) as frames:
             if frame is not None:
                 self.send(frame)
             got: list[Frame] = []
             while len(got) < count and not (until and until(got)):
                 try:
-                    got.append(waiter.frames.get(timeout=timeout))
+                    got.append(frames.get(timeout=timeout))
                 except queue.Empty:
                     names = ", ".join(op_name(o) for o in sorted(opcodes))
                     raise ResponseTimeout(
                         f"timeout waiting for {names} ({len(got)}/{count} received)"
                     ) from self._error
             return got
+
+    @contextmanager
+    def expecting(self, opcodes: Iterable[int]) -> Iterator[queue.Queue[Frame]]:
+        """Register a waiter *before* sending several frames; yields its frame queue."""
+        waiter = _Waiter(frozenset(opcodes), queue.Queue())
+        with self._lock:
+            self._waiters.append(waiter)
+        try:
+            yield waiter.frames
         finally:
             with self._lock:
                 self._waiters.remove(waiter)

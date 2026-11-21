@@ -170,7 +170,7 @@ class FakeGE150:
             self.presets[slot] = p
             if slot == self.current_slot:
                 self._edit = p.copy()
-        return []
+        return [Frame(Op.PRESET_WRITE_ACK, b"\x01")]  # acknowledged like the vendor expects [I]
 
     def _write_exp(self, part: slice, d: bytes) -> list[Frame]:
         self.edit_buffer.words[part] = unpack_words(d, 3)
@@ -192,25 +192,26 @@ class FakeGE150:
 
     def _user_slot(self, op: Op, d: bytes) -> list[Frame]:
         part = d[0]
+        ack = [Frame(Op.USER_IR, bytes([part]))]  # B5 [part], last part = 4 for IR [I]
         if part == 0:
             self._uploads[op] = _Upload(slot=d[1])
-            return []
+            return ack
         upload = self._uploads.get(op)
         if upload is None:
             return []
         if part == 1:
             upload.name = decode_name(d[1 : 1 + msg.USER_NAME_LEN])
-            return []
+            return ack
         upload.chunks[part] = bytes(d[1:])
         if len(upload.chunks) < msg.USER_CHUNKS[op]:
-            return []
+            return ack
         index = upload.slot - msg.USER_FIRST_SLOT[op]
         names = self.ir_names if op == Op.USER_IR else self.nr_names
         if 0 <= index < msg.USER_SLOTS:
             names[index] = upload.name
             self.user_data[(op, index)] = b"".join(upload.chunks[k] for k in sorted(upload.chunks))
         del self._uploads[op]
-        return [Frame(Op.USER_IR, b"\x01")]  # [I] ack/status frame
+        return ack
 
     def _factory_reset(self, d: bytes) -> list[Frame]:
         fresh = FakeGE150()
