@@ -8,7 +8,7 @@ import os
 import sys
 from importlib import resources
 
-from PySide6.QtCore import QLoggingCategory
+from PySide6.QtCore import QLoggingCategory, QStandardPaths
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -43,7 +43,10 @@ def main(argv: list[str] | None = None) -> int:
     # Before the QApplication exists: Qt registers the app ID with the desktop portal at
     # start-up, and setting it later makes a second registration that the portal rejects.
     QApplication.setApplicationName("GE150 Editor")
-    QApplication.setDesktopFileName("ge150")
+    if QStandardPaths.locate(QStandardPaths.StandardLocation.ApplicationsLocation,
+                             "ge150.desktop"):
+        # Only when installed: the portal rejects an app ID without a .desktop file.
+        QApplication.setDesktopFileName("ge150")
     if "QT_LOGGING_RULES" not in os.environ:
         # Harmless Qt Wayland bug when the focus moves between text fields.
         QLoggingCategory.setFilterRules("qt.qpa.wayland.textinput.warning=false")
