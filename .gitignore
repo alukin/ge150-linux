@@ -12,3 +12,9 @@ dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Herramientas de agentes de IA (locales)
+.agents/
+.claude/
+.kiro/
+skills-lock.json
