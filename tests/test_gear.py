@@ -29,3 +29,12 @@ def test_user_photo_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     (folder / "ts808.png").write_bytes(b"x")
     assert gear.photo_path("ts808") == folder / "ts808.png"
     assert gear.photo_path("does-not-exist") is None
+
+
+def test_every_shipped_photo_is_credited() -> None:
+    photos = Path(gear.__file__).resolve().parents[1] / "data" / "photos"
+    credits = (photos / "CREDITS.md").read_text()
+    known = gear.all_gear()
+    for photo in photos.glob("*.jpg"):
+        assert photo.stem in known, photo.name
+        assert f"| `{photo.stem}` |" in credits, photo.name
