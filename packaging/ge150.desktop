@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=GE150 Editor
+GenericName=Multi-effects pedal editor
+Comment=Edit presets, IRs and backups of the Mooer GE150
+Comment[es]=Edita presets, IR y backups de la Mooer GE150
+Exec=ge150
+Icon=ge150
+Terminal=false
+Categories=AudioVideo;Audio;Music;
+Keywords=guitar;pedal;mooer;ge150;effects;preset;

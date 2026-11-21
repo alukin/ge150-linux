@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
+from importlib import resources
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ge150.protocol.session import DeviceSession
@@ -37,6 +39,9 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
     app = QApplication(sys.argv[:1])
     app.setApplicationName("GE150 Editor")
+    app.setDesktopFileName("ge150")
+    icon = resources.files("ge150.data").joinpath("ge150.svg")
+    app.setWindowIcon(QIcon(str(icon)))
     try:
         session = DeviceSession(_transport(args)).start()
     except TransportError as exc:

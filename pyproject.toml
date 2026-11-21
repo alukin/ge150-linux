@@ -23,7 +23,7 @@ ge150 = "ge150.ui.app:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ge150 = ["data/*.json"]
+ge150 = ["data/*.json", "data/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
