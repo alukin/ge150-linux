@@ -220,6 +220,8 @@ class FakeGE150:
     def _factory_reset(self, d: bytes) -> list[Frame]:
         fresh = FakeGE150()
         self.presets, self._edit, self.current_slot = fresh.presets, None, 1
+        self.system, self.rhythm = fresh.system, fresh.rhythm
+        self.ir_names, self.nr_names, self.user_data = fresh.ir_names, fresh.nr_names, {}
         return []
 
 

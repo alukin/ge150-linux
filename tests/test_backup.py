@@ -97,3 +97,17 @@ def test_session_reconnect(editor: Editor, sim: SimTransport) -> None:
     from ge150.services import reader
 
     assert reader.identify(editor.session).name == "MOOER_GE150"
+
+
+def test_factory_reset_restores_defaults(editor: Editor, sim: SimTransport) -> None:
+    from ge150.services.backup import factory_reset
+
+    editor.rename(7, "MINE")
+    editor.upload_user_slot(Op.USER_IR, 1, "MY IR", wav_ir.pack_planar([1] * 512))
+    sim.device.received.clear()
+    factory_reset(editor, settle=0)
+    ops = [f.opcode for f in sim.device.received]
+    assert ops[0] == Op.FACTORY_RESET and Op.IDENTIFY in ops
+    assert sim.device.presets[7].name == "PRESET 007"
+    assert sim.device.ir_names[1] == "EMPTY"
+    assert editor.state.presets[7].name == "PRESET 007"  # read back after the reset

@@ -78,6 +78,23 @@ def restore_backup(editor: Editor, backup: Backup, progress: Progress | None = N
     report("done", RESTORE_STEPS, RESTORE_STEPS)
 
 
+def factory_reset(editor: Editor, reconnect: bool = True, settle: float = 6.0) -> None:
+    """DESTRUCTIVE: ``0x8B 01`` restores the factory presets and settings (plan.md §2.5).
+
+    The vendor editor warns "The device will be reset. Please make a data backup." and
+    then closes: the pedal is expected to reboot like after a restore [?], so the link is
+    reopened and the pedal identified before reading everything again.
+    """
+    session = editor.session
+    if reconnect:
+        session.expect_reset()
+    session.send(Frame(Op.FACTORY_RESET, b"\x01"), delay=session.multipart_delay)
+    session.flush()
+    if reconnect:
+        wait_for_pedal(session, settle=settle)
+    editor.sync()
+
+
 def wait_for_pedal(session: DeviceSession, settle: float = 3.0, timeout: float = 60.0) -> None:
     """After ``0xBB`` the pedal writes its flash for a few seconds, then reboots and
     re-enumerates (verified on hardware). Reconnect and identify until it answers."""
