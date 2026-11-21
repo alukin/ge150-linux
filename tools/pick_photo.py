@@ -15,15 +15,20 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from PySide6.QtGui import QImage
 
 ROOT = Path(__file__).resolve().parents[1]
 PHOTOS = ROOT / "src" / "ge150" / "data" / "photos"
 CREDITS = PHOTOS / "CREDITS.md"
 HEADER = """# Gear photos
 
-Photos of the original gear each model is based on, from Wikimedia Commons. They belong to
-their authors under the licence listed for each one; they are **not** covered by the
-project's MIT licence. Brand and product names belong to their owners.
+Photos of the original gear each model is based on. Wikimedia Commons photos belong to
+their authors under the licence listed for each one; product photos (licence "©") belong
+to the manufacturer or shop whose page is linked. None of them is covered by the project's
+MIT licence. Brand and product names belong to their owners.
 
 | Gear | Photo | Author | Licence |
 |---|---|---|---|
@@ -62,6 +67,33 @@ def sheet(candidates: Path, out: Path, only: list[str]) -> None:
     del app
 
 
+def trim(image: QImage, tolerance: int = 24, margin: float = 0.04) -> QImage:
+    """Crop the plain background around a product photo (colour of the corners)."""
+    from PySide6.QtCore import QRect, Qt
+
+    small = image.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio)
+    w, h = small.width(), small.height()
+    corners = [small.pixelColor(x, y) for x, y in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1))]
+    bg = [sum(c.getRgb()[i] for c in corners) // 4 for i in range(3)]
+
+    def differs(x: int, y: int) -> bool:
+        rgb = small.pixelColor(x, y).getRgb()
+        return max(abs(rgb[i] - bg[i]) for i in range(3)) > tolerance
+
+    cols = [x for x in range(w) if any(differs(x, y) for y in range(0, h, 2))]
+    rows = [y for y in range(h) if any(differs(x, y) for x in range(0, w, 2))]
+    if not cols or not rows:
+        return image
+    sx, sy = image.width() / w, image.height() / h
+    left, right = min(cols) * sx, (max(cols) + 1) * sx
+    top, bottom = min(rows) * sy, (max(rows) + 1) * sy
+    pad = margin * max(right - left, bottom - top)
+    box = QRect(int(max(0, left - pad)), int(max(0, top - pad)),
+                int(min(image.width(), right + pad) - max(0, left - pad)),
+                int(min(image.height(), bottom + pad) - max(0, top - pad)))
+    return image.copy(box)
+
+
 def pick(candidates: Path, choices: list[str]) -> None:
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QImage
@@ -78,7 +110,7 @@ def pick(candidates: Path, choices: list[str]) -> None:
         folder = folder or gid
         meta = json.loads((candidates / folder / "meta.json").read_text())
         hit = meta["hits"][int(n)]
-        image = QImage(str(candidates / folder / f"{n}.jpg"))
+        image = trim(QImage(str(candidates / folder / f"{n}.jpg")))
         if image.width() > 640 or image.height() > 640:
             image = image.scaled(640, 640, Qt.AspectRatioMode.KeepAspectRatio,
                                  Qt.TransformationMode.SmoothTransformation)
