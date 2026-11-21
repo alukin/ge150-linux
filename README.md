@@ -15,7 +15,15 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Guardar, renombrar y copiar presets.
 - Importar y exportar presets `.mo`, compatibles con la app oficial.
 - Cargar IR desde WAV a las ranuras de usuario (CAB 27-36), borrarlas y exportarlas a WAV.
+- Cargar capturas NR (`.amp`) a las ranuras de amplificador de usuario (AMP 56-65).
+- Backup completo y restauración en formato `.mbf`, compatible con la app oficial.
 - Seguir los cambios hechos en la propia pedalera (footswitch, knobs).
+
+## Instalación en Arch Linux
+
+```bash
+cd packaging && makepkg -si     # instala ge150, ge150ctl, la regla udev, el .desktop y el icono
+```
 
 ## Instalación (desarrollo)
 
@@ -60,6 +68,9 @@ ge150ctl import mi.mo 150
 ge150ctl ir-export carpeta/            # IR de usuario → WAV
 ge150ctl ir-upload 8 cab.wav           # WAV → ranura IR 8 (CAB 34)
 ge150ctl ir-delete 8
+ge150ctl nr-upload 1 captura.amp       # .amp → ranura NR 1 (AMP 56)
+ge150ctl backup GE150.mbf              # backup completo (solo lectura)
+ge150ctl restore GE150.mbf             # SOBRESCRIBE toda la pedalera
 
 ge150ctl --sim <comando>               # cualquier comando contra el simulador
 ge150ctl --raw <comando>               # muestra cada reporte USB de 64 bytes

@@ -557,14 +557,26 @@ ge150-linux/
 - [x] `Editor.upload_user_slot` / `delete_user_slot` / `read_ir_backup`; CLI `ir-upload`, `ir-delete`, `ir-export`
       (este último probado en hardware: exporta los 7 IR del usuario a WAV).
 - [ ] Probar `ir-upload`/`ir-delete` en hardware sobre una ranura vacía (8-10), con autorización del usuario.
-- [ ] `formats/amp_nr.py` (requiere un `.amp` de ejemplo; formato por analizar en `FUN_0041f700`).
+- [x] `formats/amp_nr.py`: `.amp` = 512 int32 LE + int32 de suma + `"2.0"` al final (`FUN_0041f700`) [V];
+      subida `0xB7` en 4 planos de bytes, del MSB al LSB (`FUN_004153b0`) [V]. CLI `nr-upload`/`nr-delete`.
+- [ ] Probar NR en hardware (en la app oficial V1.3.8 los AMP 56-65 están comentados en el XML: puede que
+      la pedalera no los exponga).
 
 ### Fase 8 — Archivos: `.mo` y `.mbf` (`.mo` ✅)
 - [x] `.mo` (`formats/mo_json.py`): mismo JSON que la app oficial (claves ordenadas, sangría de 4),
       conversión del TIME del DELAY por subdivisión. Ida y vuelta exacta en 180 de los 200 presets reales; el
       resto difiere 1-3 ms en tiempos subdivididos, porque el formato los guarda redondeados. CLI `export`/`import`, GUI.
 - [ ] Validar con un `.mo` exportado por la app oficial (sobre todo el TIME con subdivisión).
-- [ ] `.mbf`: decompilar `FUN_00436a40` (escritor) y `FUN_00437a00` (lector); el backup del IR viene de `0xC4`.
+- [x] `.mbf` (`formats/mbf.py`): cabecera de 0x400 B (`MOOER`, `MOOER_GE150`, `V1.0.0`/`V1.0.2`/`V1.0.0`, `BUFF`,
+      número de secciones, offsets u64 absolutos y suma u64 en 0x3F8) + secciones `GE150_PRESET` (0xC3, 200 × 0xA0),
+      `GE150_SYSTEM` (0xFF, 10 B), `GE150_RHYTHM` (0x8D, 6 B) y `GE150_IR` (0xB5, 0x610 por IR = trozo `0x44`).
+      Reconstruido de `FUN_004389d0`/`FUN_00435a80`/`FUN_00436a40` (escritor) y `FUN_00437330`/`FUN_00434c20`/`FUN_00437a00` (lector) [V].
+- [x] `services/backup.py` + CLI `backup`/`restore` + GUI (Archivo → Backup/Restaurar). Backup real de la pedalera
+      hecho con éxito (solo lectura): `reference/captures/GE150_2026-11-21.mbf`.
+- [x] Acks del restore oficial: tras cada `0xC3` espera **`0x43`**; tras subir un IR espera **`0xB5` con
+      `data[0] = 4`** (última parte). El `Editor` los espera, pero tolera su ausencia hasta verificarlos [I].
+- [ ] Ojo: el restore oficial envía el slot del IR **en base 0** en la parte 0 de `0xB5`, mientras que la subida
+      normal usa `0x1A + n`. Usamos `0x1A + n` en ambos casos; verificar en hardware.
 - **Aceptación:** un `.mbf` hecho con la app oficial se restaura con la nuestra, y al revés.
 
 ### Fase 9 — Actualización de firmware (opcional, alto riesgo)
@@ -572,8 +584,11 @@ ge150-linux/
 - [ ] Parser `.mr` con validación de CRC de cada sección; modo `--dry-run` que solo valida.
 - [ ] Probar primero con capturas de la app oficial; documentar la recuperación en modo bootloader (PID `0x5750`).
 
-### Fase 10 — Empaquetado
-- [ ] `.desktop`, icono propio, instalación de la regla udev, PKGBUILD/AUR, AppImage o Flatpak.
+### Fase 10 — Empaquetado (parcial)
+- [x] `packaging/ge150.desktop`, icono propio `packaging/ge150.svg` (también en `ge150/data` como icono de ventana),
+      `packaging/PKGBUILD` (Arch, desde git: instala los scripts, la regla udev, el .desktop y el icono).
+- [ ] Definir la licencia del proyecto (el PKGBUILD usa `custom:unknown` mientras tanto).
+- [ ] AUR, AppImage o Flatpak.
 
 ---
 
