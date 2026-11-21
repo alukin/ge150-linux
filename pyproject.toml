@@ -17,6 +17,7 @@ dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10"]
 
 [project.scripts]
 ge150ctl = "ge150.cli:main"
+ge150 = "ge150.ui.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -45,3 +46,13 @@ strict = true
 [[tool.mypy.overrides]]
 module = ["usb", "usb.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["PySide6", "PySide6.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# The distribution PySide6 may ship without type stubs: Qt classes are then ``Any``.
+module = ["ge150.ui.*"]
+disallow_subclassing_any = false
+warn_return_any = false

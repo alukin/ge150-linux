@@ -1,0 +1,334 @@
+"""Main window: preset list, signal chain, module editor, menus and status bar."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QInputDialog,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QProgressBar,
+    QSplitter,
+    QVBoxLayout,
+    QWidget,
+)
+
+from ge150 import __version__
+from ge150.formats import mo_json
+from ge150.model import device_state as ds
+from ge150.model.preset import NAME_LEN, is_valid_name
+from ge150.protocol.session import DeviceSession
+from ge150.services import reader
+from ge150.services.editor import Editor
+from ge150.ui.bridge import StateBridge
+from ge150.ui.chain_view import ChainView
+from ge150.ui.dialogs import ExpDialog, IrDialog
+from ge150.ui.module_editor import ModuleEditor
+from ge150.ui.preset_list import PresetList
+from ge150.ui.worker import TaskRunner
+
+STYLE = """
+QFrame#moduleTile { border: 1px solid palette(mid); border-radius: 6px; }
+QFrame#moduleTile[selected="true"] {
+    border: 2px solid #1e88e5; background: palette(alternate-base);
+}
+QPushButton#power { font-weight: bold; padding: 4px; border-radius: 4px; }
+QPushButton#power:checked { background: #2e7d32; color: white; }
+QPushButton#power:!checked { background: palette(button); color: #a0a0a0; }
+QLabel#modelLabel { font-size: 11px; }
+QLabel#modelLabel:disabled { color: #8c8c8c; }
+"""
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, editor: Editor, session: DeviceSession) -> None:
+        super().__init__()
+        self.editor, self.session = editor, session
+        self.state = editor.state
+        self.runner = TaskRunner(self)
+        self.bridge = StateBridge(self.state, session, self)
+        self.setWindowTitle("GE150 Editor")
+        self.setStyleSheet(STYLE)
+        self.resize(1200, 720)
+
+        self.presets = PresetList(self.state)
+        self.header = QLabel("Conectando…")
+        self.header.setStyleSheet("font-size: 18px; font-weight: bold; padding: 4px;")
+        self.chain = ChainView(editor)
+        self.module_editor = ModuleEditor(editor)
+        right = QWidget()
+        right_layout = QVBoxLayout(right)
+        right_layout.addWidget(self.header)
+        right_layout.addWidget(self.chain)
+        right_layout.addWidget(self.module_editor, 1)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.addWidget(self.presets)
+        splitter.addWidget(right)
+        splitter.setSizes([280, 920])
+        self.setCentralWidget(splitter)
+        self.central = splitter
+
+        self.progress = QProgressBar()
+        self.progress.setMaximumWidth(220)
+        self.progress.hide()
+        self.status_label = QLabel()
+        self.statusBar().addPermanentWidget(self.status_label)
+        self.statusBar().addPermanentWidget(self.progress)
+
+        self._build_menus()
+        self.presets.activated.connect(self.load_preset)
+        self.presets.action_requested.connect(self._preset_action)
+        self.chain.module_selected.connect(self.module_editor.show_module)
+        self.chain.error.connect(self._error)
+        self.module_editor.error.connect(self._error)
+        self.bridge.changed.connect(self._on_change)
+        self.bridge.disconnected.connect(self._on_disconnect)
+        self.runner.busy_changed.connect(lambda busy: self.progress.setVisible(busy))
+        self.central.setEnabled(False)
+
+    # --- menus ---------------------------------------------------------------
+
+    def _action(self, menu_name: str, text: str, slot, shortcut: str | None = None) -> QAction:  # type: ignore[no-untyped-def]
+        menu = self._menus.get(menu_name) or self.menuBar().addMenu(menu_name)
+        self._menus[menu_name] = menu
+        action = QAction(text, self)
+        if shortcut:
+            action.setShortcut(QKeySequence(shortcut))
+        action.triggered.connect(slot)
+        menu.addAction(action)
+        return action
+
+    def _build_menus(self) -> None:
+        self._menus: dict[str, Any] = {}
+        self._action("&Archivo", "Importar .mo al preset seleccionado…", self.import_mo, "Ctrl+I")
+        self._action("&Archivo", "Exportar preset seleccionado…", self.export_mo, "Ctrl+E")
+        self._action("&Archivo", "Exportar los 200 presets…", self.export_all)
+        self._action("&Archivo", "Guardar snapshot JSON…", self.save_snapshot)
+        self._action("&Archivo", "Salir", self.close, "Ctrl+Q")
+        self._action("&Preset", "Guardar", self.save_current, "Ctrl+S")
+        self._action("&Preset", "Guardar en otra ranura…", self.save_as, "Ctrl+Shift+S")
+        self._action("&Preset", "Renombrar…", lambda: self.rename(self.state.current_slot), "F2")
+        self._action("&Preset", "Descartar cambios", self.discard)
+        self._action("&Herramientas", "IR de usuario…", self.open_ir)
+        self._action("&Herramientas", "Pedal de expresión…", self.open_exp)
+        self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
+        self._action("Ay&uda", "Acerca de", self.about)
+
+    # --- sync ------------------------------------------------------------------
+
+    def start_sync(self) -> None:
+        self.statusBar().showMessage("Leyendo la pedalera…")
+        self.central.setEnabled(False)
+        self.runner.run(self.editor.sync, self._synced, self._error)
+
+    def _synced(self, _: object) -> None:
+        info = self.state.info
+        version = f"{info.name} {info.firmware}" if info else "?"
+        self.status_label.setText(f"{version}  ·  {self.session.transport.description}")
+        self.statusBar().showMessage("Listo", 3000)
+        self.central.setEnabled(True)
+        self.presets.reload()
+        self._refresh_current()
+        self.module_editor.show_module(self.chain.selected)
+
+    # --- state changes (GUI thread) ------------------------------------------
+
+    def _on_change(self, kind: str, slot: int, module: int) -> None:
+        if kind == ds.KIND_PRESETS:
+            self.presets.reload()
+        elif kind == ds.KIND_PRESET:
+            self.presets.update_slot(slot)
+        elif kind in (ds.KIND_CURRENT, ds.KIND_SELECTED):
+            self._refresh_current()
+        elif kind in (ds.KIND_MODULE, ds.KIND_EXP):
+            self.chain.refresh()
+            if module in (-1, self.module_editor.index):
+                self.module_editor.refresh()
+            self._refresh_header()
+            if self.state.current_slot:
+                self.presets.update_slot(self.state.current_slot)
+
+    def _refresh_current(self) -> None:
+        self.chain.refresh()
+        self.module_editor.refresh()
+        self.presets.mark_current()
+        self._refresh_header()
+
+    def _refresh_header(self) -> None:
+        slot = self.state.current_slot
+        stored = self.state.presets.get(slot or 0)
+        name = stored.name if stored else ""
+        mark = "   (modificado)" if self.state.dirty else ""
+        self.header.setText(f"{slot or '-':>3}  {name}{mark}")
+
+    def _on_disconnect(self, reason: str) -> None:
+        self.central.setEnabled(False)
+        self.status_label.setText("Desconectada")
+        QMessageBox.warning(self, "Pedalera desconectada",
+                            f"Se perdió la conexión con la GE150:\n{reason}\n\n"
+                            "Vuelve a conectarla y reinicia el editor.")
+
+    def _error(self, message: str) -> None:
+        self.statusBar().showMessage(f"Error: {message}", 8000)
+        QMessageBox.warning(self, "Error", message)
+
+    # --- preset actions ------------------------------------------------------
+
+    def _confirm(self, text: str) -> bool:
+        answer = QMessageBox.question(self, "Confirmar", text)
+        return answer == QMessageBox.StandardButton.Yes
+
+    def _resolve_dirty(self) -> bool:
+        """Ask what to do with unsaved edits. False = cancel the operation."""
+        if not self.state.dirty:
+            return True
+        answer = QMessageBox.question(
+            self, "Cambios sin guardar",
+            "El preset actual tiene cambios sin guardar. ¿Guardarlos antes de continuar?",
+            QMessageBox.StandardButton.Save | QMessageBox.StandardButton.Discard
+            | QMessageBox.StandardButton.Cancel)
+        if answer == QMessageBox.StandardButton.Cancel:
+            return False
+        if answer == QMessageBox.StandardButton.Save:
+            self.editor.save()
+        return True
+
+    def load_preset(self, slot: int) -> None:
+        if slot == self.state.current_slot or not self._resolve_dirty():
+            return
+        self.runner.run(lambda: self.editor.select(slot), None, self._error)
+
+    def save_current(self) -> None:
+        slot = self.state.current_slot
+        stored = self.state.presets.get(slot or 0)
+        if slot and self._confirm(f"¿Guardar los cambios en el preset {slot} "
+                                  f"({stored.name if stored else ''})?"):
+            self.runner.run(self.editor.save, lambda _: self._refresh_header(), self._error)
+
+    def save_as(self) -> None:
+        slot, ok = QInputDialog.getInt(self, "Guardar en", "Ranura de destino (1-200):",
+                                       self.presets.selected_slot() or 1, 1, 200)
+        if not ok:
+            return
+        current = self.state.presets.get(self.state.current_slot or 0)
+        name, ok = QInputDialog.getText(self, "Nombre", "Nombre del preset:",
+                                        text=current.name if current else "")
+        if not ok or not self._valid_name(name):
+            return
+        target = self.state.presets.get(slot)
+        if self._confirm(f"¿Sobrescribir el preset {slot} ({target.name if target else ''})?"):
+            self.runner.run(lambda: self.editor.save(slot, name), None, self._error)
+
+    def _valid_name(self, name: str) -> bool:
+        if is_valid_name(name):
+            return True
+        QMessageBox.warning(self, "Nombre no válido",
+                            f"Hasta {NAME_LEN} caracteres: letras, números, '-' y espacio.")
+        return False
+
+    def rename(self, slot: int | None) -> None:
+        stored = self.state.presets.get(slot or 0)
+        if stored is None:
+            return
+        name, ok = QInputDialog.getText(self, "Renombrar", f"Nuevo nombre del preset {slot}:",
+                                        text=stored.name)
+        if ok and name != stored.name and self._valid_name(name):
+            self.runner.run(lambda: self.editor.rename(stored.slot, name), None, self._error)
+
+    def discard(self) -> None:
+        slot = self.state.current_slot
+        if slot and self.state.dirty and self._confirm("¿Descartar los cambios sin guardar?"):
+            self.runner.run(lambda: self.editor.select(slot), None, self._error)
+
+    def _preset_action(self, action: str, slot: int) -> None:
+        if action == "rename":
+            self.rename(slot)
+        elif action == "copy":
+            self.presets.clipboard = slot
+            self.statusBar().showMessage(f"Preset {slot} copiado", 3000)
+        elif action == "paste" and self.presets.clipboard is not None:
+            source = self.presets.clipboard
+            target = self.state.presets.get(slot)
+            if self._confirm(f"¿Sobrescribir el preset {slot} ({target.name if target else ''}) "
+                             f"con el {source}?"):
+                self.runner.run(lambda: self.editor.copy_preset(source, slot), None, self._error)
+        elif action == "export":
+            self.export_mo(slot)
+        elif action == "import":
+            self.import_mo(slot)
+
+    # --- files ---------------------------------------------------------------
+
+    def export_mo(self, slot: int | None = None) -> None:
+        slot = slot or self.presets.selected_slot() or self.state.current_slot
+        preset = self.state.presets.get(slot or 0)
+        if preset is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(self, "Exportar preset", f"{preset.name}.mo",
+                                              "Preset GE150 (*.mo)")
+        if path:
+            mo_json.save(path, preset)
+            self.statusBar().showMessage(f"Exportado {path}", 4000)
+
+    def export_all(self) -> None:
+        directory = QFileDialog.getExistingDirectory(self, "Carpeta de destino")
+        if not directory:
+            return
+        for slot, preset in sorted(self.state.presets.items()):
+            clean = "".join(c if c.isalnum() or c in " -_" else "_" for c in preset.name).strip()
+            mo_json.save(Path(directory) / f"{slot:03d} {clean or 'unnamed'}.mo", preset)
+        self.statusBar().showMessage(f"{len(self.state.presets)} presets exportados", 4000)
+
+    def import_mo(self, slot: int | None = None) -> None:
+        slot = slot or self.presets.selected_slot()
+        base = self.state.presets.get(slot or 0)
+        if base is None:
+            return
+        path, _ = QFileDialog.getOpenFileName(self, "Importar preset", "", "Preset GE150 (*.mo)")
+        if not path:
+            return
+        try:
+            preset = mo_json.load(path, base)
+        except (OSError, mo_json.MoError) as exc:
+            self._error(str(exc))
+            return
+        if self._confirm(f"¿Sobrescribir el preset {base.slot} ({base.name}) con «{preset.name}»?"):
+            self.runner.run(lambda: self.editor.copy_preset_data(preset), None, self._error)
+
+    def save_snapshot(self) -> None:
+        path, _ = QFileDialog.getSaveFileName(self, "Guardar snapshot", "ge150_snapshot.json",
+                                              "JSON (*.json)")
+        if not path:
+            return
+
+        def done(data: object) -> None:
+            Path(path).write_text(json.dumps(data, indent=1) + "\n")
+            self.statusBar().showMessage(f"Snapshot guardado en {path}", 4000)
+
+        self.runner.run(lambda: reader.snapshot(self.session), done, self._error)
+
+    # --- tools -----------------------------------------------------------------
+
+    def open_ir(self) -> None:
+        IrDialog(self.editor, self.runner, self).exec()
+
+    def open_exp(self) -> None:
+        if self.state.edit is not None:
+            ExpDialog(self.editor, self).exec()
+
+    def about(self) -> None:
+        QMessageBox.about(self, "GE150 Editor",
+                          f"GE150 Editor {__version__}\nEditor libre para la Mooer GE150 en "
+                          "Linux.\nhttps://github.com/wh01s17/ge150-linux")
+
+    def closeEvent(self, event: QCloseEvent) -> None:
+        self.runner.wait(5000)
+        self.bridge.detach()
+        super().closeEvent(event)
