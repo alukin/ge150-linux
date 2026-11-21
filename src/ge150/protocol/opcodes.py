@@ -68,8 +68,8 @@ class Op(IntEnum):
     READ_CURRENT_PRESET = 0xB0
     WRITE_EXP_B = 0xB3
     SET_PAGE = 0xB4
-    USER_IR = 0xB5  # multipart upload/delete; device acks with B5 [part] (last = 4) [I]
-    USER_NR = 0xB7  # multipart upload/delete
+    USER_IR = 0xB5  # multipart upload/delete; the pedal acks each part: B5 [part] [V]
+    USER_NR = 0xB7  # multipart upload/delete; the pedal acks each part: B7 [part] [V]
     RESTORE_BEGIN = 0xBA  # destructive
     RESTORE_END = 0xBB
     READ_USER_NAMES = 0xC1

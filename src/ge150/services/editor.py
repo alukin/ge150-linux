@@ -237,12 +237,14 @@ class Editor:
         self._send_multipart_and_wait(msg.delete_user_slot_frames(op, slot_index), timeout)
 
     def _send_multipart_and_wait(self, frames: list[Frame], timeout: float) -> None:
-        """Send every part, then wait for ``B5 [last part]`` (vendor: last IR part = 4).
+        """Send every part, then wait for the acknowledgement of the last one.
 
-        The acknowledgement is not confirmed on hardware yet [I]: a timeout is tolerated.
+        Verified on hardware: the pedal answers every part with the same opcode and the
+        part number (``B5 00..04`` for an IR, ``B7 00..05`` for an NR); a timeout is
+        tolerated.
         """
         last = frames[-1].data[0]
-        with self.session.expecting({Op.USER_IR}) as acks:
+        with self.session.expecting({frames[-1].opcode}) as acks:
             self.session.send_multipart(frames)
             deadline = time.monotonic() + timeout
             while (remaining := deadline - time.monotonic()) > 0:
