@@ -7,8 +7,8 @@ Exposes the subset of the ``QComboBox`` interface the module page uses (``count`
 
 from __future__ import annotations
 
-from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QIcon, QPixmap
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QIcon, QPixmap, QResizeEvent
 from PySide6.QtWidgets import QListView, QListWidget, QListWidgetItem, QWidget
 
 from ge150.model.gear import Gear
@@ -75,6 +75,18 @@ class ModelGallery(QListWidget):
         item = self.item(index)
         if item is not None:
             self.scrollToItem(item, QListWidget.ScrollHint.PositionAtCenter)
+            # Again once the grid is laid out (right after filling it the rows are unknown).
+            QTimer.singleShot(0, lambda: self._scroll_to(index))
+
+    def _scroll_to(self, index: int) -> None:
+        item = self.item(index)
+        if item is not None and self.currentRow() == index:
+            self.doItemsLayout()  # the grid is laid out lazily: place the items first
+            self.scrollToItem(item, QListWidget.ScrollHint.PositionAtCenter)
+
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        QTimer.singleShot(0, lambda: self._scroll_to(self.currentRow()))
 
     def currentText(self) -> str:
         item = self.currentItem()
