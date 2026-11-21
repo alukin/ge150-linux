@@ -28,6 +28,7 @@ from ge150.ui.mic_view import MicPlacement
 from ge150.ui.model_gallery import ModelGallery
 
 DEBOUNCE_MS = 40
+USER_SLOT_GEAR = ("c_user", "user_nr")
 COLUMNS = 4
 
 
@@ -153,7 +154,10 @@ class ModuleEditor(QFrame):
         gear, title, knobs, on = module_look(self.editor, self.index)
         self.view.set_gear(gear, title, knobs, on)
         has_photo = self.view.photo is not None
-        self.based_on.setText("" if gear is FALLBACK else describe(gear, has_photo))
+        caption = "" if gear is FALLBACK else describe(gear, has_photo)
+        if gear.gid in USER_SLOT_GEAR:
+            caption = f"{gear.name}: {title}"
+        self.based_on.setText(caption)
 
     def _build_params(self, block: ModuleBlock) -> None:
         for widget in self.params:

@@ -191,8 +191,8 @@ amp("c_diezel", "Diezel 4x12", "cab", "#141414", "#141414", "#262626", speakers=
     query="Diezel 4x12 cabinet")
 amp("c_acoustic", "1x12 acoustic cabinet", "cab", "#7a5233", "#7a5233", "#2a2018",
     speakers="1x12", query="")
-amp("c_user", "User IR", "cab", "#232a33", "#232a33", "#3a4452", speakers="1x12", query="")
-amp("user_nr", "User NR capture", "head", "#232a33", "#2c3540", "#3a4452", text="#7fd3ff",
+amp("c_user", "IR de usuario", "cab", "#232a33", "#232a33", "#3a4452", speakers="1x12", query="")
+amp("user_nr", "Captura NR de usuario", "head", "#232a33", "#2c3540", "#3a4452", text="#7fd3ff",
     query="")
 # --- NS / EQ / MOD / DELAY / REVERB (Mooer originals, drawn only) ----------------------
 for gid, name, colour, text in (
@@ -234,6 +234,9 @@ for gid, entry in G.items():
     if gid.startswith(("mod", "delay", "reverb", "mooer_", "custom_")) and not name.startswith(
             "Mooer"):
         entry["generic"] = True
+
+G["c_user"]["generic"] = True  # user slots: the caption shows the loaded file name
+G["user_nr"]["generic"] = True
 
 # --- reference photos -------------------------------------------------------------------
 # Effects the manual ties to a classic pedal without being based on a Mooer unit show a
