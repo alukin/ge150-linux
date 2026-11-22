@@ -1,0 +1,151 @@
+"""Chat with Claude Code or Codex acting on the pedal through ``ge150-mcp`` (phase 11.3).
+
+Unlike :mod:`ge150.services.tone_ai` (one JSON proposal, no tools), the agent reads and
+changes the sound itself with the MCP tools; with the GE150 editor open ``ge150-mcp``
+forwards to it, so every change shows at once and storing asks the user. Each backend keeps
+its session id so follow-ups ("a bit less gain") continue the same conversation. Only the
+``ge150`` tools are enabled: no shell, no file access.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+
+from ge150.mcp_server.install import server_command
+from ge150.services.tone_ai import ToneAIError
+
+TIMEOUT_S = 900  # the user may take a while to confirm a save or to pick an IR
+
+GUIDE = """You are the tone assistant of the GE150 editor, a Linux editor for the MOOER GE150
+guitar multi-effects pedal. Use the ge150 tools to read the current sound and the catalogue
+and to change the sound live. Prefer one apply_patch with every module you change. Only call
+save_preset or load_tone3000_ir when the user asks to save or to get an IR. Answer in the
+user's language, briefly: what you changed and why, as a short list. You cannot use any
+other tool, file or command."""
+
+
+@dataclass
+class Reply:
+    text: str
+    session: str = ""
+
+
+def _workdir() -> Path:
+    base = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    path = Path(base) / "ge150" / "agent"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _run(args: list[str], stdin: str, cwd: Path) -> subprocess.CompletedProcess[str]:
+    try:
+        return subprocess.run(args, input=stdin, capture_output=True, text=True, cwd=cwd,
+                              timeout=TIMEOUT_S, check=False)
+    except FileNotFoundError as exc:
+        raise ToneAIError(f"{args[0]} is not installed") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise ToneAIError(f"{args[0]} did not finish within {TIMEOUT_S} s") from exc
+
+
+class Agent:
+    name = ""
+    command = ""
+
+    def __init__(self, model: str = "", server: list[str] | None = None) -> None:
+        self.model = model
+        self.server = server or server_command()
+        self.session = ""
+
+    @classmethod
+    def available(cls) -> bool:
+        return shutil.which(cls.command) is not None
+
+    def ask(self, request: str) -> str:
+        reply = self.run(request, self.session)
+        self.session = reply.session or self.session
+        return reply.text
+
+    def reset(self) -> None:
+        self.session = ""
+
+    def run(self, request: str, session: str) -> Reply:
+        raise NotImplementedError
+
+
+class ClaudeAgent(Agent):
+    """``claude -p`` with only the ge150 MCP server and its tools; ``--resume`` continues."""
+
+    name, command = "Claude", "claude"
+
+    def args(self, session: str) -> list[str]:
+        config = {"mcpServers": {"ge150": {"command": self.server[0], "args": self.server[1:]}}}
+        args = [self.command, "-p", "--output-format", "json", "--tools", "",
+                "--strict-mcp-config", "--setting-sources", "", "--mcp-config",
+                json.dumps(config), "--append-system-prompt", GUIDE,
+                "--allowedTools", "mcp__ge150__*"]
+        if session:
+            args += ["--resume", session]
+        if self.model:
+            args += ["--model", self.model]
+        return args
+
+    def run(self, request: str, session: str) -> Reply:
+        result = _run(self.args(session), request, _workdir())  # stdin: --allowedTools is variadic
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError as exc:
+            raise ToneAIError(f"claude: {(result.stderr or result.stdout).strip()[:300]}") from exc
+        if data.get("is_error"):
+            raise ToneAIError(f"claude: {data.get('result') or data.get('subtype')}")
+        return Reply(str(data.get("result", "")).strip(), str(data.get("session_id", "")))
+
+
+class CodexAgent(Agent):
+    """``codex exec`` (read-only sandbox) with the ge150 MCP server; ``exec resume`` continues."""
+
+    name, command = "Codex", "codex"
+
+    def args(self, session: str, out: Path) -> list[str]:
+        config = [f"mcp_servers.ge150.command={json.dumps(self.server[0])}",
+                  f"mcp_servers.ge150.args={json.dumps(self.server[1:])}",
+                  'sandbox_mode="read-only"', 'approval_policy="never"',
+                  f"developer_instructions={json.dumps(GUIDE)}"]
+        args = [self.command, "exec"]
+        if session:
+            args += ["resume", session]
+        args += ["--skip-git-repo-check", "--json", "-o", str(out)]
+        for item in config:
+            args += ["-c", item]
+        if self.model:
+            args += ["-m", self.model]
+        return [*args, "-"]
+
+    def run(self, request: str, session: str) -> Reply:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "answer.txt"
+            result = _run(self.args(session, out), request, _workdir())
+            text = out.read_text().strip() if out.exists() else ""
+        thread = session
+        for line in result.stdout.splitlines():
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if event.get("type") == "thread.started":
+                thread = str(event.get("thread_id", thread))
+        if result.returncode != 0 or not text:
+            raise ToneAIError(f"codex: {(result.stderr or result.stdout).strip()[-300:]}")
+        return Reply(text, thread)
+
+
+AGENTS: dict[str, type[Agent]] = {"claude": ClaudeAgent, "codex": CodexAgent}
+
+
+def available_agents() -> list[str]:
+    return [key for key, cls in AGENTS.items() if cls.available()]
