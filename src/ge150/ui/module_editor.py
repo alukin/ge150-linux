@@ -156,8 +156,19 @@ class ModuleEditor(QFrame):
         has_photo = self.view.photo is not None
         caption = "" if gear is FALLBACK else describe(gear, has_photo)
         if gear.gid in USER_SLOT_GEAR:
-            caption = f"{gear.name}: {title}"
+            caption = f"{gear.name}: {title}" + self._ir_origin()
         self.based_on.setText(caption)
+
+    def _ir_origin(self) -> str:
+        """" · TONE3000: author (licence)" for a user CAB slot that came from TONE3000."""
+        names = self.editor.state.user_names
+        model = self.info.model_for_type(self.editor.module(self.index).type)
+        if names is None or model is None or not 27 <= model.number <= 36:
+            return ""
+        from ge150.services.tone3000 import IrSources
+
+        source = IrSources().matching(names.ir).get(str(model.number - 26))
+        return f"  ·  TONE3000: {source['author']} ({source['license']})" if source else ""
 
     def _build_params(self, block: ModuleBlock) -> None:
         for widget in self.params:
@@ -176,7 +187,7 @@ class ModuleEditor(QFrame):
         user = ""
         if model is not None and model.user_slot:
             user = ("Ranura de usuario: el IR/NR cargado en la pedalera. "
-                    "Gestiónalas en Herramientas → IR de usuario.")
+                    "Cárgalas desde la pestaña TONE3000 o en Herramientas → IR de usuario.")
         self.note.setText(user)
 
     # --- user actions --------------------------------------------------------
