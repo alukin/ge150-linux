@@ -56,6 +56,13 @@ QPushButton#contextChip:!checked {{
     background: transparent; color: {MUTED}; border-style: dashed;
 }}
 QPushButton#contextChip:hover {{ border-color: {ACCENT}; }}
+QToolButton#guitarChip {{
+    background: transparent; color: {MUTED}; border: 1px dashed {BORDER}; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px;
+}}
+QToolButton#guitarChip[on="true"] {{ background: {RAISED}; color: {TEXT}; border-style: solid; }}
+QToolButton#guitarChip:hover {{ border-color: {ACCENT}; }}
+QToolButton#guitarChip::menu-indicator {{ image: none; width: 0; }}
 QToolButton#pill {{
     background: transparent; color: {MUTED}; border: 1px solid {BORDER}; border-radius: 11px;
     padding: 2px 9px; font-size: 12px; min-height: 18px;
@@ -148,9 +155,23 @@ QPushButton#power {{
 }}
 QPushButton#power:checked {{ background: #1f7a3a; border-color: #2fb35a; color: white; }}
 
-QLineEdit {{
+QLineEdit, QPlainTextEdit#guitarField {{
     background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px 10px;
 }}
+QPlainTextEdit#guitarField {{ padding: 2px 6px; }}
+QLabel#guitarPicture {{
+    background: {PANEL}; border-radius: 12px; color: {MUTED}; padding: 8px;
+}}
+QTextBrowser#guitarReport {{
+    background: {PANEL}; border: 1px solid {BORDER}; border-radius: 8px; padding: 4px;
+    color: {MUTED}; font-size: 12px;
+}}
+QLabel#evidenceTag {{ font-size: 11px; font-weight: 700; border-radius: 9px; padding: 3px 0; }}
+QLabel#evidenceTag[level="oficial"] {{ background: #173d26; color: #6fdc95; }}
+QLabel#evidenceTag[level="verificado"] {{ background: #16324a; color: #7fc4ff; }}
+QLabel#evidenceTag[level="deducido"] {{ background: #3d3216; color: #f0c860; }}
+QLabel#evidenceTag[level="probable"] {{ background: #43221a; color: #ff9b7a; }}
+QLineEdit:focus, QPlainTextEdit#guitarField:focus {{ border-color: {ACCENT}; }}
 QListWidget {{
     background: {PANEL}; border: none; border-radius: 10px; padding: 4px; outline: none;
 }}

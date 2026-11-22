@@ -27,6 +27,7 @@ def app() -> QApplication:
 def window(app: QApplication, monkeypatch: pytest.MonkeyPatch,
            tmp_path: "os.PathLike[str]") -> Iterator[MainWindow]:
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))  # the AI bridge discovery file
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))  # guitars, TONE3000 session
     monkeypatch.setattr(QMessageBox, "question",
                         lambda *a, **k: QMessageBox.StandardButton.Yes)
     sim = SimTransport()
@@ -248,8 +249,10 @@ def test_original_sound_is_the_saved_preset(window: MainWindow) -> None:
     assert panel.compare.isVisibleTo(panel)
     panel.compare.original.click()
     assert wait(lambda: editor.state.edit.words == saved)  # type: ignore[union-attr]
+    assert wait(panel.compare.isEnabled)  # the switch has finished
     panel.compare.suggested.click()
     assert wait(lambda: editor.state.edit.words != saved)  # type: ignore[union-attr]
+    assert wait(panel.compare.isEnabled)
     editor.save()  # keeping the suggestion: nothing left to compare
     assert wait(lambda: not panel.compare.isVisibleTo(panel))
 

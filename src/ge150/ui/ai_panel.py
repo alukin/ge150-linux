@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPlainTextEdit,
     QPushButton,
     QTextBrowser,
@@ -26,7 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ge150.services import tone_agent, tone_ai
+from ge150.services import guitars, tone_agent, tone_ai
+from ge150.services.guitars import GuitarStore
 from ge150.ui.ab_compare import SoundCompare
 from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.ai_options import AgentOptions
@@ -106,7 +108,21 @@ class AIPanel(QDockWidget):
         self.context.setChecked(True)
         self.context.setCursor(Qt.CursorShape.PointingHandCursor)
         self.context.toggled.connect(lambda _: self.refresh_context())
-        box.addWidget(self.context, 0, Qt.AlignmentFlag.AlignLeft)
+        self.guitars = GuitarStore()
+        self.guitar = QToolButton()
+        self.guitar.setObjectName("guitarChip")
+        self.guitar.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self.guitar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.guitar_menu = QMenu(self.guitar)
+        self.guitar_menu.setObjectName("pillMenu")
+        self.guitar_menu.aboutToShow.connect(self._guitar_menu)
+        self.guitar.setMenu(self.guitar_menu)
+        chips = QHBoxLayout()
+        chips.setSpacing(6)
+        chips.addWidget(self.context)
+        chips.addWidget(self.guitar)
+        chips.addStretch(1)
+        box.addLayout(chips)
         self.prompt = _Prompt()
         self.prompt.setObjectName("aiPrompt")
         self.prompt.setPlaceholderText("Describe el sonido…  (Enter envía, Shift+Enter salto)")
@@ -141,6 +157,7 @@ class AIPanel(QDockWidget):
         self.setWidget(body)
         self.setMinimumWidth(340)
         self.refresh_context()
+        self.refresh_guitar()
         self._welcome()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -172,7 +189,53 @@ class AIPanel(QDockWidget):
             self.context.setText(f"Preset actual no incluido: {label}")
             self.context.setToolTip("Clic para incluir el preset actual en tu mensaje.")
 
+    # --- the guitar in use ----------------------------------------------------------------
+
+    def refresh_guitar(self) -> None:
+        guitar = self.guitars.current
+        self.guitar.setProperty("on", guitar is not None)
+        self.guitar.setIcon(icon("guitar", ACCENT if guitar else MUTED_ICON, 13))
+        self.guitar.setText(f"{guitar.title}  ⌄" if guitar else "Sin guitarra  ⌄")
+        self.guitar.setToolTip("Guitarra que estás usando: se envía con tu mensaje" if guitar
+                               else "Elige tu guitarra para que la IA la tenga en cuenta")
+        self.guitar.style().unpolish(self.guitar)
+        self.guitar.style().polish(self.guitar)
+
+    def _guitar_menu(self) -> None:
+        menu = self.guitar_menu
+        menu.clear()
+        self.guitars.load()
+        for guitar in self.guitars.guitars:
+            action = menu.addAction(guitar.title)
+            action.setCheckable(True)
+            action.setChecked(guitar.id == self.guitars.active)
+            action.triggered.connect(lambda _=False, gid=guitar.id: self._use_guitar(gid))
+        none = menu.addAction("Sin guitarra")
+        none.setCheckable(True)
+        none.setChecked(self.guitars.current is None)
+        none.triggered.connect(lambda: self._use_guitar(""))
+        menu.addSeparator()
+        menu.addAction("Mis guitarras…").triggered.connect(self.manage_guitars)
+
+    def _use_guitar(self, guitar_id: str) -> None:
+        self.guitars.use(guitar_id)
+        self.refresh_guitar()
+
+    def manage_guitars(self) -> None:
+        from ge150.ui.guitar_dialog import GuitarDialog
+
+        model, _ = self.options.selection()
+        provider = str(self.provider.currentData() or "")
+        if provider == "codex":  # Claude finds the exact specs on the web better
+            provider, model = "claude", ""
+        GuitarDialog(self.guitars, provider, model, self).exec()
+        self.guitars.load()
+        self.refresh_guitar()
+
     def _with_context(self, request: str) -> str:
+        guitar = self.guitars.current
+        if guitar is not None:
+            request = f"[{guitars.context_text(guitar)}]\n\n{request}"
         if not self.context.isChecked():
             return request
         editor = self.host.tools.editor

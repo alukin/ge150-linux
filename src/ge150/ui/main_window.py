@@ -188,6 +188,7 @@ class MainWindow(QMainWindow):
         self._action("&Herramientas", "IR de usuario…", self.open_ir)
         self._action("&Herramientas", "Pedal de expresión…", self.open_exp)
         self._action("&Herramientas", "Sistema y caja de ritmos…", self.open_settings)
+        self._action("&Herramientas", "Mis guitarras…", lambda: self.ai_panel.manage_guitars())
         self._action("&Herramientas", "Restaurar valores de fábrica…", self.factory_reset)
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
         self._action("Ay&uda", "Acerca de", self.about)
