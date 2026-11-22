@@ -92,9 +92,20 @@ ge150ctl backup GE150.mbf              # backup completo (solo lectura)
 ge150ctl restore GE150.mbf             # SOBRESCRIBE toda la pedalera
 ge150ctl factory-reset --backup antes.mbf  # BORRA TODO: valores de fábrica (pide «BORRAR TODO»)
 
+ge150ctl ai "tono de Slash en Sweet Child O' Mine"   # asistente IA: aplica el tono en vivo (sin guardar)
+ge150ctl ai --dry-run --provider codex "clean con chorus de los 80"
+
 ge150ctl --sim <comando>               # cualquier comando contra el simulador
 ge150ctl --raw <comando>               # muestra cada reporte USB de 64 bytes
 ```
+
+## Asistente de tono con IA
+
+`ge150ctl ai` le pide el tono a **Claude Code** (`claude`) o a **Codex** (`codex`), las herramientas de línea de
+comandos de las suscripciones de Claude y ChatGPT: no hace falta clave de API, usa la cuota de tu plan. Recibe el
+catálogo exacto de la GE150 (modelos, en qué equipo se basa cada uno y rangos) y tu preset actual, propone el patch
+completo y la app lo aplica en vivo; guárdalo con `ge150ctl save` si te gusta. Las herramientas se ejecutan sin
+acceso a archivos ni otras herramientas.
 
 ## Desarrollo
 
