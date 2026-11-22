@@ -26,6 +26,11 @@ FIELDS = (("brand", "Marca"), ("model", "Modelo"), ("year", "Año"),
           ("pickup_middle", "Pastilla central"), ("pickup_bridge", "Pastilla del puente"),
           ("electronics", "Controles y selector"), ("bridge", "Puente"),
           ("strings", "Cuerdas"), ("tuning", "Afinación"), ("notes", "Notas"))
+#: How a field was established, from surest to least sure.
+EVIDENCE = {"oficial": "ficha oficial del fabricante",
+            "verificado": "varias fuentes del modelo exacto",
+            "deducido": "deducido (p. ej. del número de serie)",
+            "probable": "probable, sin confirmar"}
 SPEC_FIELDS = tuple(name for name, _ in FIELDS if name not in ("serial", "strings", "tuning",
                                                                 "notes"))
 
@@ -49,6 +54,10 @@ class Guitar:
     strings: str = ""
     tuning: str = ""
     notes: str = ""
+    #: field -> how sure it is (see EVIDENCE); fields the user typed have none.
+    evidence: dict[str, str] = field(default_factory=dict)
+    #: the last identification: how it was done and its sources.
+    report: str = ""
 
     @property
     def title(self) -> str:
@@ -57,8 +66,15 @@ class Guitar:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Guitar:
-        known = {f.name for f in fields(cls)}
-        return cls(**{k: str(v) for k, v in data.items() if k in known})
+        known = {f.name for f in fields(cls)} - {"evidence"}
+        guitar = cls()
+        for key, value in data.items():
+            if key in known:
+                setattr(guitar, key, str(value))
+        evidence = data.get("evidence")
+        if isinstance(evidence, dict):
+            guitar.evidence = {str(k): str(v) for k, v in evidence.items() if v in EVIDENCE}
+        return guitar
 
 
 def _config_path() -> Path:
@@ -115,8 +131,13 @@ class GuitarStore:
 
 def context_text(guitar: Guitar) -> str:
     """The guitar as the AI receives it (only the fields the user filled)."""
-    rows = [f"{label}: {getattr(guitar, name)}" for name, label in FIELDS
-            if getattr(guitar, name) and name != "serial"]
+    rows = []
+    for name, label in FIELDS:
+        value = getattr(guitar, name)
+        if not value or name == "serial":
+            continue
+        doubt = guitar.evidence.get(name) in ("deducido", "probable")
+        rows.append(f"{label}: {value}" + (f" ({guitar.evidence[name]})" if doubt else ""))
     return f"Guitarra en uso: {guitar.title}. " + "; ".join(rows)
 
 
@@ -124,25 +145,33 @@ SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
     "required": [*SPEC_FIELDS, "confidence", "explanation"],
-    "properties": {**{name: {"type": "string"} for name in SPEC_FIELDS},
+    "properties": {**{name: {"type": "object", "additionalProperties": False,
+                             "required": ["value", "evidence"],
+                             "properties": {"value": {"type": "string"},
+                                            "evidence": {"type": "string",
+                                                         "enum": [*EVIDENCE, ""]}}}
+                      for name in SPEC_FIELDS},
                    "confidence": {"type": "string", "enum": ["alta", "media", "baja"]},
                    "explanation": {"type": "string"}},
 }
 
-SYSTEM = ("You identify electric guitars for a guitar-effects editor. Use your knowledge of "
-          "manufacturers' serial-number schemes and their catalogues. Answer in Spanish. "
-          "Fill each field with the factory specification of that exact instrument (year, "
-          "factory, woods, scale, each pickup with its model, controls, bridge). Search the web "
-          "(the maker's spec sheets, serial decoders) to confirm the exact series. Each field "
-          "holds only the data, short and plain (e.g. 'Ibanez Super 58, humbucker pasivo, "
-          "alnico'): no doubts, sources or comments there, those go in 'explanation'. Write "
-          "'No tiene' for a part the guitar does not have (e.g. a middle pickup on a two-pickup "
-          "guitar). Keep the model name as the user wrote it. Leave a field empty when you "
-          "cannot confirm it, never invent. The country/factory in particular: fill it only "
-          "when the serial scheme or a source about this serial confirms it; the usual factory "
-          "of a series is not enough (the same model is often built in several countries). "
-          "'confidence' is 'alta' only when every filled field is confirmed. Say in "
-          "'explanation' how you decoded the serial and what the user should check.")
+SYSTEM = """You identify electric guitars for a guitar-effects editor. Answer in Spanish.
+Work in this order and use web search:
+1. The maker's official spec sheet for the exact model code (with the colour code if given):
+   woods, neck, fretboard, inlays, scale, radius, frets, pickups, controls, bridge. These are
+   evidence "oficial". Keep each part in its field: inlay material is not the neck wood.
+2. Country of manufacture: retailers' listings of that exact model code stating "Made in",
+   cross-checked with the serial scheme. Two independent sources = "verificado". The usual
+   country of a series is not evidence (one model is often built in several countries).
+3. Serial number: decode it with serial-number guides; a year or factory read from it is
+   "deducido". A factory attributed only by community guides is "probable".
+Each field holds only the data, short and plain (e.g. "Super 58 (H), pasiva, Alnico"),
+with its evidence level; write "No tiene" for a part the guitar does not have; keep the model
+name as the user wrote it; leave value and evidence empty when you cannot support it, never
+invent. In "explanation" say, briefly, how each uncertain field was established, any
+disagreement between sources (do not hide it), what the user should check on the instrument,
+and list the source URLs. "confidence" is "alta" only when the specs are "oficial" and nothing
+important is only "probable"."""
 
 
 def identify(guitar: Guitar, provider: str = "", model: str = "") -> tuple[Guitar, str, str]:
@@ -155,7 +184,15 @@ def identify(guitar: Guitar, provider: str = "", model: str = "") -> tuple[Guita
     data = backend.run(f"Identifica esta guitarra:\n{known}", SCHEMA, SYSTEM, web=True)
     suggested = Guitar.from_dict(asdict(guitar))
     for name in SPEC_FIELDS:
-        value = str(data.get(name) or "").strip()
+        item = data.get(name)
+        if not isinstance(item, dict):
+            continue
+        value = str(item.get("value") or "").strip()
         if value and not getattr(suggested, name):
             setattr(suggested, name, value)
-    return suggested, str(data.get("confidence", "")), str(data.get("explanation", ""))
+            evidence = str(item.get("evidence") or "")
+            if evidence in EVIDENCE:
+                suggested.evidence[name] = evidence
+    why = str(data.get("explanation", ""))
+    suggested.report = why
+    return suggested, str(data.get("confidence", "")), why

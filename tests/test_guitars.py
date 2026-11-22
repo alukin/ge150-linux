@@ -17,6 +17,9 @@ def test_store_keeps_guitars_and_the_one_in_use(tmp_path: Path) -> None:
     assert again.current is not None and again.current.title == "Fender Player Stratocaster (2019)"
     text = guitars.context_text(again.current)
     assert "Alnico 5" in text and "MX19123456" not in text  # the serial stays private
+    strat.evidence = {"year": "deducido", "bad": "x?"}
+    again.put(strat)
+    assert GuitarStore(tmp_path / "g.json").get(strat.id).evidence == {"year": "deducido"}  # type: ignore[union-attr]
     again.remove(strat.id)
     assert GuitarStore(tmp_path / "g.json").current is None
 
@@ -28,15 +31,22 @@ def test_identify_only_fills_empty_fields(monkeypatch: pytest.MonkeyPatch) -> No
         def run(self, prompt: str, schema: dict[str, object] | None = None,
                 system: str = "", web: bool = False) -> dict[str, object]:
             seen.update(prompt=prompt, schema=schema, web=web)
-            return {**{f: "" for f in guitars.SPEC_FIELDS}, "year": "2019",
-                    "body": "Aliso", "model": "OTRO", "confidence": "media",
-                    "explanation": "MX = México"}
+            empty = {"value": "", "evidence": ""}
+            return {**{f: empty for f in guitars.SPEC_FIELDS},
+                    "year": {"value": "2019", "evidence": "deducido"},
+                    "body": {"value": "Aliso", "evidence": "oficial"},
+                    "model": {"value": "OTRO", "evidence": "oficial"},
+                    "confidence": "media", "explanation": "MX = México"}
 
     monkeypatch.setattr(tone_ai, "make_backend", lambda provider, model: Fake())
     guitar, confidence, why = guitars.identify(
         Guitar(brand="Fender", model="Player Stratocaster", serial="MX19123456"))
     assert guitar.year == "2019" and guitar.body == "Aliso"
     assert guitar.model == "Player Stratocaster"  # what the user typed stays
+    assert guitar.evidence == {"year": "deducido", "body": "oficial"}
+    assert guitar.report == "MX = México"
+    assert "2019 (deducido)" in guitars.context_text(guitar)
+    assert "Aliso (" not in guitars.context_text(guitar)  # sure data goes plain
     assert (confidence, why) == ("media", "MX = México")
     assert seen["web"] is True and "MX19123456" in str(seen["prompt"])
     assert json.dumps(seen["schema"])
