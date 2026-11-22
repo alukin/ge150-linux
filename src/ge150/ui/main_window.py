@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -69,6 +70,13 @@ class MainWindow(QMainWindow):
         header_bar.setObjectName("headerBar")
         header_layout = QHBoxLayout(header_bar)
         header_layout.setContentsMargins(18, 10, 18, 10)
+        self.logo = QLabel()
+        self.logo.setObjectName("appLogo")
+        logo_file = resources.files("ge150.data").joinpath("ge150.svg")
+        self.logo.setPixmap(QIcon(str(logo_file)).pixmap(QSize(40, 40), self.devicePixelRatioF()))
+        self.logo.setToolTip("GE150 Editor")
+        header_layout.addWidget(self.logo)
+        header_layout.addSpacing(8)
         header_layout.addWidget(self.number)
         header_layout.addWidget(self.name)
         header_layout.addWidget(self.dirty_badge)
