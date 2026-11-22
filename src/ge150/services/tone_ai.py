@@ -162,7 +162,10 @@ class Backend:
     def available(cls) -> bool:
         return shutil.which(cls.command) is not None
 
-    def run(self, prompt: str) -> dict[str, object]:
+    def run(self, prompt: str, schema: dict[str, object] | None = None,
+            system: str = "", web: bool = False) -> dict[str, object]:
+        """One answer as JSON matching ``schema`` (default: a patch proposal); ``web`` lets
+        it search and read web pages (and nothing else)."""
         raise NotImplementedError
 
 
@@ -185,13 +188,17 @@ class ClaudeBackend(Backend):
     def __init__(self, model: str = "") -> None:
         self.model = model
 
-    def run(self, prompt: str) -> dict[str, object]:
+    def run(self, prompt: str, schema: dict[str, object] | None = None,
+            system: str = "", web: bool = False) -> dict[str, object]:
+        tools = "WebSearch,WebFetch" if web else ""
         args = [self.command, "-p", "--output-format", "json", "--no-session-persistence",
-                "--tools", "", "--strict-mcp-config", "--setting-sources", "",
-                "--json-schema", json.dumps(SCHEMA),
-                "--system-prompt", "You design guitar patches and answer only with the schema."]
+                "--tools", tools, "--strict-mcp-config", "--setting-sources", "",
+                "--json-schema", json.dumps(schema or SCHEMA), "--system-prompt",
+                system or "You design guitar patches and answer only with the schema."]
         if self.model:
             args += ["--model", self.model]
+        if web:  # variadic: the prompt goes on stdin
+            args += ["--allowedTools", "WebSearch", "WebFetch"]
         with tempfile.TemporaryDirectory() as cwd:
             result = _run(args, prompt, cwd)
         try:
@@ -214,13 +221,18 @@ class CodexBackend(Backend):
     def __init__(self, model: str = "") -> None:
         self.model = model
 
-    def run(self, prompt: str) -> dict[str, object]:
+    def run(self, prompt: str, schema: dict[str, object] | None = None,
+            system: str = "", web: bool = False) -> dict[str, object]:
+        if system:
+            prompt = f"{system}\n\n{prompt}"
         with tempfile.TemporaryDirectory() as cwd:
-            schema = Path(cwd) / "schema.json"
-            schema.write_text(json.dumps(SCHEMA))
+            schema_file = Path(cwd) / "schema.json"
+            schema_file.write_text(json.dumps(schema or SCHEMA))
             out = Path(cwd) / "answer.json"
             args = [self.command, "exec", "--skip-git-repo-check", "--ephemeral",
-                    "--sandbox", "read-only", "--output-schema", str(schema), "-o", str(out)]
+                    "--sandbox", "read-only", "--output-schema", str(schema_file), "-o", str(out)]
+            if web:
+                args += ["-c", 'web_search="live"']
             if self.model:
                 args += ["-m", self.model]
             result = _run([*args, "-"], prompt, cwd)
