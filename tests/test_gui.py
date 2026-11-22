@@ -24,7 +24,9 @@ def app() -> QApplication:
 
 
 @pytest.fixture
-def window(app: QApplication, monkeypatch: pytest.MonkeyPatch) -> Iterator[MainWindow]:
+def window(app: QApplication, monkeypatch: pytest.MonkeyPatch,
+           tmp_path: "os.PathLike[str]") -> Iterator[MainWindow]:
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))  # the AI bridge discovery file
     monkeypatch.setattr(QMessageBox, "question",
                         lambda *a, **k: QMessageBox.StandardButton.Yes)
     sim = SimTransport()
@@ -166,3 +168,26 @@ def test_single_click_loads_preset_and_asks_when_dirty(
     assert asked and "sin guardar" in asked[0]
     assert window.state.current_slot == 5
     assert window.presets.selected_slot() == 5
+
+
+def test_ai_clients_drive_the_open_editor(window: MainWindow) -> None:
+    import threading
+
+    from ge150.mcp_server.bridge import find_editor
+
+    remote = find_editor()
+    assert remote is not None
+    results: dict[str, object] = {}
+
+    def client() -> None:  # an AI client, on its own thread like ge150-mcp
+        remote.set_module("AMP", True, "PLX100", {"GAIN": "77"})
+        results["saved"] = remote.save_preset(30, "AI PLEXI")  # dialog answered "Yes"
+
+    thread = threading.Thread(target=client)
+    thread.start()
+    assert wait(lambda: not thread.is_alive(), 8000)
+    assert results["saved"] == {"saved": True, "slot": 30, "name": "AI PLEXI"}
+    assert wait(lambda: "PLX100" in window.chain.tiles[2].model.text())
+    assert window.state.presets[30].name == "AI PLEXI"
+    window.close()
+    assert find_editor() is None

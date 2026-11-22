@@ -32,6 +32,7 @@ from ge150.protocol.session import DeviceSession
 from ge150.services import backup as backup_service
 from ge150.services import reader
 from ge150.services.editor import Editor
+from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.bridge import StateBridge
 from ge150.ui.chain_view import ChainView
 from ge150.ui.dialogs import ExpDialog, IrDialog
@@ -48,6 +49,9 @@ class MainWindow(QMainWindow):
         self.state = editor.state
         self.runner = TaskRunner(self)
         self.bridge = StateBridge(self.state, session, self)
+        self.ai_host = AiHost(editor, self.runner, self)
+        self.ai_host.called.connect(
+            lambda tool: self.statusBar().showMessage(f"IA: {LABELS.get(tool, tool)}", 4000))
         self.setWindowTitle("GE150 Editor")
         self.resize(1280, 820)
 
@@ -172,6 +176,7 @@ class MainWindow(QMainWindow):
         self.presets.reload()
         self._refresh_current()
         self.module_editor.show_module(self.chain.selected)
+        self.ai_host.start()
 
     # --- state changes (GUI thread) ------------------------------------------
 
@@ -449,6 +454,7 @@ class MainWindow(QMainWindow):
                           "Linux.\nhttps://github.com/wh01s17/ge150-linux")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self.ai_host.stop()
         self.runner.wait(5000)
         self.bridge.detach()
         super().closeEvent(event)

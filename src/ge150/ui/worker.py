@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 import traceback
 from collections.abc import Callable
 from typing import Any
@@ -15,14 +16,17 @@ class _Signals(QObject):
 
 
 class _Task(QRunnable):
-    def __init__(self, fn: Callable[[], Any], signals: _Signals) -> None:
+    def __init__(self, fn: Callable[[], Any], signals: _Signals,
+                 lock: threading.Lock) -> None:
         super().__init__()
         self.fn = fn
         self.signals = signals
+        self.lock = lock
 
     def run(self) -> None:
         try:
-            result = self.fn()
+            with self.lock:
+                result = self.fn()
         except Exception as exc:  # reported to the GUI, never swallowed
             traceback.print_exc()
             self.signals.failed.emit(f"{type(exc).__name__}: {exc}")
@@ -39,6 +43,8 @@ class TaskRunner(QObject):
         super().__init__(parent)
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)  # device operations must not overlap
+        #: Also taken by other pedal users (the AI tools, ``ai_host.py``).
+        self.lock = threading.Lock()
         self._running = 0
         self._keep: list[_Signals] = []
 
@@ -72,7 +78,7 @@ class TaskRunner(QObject):
         self._running += 1
         if self._running == 1:
             self.busy_changed.emit(True)
-        self.pool.start(_Task(fn, signals))
+        self.pool.start(_Task(fn, signals, self.lock))
 
     def wait(self, msecs: int = 10000) -> bool:
         return self.pool.waitForDone(msecs)

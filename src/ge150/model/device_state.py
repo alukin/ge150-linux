@@ -60,7 +60,8 @@ class DeviceState:
         self._listeners.append(listener)
 
     def remove_listener(self, listener: Listener) -> None:
-        self._listeners.remove(listener)
+        if listener in self._listeners:  # e.g. a window closed twice
+            self._listeners.remove(listener)
 
     def _emit(self, change: Change) -> None:
         for listener in list(self._listeners):
