@@ -122,7 +122,8 @@ def current_text(editor: Editor) -> str:
             continue
         params = ", ".join(f"{p.name}={p.format(block.words[p.word])}" for p in model.params)
         state = "ON" if block.switch else "off"
-        rows.append(f"{MODULE_TAGS[index]}: {state} {model.name} ({params})")
+        name = editor.model_display(index, block.type)
+        rows.append(f"{MODULE_TAGS[index]}: {state} {name} ({params})")
     return "\n".join(rows)
 
 
@@ -307,6 +308,23 @@ def _find_model(info: ModuleInfo, text: str) -> Model | None:
     return None
 
 
+def _find_user_slot(editor: Editor, index: int, text: str) -> Model | None:
+    """A user IR/NR slot named the way the AI saw it: "VOX AC30 BLUE 2",
+    "32:VOX AC30 BLUE 2", "CAB 32" or "CAB 32 (user IR: VOX AC30 BLUE 2)"."""
+    wanted = " ".join(text.strip().lower().split())
+    for type_index, model in enumerate(editor.catalog[index].models):
+        if not model.user_slot:
+            continue
+        label = editor.model_label(index, type_index).lower()
+        name = label.split(":", 1)[-1].strip()
+        tag = f"{MODULE_TAGS[index].lower()} {model.number}"
+        display = editor.model_display(index, type_index).lower()
+        loaded = name != model.name.lower()
+        if wanted in (label, display, tag) or (loaded and wanted == name):
+            return model
+    return None
+
+
 def _value_to_raw(param: Param, value: str) -> int | None:
     text = value.strip()
     if param.kind == "enum":
@@ -338,9 +356,11 @@ def parse_proposal(data: dict[str, object], editor: Editor) -> Proposal:
         index = MODULE_TAGS.index(str(item["module"]))
         info = editor.catalog[index]
         current = info.model_for_type(editor.module(index).type)
-        model = _find_model(info, str(item.get("model", ""))) or current
-        if item.get("model") and model is current and \
-                str(item["model"]).lower() not in (current.name.lower() if current else ""):
+        model = (_find_user_slot(editor, index, str(item.get("model", "")))
+                 or _find_model(info, str(item.get("model", ""))) or current)
+        if item.get("model") and model is current and current is not None and \
+                _find_user_slot(editor, index, str(item["model"])) is not current and \
+                str(item["model"]).lower() not in current.name.lower():
             warnings.append(f"{MODULE_TAGS[index]}: unknown model {item['model']!r}")
         raw: dict[int, int] = {}
         params = item.get("params")

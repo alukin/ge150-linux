@@ -91,6 +91,19 @@ class Editor:
         names = ", ".join(p.name for p in self.model_params(index))
         raise EditorError(f"{MODULES[index].name} has no parameter {name!r} (have: {names})")
 
+    def model_display(self, index: int, type_index: int) -> str:
+        """The model's name, or for a user IR/NR slot the name loaded on the pedal
+        ("CAB 32 (user IR: VOX AC30 BLUE 2)")."""
+        model = self.catalog[index].model_for_type(type_index)
+        if model is None:
+            return f"?{type_index}"
+        if not model.user_slot:
+            return model.name
+        name = self.model_label(index, type_index).split(":", 1)[-1].strip()
+        kind = "user IR" if MODULES[index].name == "CAB" else "user NR capture"
+        label = f"{MODULES[index].name} {model.number}"
+        return f"{label} ({kind}: {name})" if name != model.name else f"{label} (empty {kind} slot)"
+
     def model_label(self, index: int, type_index: int) -> str:
         """``NN:NAME``; user IR/NR slots show the name loaded on the pedal."""
         model = self.catalog[index].model_for_type(type_index)

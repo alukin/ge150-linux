@@ -114,3 +114,31 @@ def test_load_tone3000_ir_with_confirmation(tools: PedalTools, tmp_path, monkeyp
     entry = tools.list_user_irs()["ir"][3]
     assert entry["name"] == "Mesa 4x12 V30" and entry["tone3000"]["author"] == "irmaker"
     assert "tone3000" not in tools.list_user_irs()["ir"][0]
+
+
+def test_ai_sees_and_picks_user_irs_by_their_name(tools: PedalTools) -> None:
+    from ge150.formats import wav_ir
+    from ge150.protocol.opcodes import Op
+    from ge150.services import tone_ai
+
+    editor = tools.editor
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "ir.wav"
+        path.write_bytes(wav_ir.ir_to_wav([4_000_000] + [0] * 511))
+        payload = wav_ir.load_ir_file(path)
+    editor.upload_user_slot(Op.USER_IR, 5, "VOX AC30 BLUE 2", payload)  # CAB 32
+    tools.apply_patch([{"module": "CAB", "on": True, "model": "VOX AC30 BLUE 2"}])
+    cab = tools.get_current_patch()["modules"][3]
+    assert cab["model"] == "CAB 32 (user IR: VOX AC30 BLUE 2)"
+    assert "CAB 32 (user IR: VOX AC30 BLUE 2)" in tone_ai.current_text(editor)
+    catalog = {m["number"]: m["model"] for m in tools.get_catalog("CAB")["models"]}
+    assert catalog[32] == "CAB 32 (user IR: VOX AC30 BLUE 2)"
+    assert catalog[33] == "CAB 33 (empty user IR slot)"
+    tools.apply_patch([{"module": "CAB", "on": True, "model": "01:US DLX 112"}])
+    result = tools.apply_patch([{"module": "CAB", "on": True, "model": catalog[32]}])
+    assert not result["warnings"] and editor.module(3).type == 31
+    tools.apply_patch([{"module": "CAB", "on": True, "model": "CAB 32"}])
+    assert editor.module(3).type == 31

@@ -88,7 +88,10 @@ class PedalTools:
         for model in info.models:
             if model.hidden:
                 continue
-            entry: dict[str, Any] = {"model": model.name, "number": model.number}
+            label = model.name
+            if model.user_slot:  # what to pass back as "model": its name on the pedal
+                label = self.editor.model_display(index, model.number - 1)
+            entry: dict[str, Any] = {"model": label, "number": model.number}
             gear = gear_for(index, model.number)
             if gear.name:
                 entry["based_on" if not gear.generic else "kind"] = gear.name
@@ -112,7 +115,7 @@ class PedalTools:
             block = self.editor.module(index)
             model = self.editor.catalog[index].model_for_type(block.type)
             entry: dict[str, Any] = {"module": MODULE_TAGS[index], "on": block.switch,
-                                     "model": model.name if model else f"?{block.type}"}
+                                     "model": self.editor.model_display(index, block.type)}
             if model is not None:
                 gear = gear_for(index, model.number)
                 entry["based_on"] = describe(gear, False)
@@ -138,7 +141,7 @@ class PedalTools:
             block = preset.module(index)
             model = self.editor.catalog[index].model_for_type(block.type)
             modules.append({"module": MODULE_TAGS[index], "on": block.switch,
-                            "model": model.name if model else f"?{block.type}",
+                            "model": self.editor.model_display(index, block.type),
                             "params": {p.name: p.format(block.words[p.word])
                                        for p in (model.params if model else ())}})
         return {"slot": slot, "name": preset.name, "modules": modules}
