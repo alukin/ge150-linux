@@ -37,6 +37,18 @@ QPushButton#saveButton {{
 }}
 QPushButton#saveButton:disabled {{ background: {RAISED}; color: {MUTED}; }}
 
+QPushButton#aiButton {{
+    background: {RAISED}; color: {TEXT}; font-weight: 700; border: 1px solid {ACCENT};
+    border-radius: 8px; padding: 8px 14px;
+}}
+QPushButton#aiButton:hover {{ background: #2d2620; }}
+QPushButton#aiButton:checked {{ background: #3a2a1a; }}
+QDockWidget#aiPanel {{ color: {MUTED}; font-weight: 700; }}
+QDockWidget#aiPanel::title {{ background: {BG}; padding: 8px 10px; }}
+QTextBrowser#aiChat {{ background: {PANEL}; border: none; border-radius: 10px; padding: 8px; }}
+QPlainTextEdit#aiPrompt {{
+    background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px;
+}}
 QFrame#modulePage {{ background: {PANEL}; border-radius: 14px; }}
 QLabel#moduleTitle {{ font-size: 22px; font-weight: 800; letter-spacing: 1px; }}
 QLabel#basedOn {{ color: {MUTED}; font-size: 12px; }}

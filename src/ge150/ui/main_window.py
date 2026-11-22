@@ -33,6 +33,7 @@ from ge150.services import backup as backup_service
 from ge150.services import reader
 from ge150.services.editor import Editor
 from ge150.ui.ai_host import LABELS, AiHost
+from ge150.ui.ai_panel import AIPanel
 from ge150.ui.bridge import StateBridge
 from ge150.ui.chain_view import ChainView
 from ge150.ui.dialogs import ExpDialog, IrDialog
@@ -86,6 +87,11 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(self.dirty_badge)
         header_layout.addStretch(1)
         header_layout.addWidget(self.header)
+        self.ai_button = QPushButton("✦ IA")
+        self.ai_button.setObjectName("aiButton")
+        self.ai_button.setCheckable(True)
+        self.ai_button.setToolTip("Asistente de tono con IA (Ctrl+K)")
+        header_layout.addWidget(self.ai_button)
         header_layout.addWidget(self.save_button)
 
         self.chain = ChainView(editor)
@@ -115,6 +121,18 @@ class MainWindow(QMainWindow):
         self.status_label = QLabel()
         self.statusBar().addPermanentWidget(self.status_label)
         self.statusBar().addPermanentWidget(self.progress)
+
+        self.ai_panel = AIPanel(self.ai_host, self)
+        self.ai_panel.setAllowedAreas(Qt.DockWidgetArea.RightDockWidgetArea
+                                      | Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.ai_panel)
+        self.ai_panel.hide()
+        self.ai_button.toggled.connect(self.ai_panel.setVisible)
+        self.ai_panel.visibilityChanged.connect(self.ai_button.setChecked)
+        toggle = QAction(self)
+        toggle.setShortcut(QKeySequence("Ctrl+K"))
+        toggle.triggered.connect(self.ai_button.toggle)
+        self.addAction(toggle)
 
         self._build_menus()
         self.presets.activated.connect(self.load_preset)
