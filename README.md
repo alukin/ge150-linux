@@ -111,7 +111,8 @@ acceso a archivos ni otras herramientas.
 
 `ge150-mcp` expone la pedalera a cualquier cliente MCP (Claude Code, Codex…) con herramientas para leer el catálogo,
 el preset actual, los presets guardados, las IR de usuario y los ajustes, y para cambiar el sonido en vivo
-(`set_module`, `apply_patch`, `undo`, `select_preset`). La IA nunca guarda: guardas tú desde el editor.
+(`set_module`, `apply_patch`, `undo`, `select_preset`). Con TONE3000 también busca y descarga IR de cabinas
+(`tone3000_search`, `tone3000_get`, `load_tone3000_ir`).
 
 ```bash
 .venv/bin/pip install -e '.[ai]'       # SDK de MCP
@@ -120,8 +121,10 @@ claude "ponme el tono de Gilmour en el solo de Comfortably Numb"
 codex "un clean funk tipo Nile Rodgers"
 ```
 
-Cierra el editor gráfico antes: solo un programa puede usar la pedalera a la vez (el editor alojará el servidor
-más adelante, ver `docs/plan-ia-tone3000.md`).
+Con el editor gráfico abierto, `ge150-mcp` se conecta a él (solo un programa puede usar la pedalera): ves cada
+cambio de la IA al instante y nada se escribe en la memoria de la pedalera (`save_preset`, `load_tone3000_ir`) sin
+que lo confirmes en una ventana del editor. Sin el editor abierto, `ge150-mcp` abre la pedalera directamente y
+esas dos herramientas se rechazan. La IA nunca restaura, resetea ni actualiza el firmware.
 
 ## Cabinas de TONE3000
 
@@ -131,7 +134,7 @@ No hace falta registrar redirects: TONE3000 siempre acepta `http://127.0.0.1`. L
 compartas.
 
 ```bash
-ge150ctl t3k-key pk_…                 # guarda tu clave publicable
+ge150ctl t3k-key t3k_pub_…               # guarda tu clave publicable
 ge150ctl t3k-login                    # inicia sesión en el navegador
 ge150ctl t3k-load 4                   # elige una IR en el catálogo de TONE3000 y la carga en la ranura 4
 ge150ctl t3k-load 4 --tone 12345      # o directo por id de tono

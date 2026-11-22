@@ -655,7 +655,10 @@ ge150-linux/
 - [x] Modo rápido: `services/tone_ai.py` + `ge150ctl ai` (Claude Code / Codex en modo de una consulta, JSON
       validado contra el catálogo, aplicado en vivo, con Deshacer). Probado con la pedalera real en `--dry-run`.
 - [x] 11.1 servidor MCP (`ge150-mcp`, `ge150ctl mcp-install`), probado con Claude Code y Codex.
-- [ ] 11.4 TONE3000 · 11.2/11.3 servidor embebido y panel agente · 11.5 · 11.6.
+- [x] 11.4 TONE3000 por CLI (`ge150ctl t3k-*`); falta probar con la cuenta real.
+- [x] 11.2 el editor comparte la pedalera con `ge150-mcp` (confirmación al guardar o cargar IR).
+- [x] 11.5 herramientas TONE3000 para la IA.
+- [ ] 11.3 panel de chat en la GUI (diseño a aprobar) · TONE3000 en la GUI · 11.6.
       Plan detallado y decisiones: [`docs/plan-ia-tone3000.md`](docs/plan-ia-tone3000.md).
 
 ---
