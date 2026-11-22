@@ -208,3 +208,17 @@ def test_ai_sees_and_picks_user_irs_by_their_name(tools: PedalTools) -> None:
     assert not result["warnings"] and editor.module(3).type == 31
     tools.apply_patch([{"module": "CAB", "on": True, "model": "CAB 32"}])
     assert editor.module(3).type == 31
+
+
+def test_ai_sees_a_sign_in_made_in_the_editor(tools: PedalTools, tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from ge150.services.tone3000 import Credentials, TokenStore, Tone3000Client
+
+    store = TokenStore(tmp_path / "t3k.json")
+    store.save(Credentials("t3k_pub_x"))
+    client = Tone3000Client(store)
+    client.search = lambda query, page=1: []  # type: ignore[method-assign]
+    tools._tone3000 = client
+    with pytest.raises(ToolError, match="Conectar cuenta"):
+        tools.tone3000_search("mesa")
+    store.save(Credentials("t3k_pub_x", "tok", "ref", 1e12))  # the editor's own client
+    assert tools.tone3000_search("mesa")["tones"] == []

@@ -104,13 +104,20 @@ class Tone3000Page(QWidget):
         self.home_button.clicked.connect(self.start_catalogue)
         self.key_button = QPushButton("Clave…")
         self.key_button.clicked.connect(self._change_key)
+        self.connect_button = QPushButton("Conectar cuenta")
+        self.connect_button.setObjectName("saveButton")
+        self.connect_button.setToolTip("Conecta el editor (y el asistente de IA) a tu cuenta de "
+                                       "TONE3000. Estar dentro del sitio no basta: el editor "
+                                       "necesita tu permiso para buscar y descargar IR.")
+        self.connect_button.clicked.connect(self.connect_account)
         self.logout_button = QPushButton("Cerrar sesión")
         self.logout_button.clicked.connect(self._logout)
         top.addWidget(brand)
         top.addSpacing(10)
         top.addWidget(self.account)
         top.addStretch(1)
-        for button in (self.home_button, self.key_button, self.logout_button):
+        for button in (self.connect_button, self.home_button, self.key_button,
+                       self.logout_button):
             top.addWidget(button)
         layout.addWidget(bar)
 
@@ -184,6 +191,23 @@ class Tone3000Page(QWidget):
         self.stack.setCurrentWidget(self.view)
         self.view.load(QUrl(self.pending.url))
 
+    def connect_account(self) -> None:
+        """Authorize the editor without choosing a tone (TONE3000 sends us straight back)."""
+        if not self.client.creds.client_id:
+            self._change_key()
+            return
+        self.pending = self.client.begin()
+        if self.view is None:
+            self.view = _web_view(self._callbacks, self.client.is_callback)
+            if self.view is not None:
+                self.stack.addWidget(self.view)
+        self.note.setText("Conectando con tu cuenta de TONE3000…")
+        if self.view is None:
+            self.loader.background(self.client.login, slot=-4)
+            return
+        self.stack.setCurrentWidget(self.view)
+        self.view.load(QUrl(self.pending.url))
+
     def _select_outside(self) -> object:
         tone_id = self.client.select_tone()
         return self.client.tone(tone_id), self.client.models(tone_id)
@@ -220,6 +244,11 @@ class Tone3000Page(QWidget):
             return
         self.note.setText(HINT)
         self._refresh_account()
+        if not error and self.client.creds.signed_in and not self.user_name:
+            self.loader.background(self.client.user, slot=-5)
+        if not error and result is None and self.client.creds.signed_in:
+            self.note.setText("Cuenta conectada: ya puedes buscar IR, también desde el "
+                              "asistente de IA.")
         if error:
             QMessageBox.warning(self, "TONE3000", error)
         elif isinstance(result, tuple):
@@ -273,9 +302,11 @@ class Tone3000Page(QWidget):
             who = f" como <b>{html.escape(self.user_name)}</b>" if self.user_name else ""
             text = f"Sesión iniciada{who}."
         else:
-            text = "Elige una IR en el catálogo (botón «Select») para conectar tu cuenta."
+            text = ("Cuenta sin conectar: aprieta <b>Conectar cuenta</b> (o elige una IR con "
+                    "«Select»).")
         self.account.setText(text)
         self.logout_button.setVisible(creds.signed_in)
+        self.connect_button.setVisible(not creds.signed_in)
 
     def _logout(self) -> None:
         self.client.logout()

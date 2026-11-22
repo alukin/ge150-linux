@@ -149,3 +149,23 @@ def test_user_cab_shows_the_tone3000_image(page: Tone3000Page, tmp_path: Path,
     gear = user_cab_gear(editor, 30, gear_for(3, 30))
     assert gear.gid.startswith(T3K) and load_photo(gear.gid) is not None
     assert user_cab_gear(editor, 31, gear_for(3, 31)).gid == gear_for(3, 31).gid
+
+
+def test_connect_account_without_choosing_a_tone(page: Tone3000Page) -> None:
+    from ge150.services.tone3000 import Credentials
+
+    client = page.client
+    client.creds = Credentials("t3k_pub_x")  # key set, not signed in
+    page._refresh_account()
+    assert not page.connect_button.isHidden() and "Conectar cuenta" in page.account.text()
+    page.pending = client.begin()  # what connect_account starts (no browser here)
+
+    def finish(pending: Pending, callback: object) -> object:
+        client.creds = Credentials("t3k_pub_x", "tok", "ref", 1e12)
+        return callback
+
+    client.finish = finish  # type: ignore[method-assign]
+    page._callback("http://127.0.0.1:53682/callback?code=c&state=st")  # no tone_id
+    assert wait(lambda: "Cuenta conectada" in page.note.text())
+    assert page.tone is None and page.connect_button.isHidden()
+    assert wait(lambda: "wh01s17" in page.account.text())

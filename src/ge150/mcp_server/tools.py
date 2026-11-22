@@ -277,9 +277,14 @@ class PedalTools:
     def _t3k(self, fn: Callable[[], T]) -> T:
         from ge150.services.tone3000 import Tone3000Error
 
-        if not self.tone3000.creds.signed_in:
-            raise ToolError("not signed in to TONE3000: ask the user to run "
-                            "'ge150ctl t3k-login' (or sign in from the GE150 editor)")
+        client = self.tone3000
+        store = getattr(client, "store", None)
+        if store is not None:  # the editor may have signed in (or out) since the last call
+            client.creds = store.load()
+        if not client.creds.signed_in:
+            raise ToolError("not signed in to TONE3000: ask the user to press «Conectar "
+                            "cuenta» in the TONE3000 tab of the GE150 editor (or to run "
+                            "'ge150ctl t3k-login')")
         try:
             return fn()
         except Tone3000Error as exc:
