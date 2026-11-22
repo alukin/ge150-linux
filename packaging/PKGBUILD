@@ -7,6 +7,8 @@ arch=('any')
 url="https://github.com/wh01s17/ge150-linux"
 license=('MIT')
 depends=('python' 'pyside6' 'python-pyusb')
+optdepends=('qt6-webengine: TONE3000 catalogue inside the editor'
+            'python-mcp: AI assistant (Claude Code / Codex)')
 makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 provides=('ge150-linux')
 conflicts=('ge150-linux')
