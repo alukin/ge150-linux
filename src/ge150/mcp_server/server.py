@@ -45,6 +45,18 @@ class ModuleSetting(BaseModel):
     params: list[ParamValue] = Field(default_factory=list)
 
 
+class PresetModuleEdit(BaseModel):
+    module: str = Field(description="FX, DS, AMP, CAB, NS, EQ, MOD, DELAY or REVERB")
+    on: bool | None = Field(None, description="omit to keep the preset's on/off")
+    model: str = Field("", description="model name from get_catalog; empty keeps the current")
+    params: list[ParamValue] = Field(default_factory=list)
+
+
+class PresetEditSpec(BaseModel):
+    slot: int = Field(description="stored preset number 1..200")
+    modules: list[PresetModuleEdit]
+
+
 def _call(fn: Callable[[], T]) -> T:
     try:
         return fn()
@@ -121,6 +133,21 @@ def build_server(tools: PedalTools | Any) -> MCPServer:
         """Load a stored preset. If the current one has unsaved changes, ask the user first
         and pass discard_changes=true only if they agree."""
         return _call(lambda: tools.select_preset(slot, discard_changes))
+
+    @server.tool(annotations=READ)
+    def get_presets(query: str) -> dict[str, Any]:
+        """Every stored preset whose name contains query (e.g. "av83"), decoded, in one
+        call."""
+        return _call(lambda: tools.get_presets(query))
+
+    @server.tool(annotations=LIVE)
+    def propose_preset_edits(edits: list[PresetEditSpec], summary: str = "") -> dict[str, Any]:
+        """Propose changes to several STORED presets at once (values per preset, so
+        relative changes like "-10 %" are computed by you from get_presets). Nothing is
+        written: the GE150 editor shows a review table and the user applies or discards.
+        summary: one line for the user."""
+        data = [e.model_dump() for e in edits]
+        return _call(lambda: tools.propose_preset_edits(data, summary))
 
     @server.tool(annotations=STORE)
     def save_preset(slot: int = 0, name: str = "") -> dict[str, Any]:

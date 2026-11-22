@@ -28,7 +28,8 @@ from ge150.mcp_server.tools import ToolError
 #: Methods a client may call (everything else is refused).
 TOOLS = ("get_catalog", "get_current_patch", "get_guitar", "list_presets", "get_preset",
          "list_user_irs", "get_settings", "set_module", "apply_patch", "undo", "select_preset",
-         "save_preset", "tone3000_search", "tone3000_get", "load_tone3000_ir")
+         "save_preset", "tone3000_search", "tone3000_get", "load_tone3000_ir", "get_presets",
+         "propose_preset_edits")
 #: Long enough for the user to answer a confirmation or pick an IR in the browser.
 CALL_TIMEOUT_S = 330
 
@@ -160,7 +161,8 @@ _PARAMS = {"get_catalog": ("module",), "list_presets": ("query",), "get_preset":
            "set_module": ("module", "on", "model", "params"), "apply_patch": ("modules", "name"),
            "select_preset": ("slot", "discard_changes"), "save_preset": ("slot", "name"),
            "tone3000_search": ("query",), "tone3000_get": ("tone_id",),
-           "load_tone3000_ir": ("slot", "tone_id", "model_id", "name", "use")}
+           "load_tone3000_ir": ("slot", "tone_id", "model_id", "name", "use"),
+           "get_presets": ("query",), "propose_preset_edits": ("edits", "summary")}
 
 
 def _named(name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:

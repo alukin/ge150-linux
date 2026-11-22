@@ -20,7 +20,7 @@ from pathlib import Path
 
 from ge150.model.catalog import Model, ModuleInfo, Param
 from ge150.model.gear import MODULE_TAGS, gear_for
-from ge150.model.preset import MODULES
+from ge150.model.preset import MODULES, Preset
 from ge150.services.editor import Editor
 
 TIMEOUT_S = 240
@@ -356,8 +356,12 @@ def _value_to_raw(param: Param, value: str) -> int | None:
     return int(number)
 
 
-def parse_proposal(data: dict[str, object], editor: Editor) -> Proposal:
-    """Validate the CLI answer against the catalogue (unknown names become warnings)."""
+def parse_proposal(data: dict[str, object], editor: Editor,
+                   base: Preset | None = None) -> Proposal:
+    """Validate the CLI answer against the catalogue (unknown names become warnings).
+
+    ``base``: the stored preset being changed (default: the edit buffer); a module without
+    "on" keeps its state there."""
     warnings: list[str] = []
     changes: list[ModuleChange] = []
     modules = data.get("modules")
@@ -367,7 +371,8 @@ def parse_proposal(data: dict[str, object], editor: Editor) -> Proposal:
             continue
         index = MODULE_TAGS.index(str(item["module"]))
         info = editor.catalog[index]
-        current = info.model_for_type(editor.module(index).type)
+        block = base.module(index) if base is not None else editor.module(index)
+        current = info.model_for_type(block.type)
         model = (_find_user_slot(editor, index, str(item.get("model", "")))
                  or _find_model(info, str(item.get("model", ""))) or current)
         if item.get("model") and model is current and current is not None and \
@@ -388,7 +393,8 @@ def parse_proposal(data: dict[str, object], editor: Editor) -> Proposal:
                                 f"{entry.get('value')}")
                 continue
             raw[param.word] = value
-        changes.append(ModuleChange(index, bool(item.get("on")), model, raw))
+        on = bool(item["on"]) if item.get("on") is not None else block.switch
+        changes.append(ModuleChange(index, on, model, raw))
     if not changes:
         raise ToneAIError("the answer has no modules")
     return Proposal(str(data.get("name", ""))[:14], str(data.get("explanation", "")),
@@ -406,6 +412,21 @@ def apply_proposal(editor: Editor, proposal: Proposal) -> None:
         for word, raw in change.raw.items():
             block.words[word] = raw & 0xFFFF
         editor.write_module(block)
+
+
+def apply_to_words(words: Sequence[int], proposal: Proposal,
+                   catalog: Sequence[ModuleInfo]) -> list[int]:
+    """The preset words with the proposal applied (pure: writes nothing to the pedal)."""
+    preset = Preset(1, "", list(words))
+    for change in proposal.changes:
+        block = preset.module(change.index)
+        if change.model is not None:
+            block.type = catalog[change.index].models.index(change.model)
+        block.switch = change.on
+        for word, raw in change.raw.items():
+            block.words[word] = raw & 0xFFFF
+        preset.set_module(block)
+    return preset.words
 
 
 def restore_words(editor: Editor, words: Sequence[int]) -> None:

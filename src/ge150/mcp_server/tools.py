@@ -21,16 +21,21 @@ from ge150.services.editor import Editor
 Confirm = Callable[[str], bool]
 #: (question, the 10 slots as list_user_irs shows them) -> chosen slot 1..10, or 0 = cancel.
 PickSlot = Callable[[str, list[dict[str, Any]]], int]
+#: (planned edits of stored presets, summary) -> shown to the user for review.
+OnProposal = Callable[[list[Any], str], None]
 
 T = TypeVar("T")
 
 INSTRUCTIONS = """Controls a MOOER GE150 guitar multi-effects pedal connected to this computer.
 Signal chain (fixed order): FX -> DS -> AMP -> CAB -> NS -> EQ -> MOD -> DELAY -> REVERB.
 Workflow: read get_current_patch, look up models with get_catalog(module), then change the
-sound with set_module or apply_patch. Changes are LIVE in the edit buffer and are NOT saved:
-the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use undo
-to go back. Use only model and parameter names from get_catalog; values outside a range are
-clamped and reported. save_preset and the TONE3000 IR tools write the pedal's memory: they
+sound with set_module or apply_patch. Changes are LIVE in the edit buffer and are NOT
+saved: the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use
+undo to go back. To change several STORED presets (e.g. "every Av83 preset"), read them with
+get_presets(query) and call propose_preset_edits once with a change per preset (the user
+reviews and applies them in the editor): never loop select_preset + save_preset. Use
+only model and parameter names from get_catalog; values outside a range are clamped and
+reported. save_preset and the TONE3000 IR tools write the pedal's memory: they
 only work with the GE150 editor open, which asks the user to confirm each time. TONE3000
 (www.tone3000.com) hosts cabinet IRs made by users: load_tone3000_ir picks the slot itself
 (slot 0) and selects the IR in the CAB module; always tell the user the author and licence
@@ -56,11 +61,13 @@ class PedalTools:
 
     def __init__(self, editor: Editor, lock: threading.Lock | None = None,
                  confirm: Confirm | None = None, tone3000: Any = None,
-                 pick_ir_slot: PickSlot | None = None) -> None:
+                 pick_ir_slot: PickSlot | None = None,
+                 on_proposal: OnProposal | None = None) -> None:
         self.editor = editor
         self.lock = lock or threading.Lock()
         self.confirm = confirm
         self.pick_ir_slot = pick_ir_slot
+        self.on_proposal = on_proposal
         self.history: list[list[int]] = []
         self._tone3000 = tone3000
 
@@ -150,6 +157,14 @@ class PedalTools:
                             "params": {p.name: p.format(block.words[p.word])
                                        for p in (model.params if model else ())}})
         return {"slot": slot, "name": preset.name, "modules": modules}
+
+    def get_presets(self, query: str) -> dict[str, Any]:
+        """Every stored preset whose name contains ``query``, decoded (one call)."""
+        found = self.list_presets(query)["presets"]
+        if not found:
+            raise ToolError(f"no preset name contains {query!r}")
+        return {"presets": [self.get_preset(p["slot"]) for p in found[:40]],
+                **({"note": f"first 40 of {len(found)}"} if len(found) > 40 else {})}
 
     def list_user_irs(self) -> dict[str, Any]:
         from ge150.services.tone3000 import IrSources
@@ -263,6 +278,23 @@ class PedalTools:
             return {"saved": True, "slot": target, "name": preset.name}
 
         return self._locked(run)
+
+    def propose_preset_edits(self, edits: list[dict[str, Any]],
+                             summary: str = "") -> dict[str, Any]:
+        """Plan changes to stored presets; the user reviews and applies them in the editor."""
+        from ge150.services import bulk_edit
+
+        if self.on_proposal is None:
+            raise ToolError("changing stored presets needs the GE150 editor open (the user "
+                            "reviews the changes there); ask the user to open it")
+        planned = self._locked(lambda: bulk_edit.plan_edits(self.editor, edits))
+        if not any(e.changed and not e.blocked for e in planned):
+            return {"proposed": False, "presets": bulk_edit.describe(self.editor, planned),
+                    "reason": "nothing would change"}
+        self.on_proposal(planned, summary)
+        return {"proposed": True, "presets": bulk_edit.describe(self.editor, planned),
+                "note": "NOT written yet: the user reviews them in the Asistente tab and "
+                        "applies (or discards) them"}
 
     # --- TONE3000 cabinet IRs ---------------------------------------------------------
 
