@@ -13,12 +13,14 @@ from pathlib import Path
 from ge150.cli_ai import AI_COMMANDS
 from ge150.cli_edit import EDIT_COMMANDS
 from ge150.cli_settings import SETTINGS_COMMANDS
+from ge150.cli_t3k import T3K_COMMANDS
 from ge150.model.settings import RhythmValues, SystemValues
 from ge150.protocol.framing import FrameDecoder, report_data, split_reports
 from ge150.protocol.opcodes import op_name
 from ge150.protocol.session import DeviceSession, SessionError
 from ge150.services import reader
 from ge150.services.editor import EditorError
+from ge150.services.tone3000 import Tone3000Error
 from ge150.services.tone_ai import ToneAIError
 from ge150.usb import open_transport
 from ge150.usb.transport import Transport, TransportError
@@ -204,6 +206,9 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
 }
 
 
+EXTRA_COMMANDS = EDIT_COMMANDS | SETTINGS_COMMANDS | AI_COMMANDS | T3K_COMMANDS
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ge150ctl", description=__doc__)
     parser.add_argument("--sim", action="store_true", help="use the built-in simulator")
@@ -228,7 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
         elif name == "send":
             p.add_argument("hex", nargs="+", help="opcode and data, e.g. 31 01")
             p.add_argument("--listen", type=float, default=3.0, help="seconds to listen")
-    for name, (_, help_text, setup) in (EDIT_COMMANDS | SETTINGS_COMMANDS | AI_COMMANDS).items():
+    for name, (_, help_text, setup) in EXTRA_COMMANDS.items():
         setup(sub.add_parser(name, help=help_text))
     return parser
 
@@ -239,10 +244,11 @@ def main(argv: list[str] | None = None) -> int:
                         format="%(asctime)s %(threadName)s %(levelname)s %(message)s")
     args.make_session = lambda: _session(args)
     handler = (COMMANDS[args.command][0] if args.command in COMMANDS
-               else (EDIT_COMMANDS | SETTINGS_COMMANDS | AI_COMMANDS)[args.command][0])
+               else EXTRA_COMMANDS[args.command][0])
     try:
         return handler(args)
-    except (TransportError, SessionError, EditorError, ToneAIError, ValueError, OSError) as exc:
+    except (TransportError, SessionError, EditorError, ToneAIError, Tone3000Error,
+            ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     except KeyboardInterrupt:
