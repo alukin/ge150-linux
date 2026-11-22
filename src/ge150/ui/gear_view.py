@@ -2,22 +2,38 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
-from ge150.model.gear import FALLBACK, Gear, gear_for, photo_path
+from ge150.model.gear import FALLBACK, MODULE_TAGS, Gear, gear_for, photo_path
 from ge150.services.editor import Editor
 from ge150.ui.gear_art import KnobState, paint_gear
 
 _photos: dict[str, QPixmap | None] = {}
+#: ``gid`` prefix of a user cabinet slot pictured with its TONE3000 image (then the path).
+T3K = "t3k:"
+FIRST_USER_CAB, LAST_USER_CAB = 27, 36
+
+
+def user_cab_gear(editor: Editor, number: int, gear: Gear) -> Gear:
+    """For a user CAB slot holding a TONE3000 IR whose image is cached: that image."""
+    names = editor.state.user_names
+    if names is None or not FIRST_USER_CAB <= number <= LAST_USER_CAB:
+        return gear
+    from ge150.services.tone3000 import IrSources, cached_image
+
+    source = IrSources().matching(names.ir).get(str(number - FIRST_USER_CAB + 1))
+    image = cached_image(str(source.get("image_url") or "")) if source else None
+    return replace(gear, gid=f"{T3K}{image}") if image else gear
 
 
 def load_photo(gid: str) -> QPixmap | None:
     if gid not in _photos:
-        path: Path | None = photo_path(gid)
+        path: Path | None = Path(gid[len(T3K):]) if gid.startswith(T3K) else photo_path(gid)
         pixmap = QPixmap(str(path)) if path else None
         _photos[gid] = pixmap if pixmap is not None and not pixmap.isNull() else None
     return _photos[gid]
@@ -46,7 +62,10 @@ def module_look(editor: Editor, index: int) -> tuple[Gear, str, list[KnobState],
     title = model.name
     if model.user_slot:
         title = editor.model_label(index, block.type).split(":", 1)[-1].strip() or model.name
-    return gear_for(index, model.number), title, knobs, bool(block.switch)
+    gear = gear_for(index, model.number)
+    if model.user_slot and MODULE_TAGS[index] == "CAB":
+        gear = user_cab_gear(editor, model.number, gear)
+    return gear, title, knobs, bool(block.switch)
 
 
 class GearView(QWidget):

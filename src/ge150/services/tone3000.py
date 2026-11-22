@@ -12,6 +12,7 @@ The publishable key (``client_id``) is created by the user in their TONE3000 set
 from __future__ import annotations
 
 import base64
+import contextlib
 import hashlib
 import json
 import os
@@ -387,16 +388,28 @@ class Tone3000Client:
         folder.mkdir(parents=True, exist_ok=True)
         path = folder / f"{model.id}.wav"
         path.write_bytes(data)
+        if tone.image_url:  # shown as the cabinet's photo in the editor
+            with contextlib.suppress(Tone3000Error):
+                fetch_image(tone.image_url)
         return Download(tone, model, path, {"models": [asdict(m) for m in models]})
 
 
 # --- where each user IR came from (attribution) -------------------------------------------------
 
 
+def _image_path(url: str) -> Path:
+    return cache_dir() / "images" / hashlib.sha256(url.encode()).hexdigest()[:32]
+
+
+def cached_image(url: str) -> Path | None:
+    """The image if it was already downloaded (never touches the network)."""
+    path = _image_path(url) if url else None
+    return path if path is not None and path.is_file() else None
+
+
 def fetch_image(url: str) -> Path:
     """Download (once) a tone image or an avatar into the cache; returns the file."""
-    name = hashlib.sha256(url.encode()).hexdigest()[:32]
-    path = cache_dir() / "images" / name
+    path = _image_path(url)
     if path.exists():
         return path
     if not url.startswith("https://"):

@@ -81,13 +81,21 @@ def page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Tone3000Pa
     session = DeviceSession(SimTransport(), frame_delay=0, multipart_delay=0).start()
     editor = Editor(session)
     editor.sync()
-    widget = Tone3000Page(editor, TaskRunner())
+    runner = TaskRunner()
+    widget = Tone3000Page(editor, runner)
     client = FakeClient(wav)
     widget.client = widget.loader.client = client  # type: ignore[assignment]
     widget.loader.sources = IrSources()
     widget.pending = client.begin()
+    restarts: list[bool] = []
+    widget.start_catalogue = lambda: restarts.append(True)  # type: ignore[method-assign]
+    widget.restarts = restarts  # type: ignore[attr-defined]
     widget.warnings = warnings  # type: ignore[attr-defined]
     yield widget
+    runner.wait(5000)
+    wait(lambda: False, 300)  # let background threads deliver their signals
+    widget.deleteLater()
+    QCoreApplication.processEvents()
     session.close()
 
 
@@ -113,3 +121,31 @@ def test_cancelled_flow_just_restarts(page: Tone3000Page) -> None:
     page._callback("http://127.0.0.1:53682/callback?error=access_denied&state=st")
     wait(lambda: False, 200)
     assert page.tone is None and not page.warnings  # type: ignore[attr-defined]
+    assert page.restarts  # type: ignore[attr-defined]
+
+
+def test_user_cab_shows_the_tone3000_image(page: Tone3000Page, tmp_path: Path,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    from ge150.formats import wav_ir as w
+    from ge150.model.gear import gear_for
+    from ge150.protocol.opcodes import Op
+    from ge150.services.tone3000 import _image_path
+    from ge150.ui.gear_view import T3K, load_photo, user_cab_gear
+
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path / "cache"))
+    url = "https://img/cab.png"
+    image = _image_path(url)
+    image.parent.mkdir(parents=True)
+    from PySide6.QtGui import QColor, QPixmap
+
+    pixmap = QPixmap(8, 8)
+    pixmap.fill(QColor("red"))
+    pixmap.save(str(image), "PNG")
+    tone = Tone(42, "Mesa 4x12 V30", "irmaker", "", "", "cc-by", "ir", "cab", "", url)
+    editor = page.editor
+    editor.upload_user_slot(Op.USER_IR, 3, "Mesa 4x12 V30",
+                            w.load_ir_file(page.client.wav))  # type: ignore[attr-defined]
+    IrSources().record(4, Download(tone, MODELS[0], page.client.wav))  # type: ignore[attr-defined]
+    gear = user_cab_gear(editor, 30, gear_for(3, 30))
+    assert gear.gid.startswith(T3K) and load_photo(gear.gid) is not None
+    assert user_cab_gear(editor, 31, gear_for(3, 31)).gid == gear_for(3, 31).gid

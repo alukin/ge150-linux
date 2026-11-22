@@ -18,11 +18,11 @@ from PySide6.QtWidgets import (
 )
 
 from ge150.model.catalog import ModuleInfo
-from ge150.model.gear import FALLBACK, describe, gear_for
+from ge150.model.gear import FALLBACK, MODULE_TAGS, describe, gear_for
 from ge150.model.preset import MODULES, ModuleBlock
 from ge150.services.editor import Editor
 from ge150.ui.gear_art import KnobState
-from ge150.ui.gear_view import GearView, load_photo, module_look
+from ge150.ui.gear_view import T3K, GearView, load_photo, module_look, user_cab_gear
 from ge150.ui.knob import EnumControl, Knob, make_control
 from ge150.ui.mic_view import MicPlacement
 from ge150.ui.model_gallery import ModelGallery
@@ -115,6 +115,8 @@ class ModuleEditor(QFrame):
             for i, m in enumerate(self.info.models):
                 label = self.editor.model_label(index, i)
                 gear = gear_for(index, m.number)
+                if m.user_slot and MODULE_TAGS[index] == "CAB":
+                    gear = user_cab_gear(self.editor, m.number, gear)
                 title = label.split(":", 1)[-1].strip() if m.user_slot else m.name
                 knobs = [KnobState(p.name, 0.5) for p in m.params if p.kind == "number"]
                 based = "\n" + describe(gear, load_photo(gear.gid) is not None)
@@ -155,7 +157,7 @@ class ModuleEditor(QFrame):
         self.view.set_gear(gear, title, knobs, on)
         has_photo = self.view.photo is not None
         caption = "" if gear is FALLBACK else describe(gear, has_photo)
-        if gear.gid in USER_SLOT_GEAR:
+        if gear.gid in USER_SLOT_GEAR or gear.gid.startswith(T3K):
             caption = f"{gear.name}: {title}" + self._ir_origin()
         self.based_on.setText(caption)
 
