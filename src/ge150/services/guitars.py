@@ -133,8 +133,12 @@ SYSTEM = ("You identify electric guitars for a guitar-effects editor. Use your k
           "manufacturers' serial-number schemes and their catalogues. Answer in Spanish. "
           "Fill each field with the factory specification of that exact instrument (year, "
           "factory, woods, scale, each pickup with its model, controls, bridge). Search the web "
-          "(the maker's spec sheets, serial decoders) to confirm the exact series. Leave a field "
-          "empty when you cannot confirm it, never invent. Say in 'explanation' how you decoded "
+          "(the maker's spec sheets, serial decoders) to confirm the exact series. Each field "
+          "holds only the data, short and plain (e.g. 'Ibanez Super 58, humbucker pasivo, "
+          "alnico'): no doubts, sources or comments there, those go in 'explanation'. Write "
+          "'No tiene' for a part the guitar does not have (e.g. a middle pickup on a two-pickup "
+          "guitar). Keep the model name as the user wrote it. Leave a field empty when you "
+          "cannot confirm it, never invent. Say in 'explanation' how you decoded "
           "the serial and what the user should check.")
 
 
