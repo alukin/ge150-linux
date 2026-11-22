@@ -92,11 +92,11 @@ class PresetList(QWidget):
             self.reload()
 
     def mark_current(self) -> None:
+        """Repaint and select the current preset, also when it was chosen on the pedal
+        itself (selecting a row does not load anything: only clicks do)."""
         for row in range(self.list.count()):
-            item = self.list.item(row)
-            self._paint(item)
-            if item.data(SLOT_ROLE) == self.state.current_slot:
-                self.list.scrollToItem(item)
+            self._paint(self.list.item(row))
+        self.select_slot(self.state.current_slot)
 
     def _paint(self, item: QListWidgetItem) -> None:
         slot = int(item.data(SLOT_ROLE))

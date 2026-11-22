@@ -97,8 +97,15 @@ def test_load_and_save_preset(window: MainWindow) -> None:
 
 def test_pedal_notification_updates_list(window: MainWindow) -> None:
     sim = window.sim  # type: ignore[attr-defined]
-    sim.inject(sim.device.footswitch(9))
-    assert wait(lambda: window.header.text().strip().startswith("9"))
+    window.presets.select_slot(10)
+    sim.inject(sim.device.footswitch(11))
+    assert wait(lambda: window.header.text().strip().startswith("11"))
+    assert window.number.text() == "011"
+    current = window.presets.list.currentItem()
+    from ge150.ui.preset_list import SLOT_ROLE
+
+    assert current is not None and current.data(SLOT_ROLE) == 11
+    assert window.state.edit.words == sim.device.presets[11].words  # type: ignore[union-attr]
 
 
 def test_settings_dialog_writes_to_pedal(window: MainWindow) -> None:
