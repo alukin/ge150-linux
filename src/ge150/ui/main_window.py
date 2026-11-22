@@ -184,6 +184,8 @@ class MainWindow(QMainWindow):
         self._action("&Archivo", "Guardar snapshot JSON…", self.save_snapshot)
         self._action("&Archivo", "Backup completo (.mbf)…", self.backup)
         self._action("&Archivo", "Restaurar backup (.mbf)…", self.restore)
+        self._action("&Archivo", "Abrir carpeta de backups automáticos",
+                     self.open_auto_backups)
         self._action("&Archivo", "Salir", self.close, "Ctrl+Q")
         self._action("&Preset", "Guardar", self.save_current, "Ctrl+S")
         self._action("&Preset", "Guardar en otra ranura…", self.save_as, "Ctrl+Shift+S")
@@ -433,6 +435,16 @@ class MainWindow(QMainWindow):
 
         self.runner.run(lambda: backup_service.create_backup(self.editor, self._progress),
                         done, self._error)
+
+    def open_auto_backups(self) -> None:
+        from PySide6.QtCore import QUrl
+        from PySide6.QtGui import QDesktopServices
+
+        from ge150.services.auto_backup import backup_dir
+
+        directory = backup_dir()
+        directory.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(directory)))
 
     def restore(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Restaurar backup", "", "Backup GE150 (*.mbf)")

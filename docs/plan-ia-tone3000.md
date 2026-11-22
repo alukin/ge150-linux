@@ -264,3 +264,8 @@ Dependencias nuevas (extra opcional `ai`): `mcp` (SDK oficial, 2.x), `keyring`. 
   0600) el HTML del chat, el id de sesión de cada CLI (abrir continúa con `--resume` / `exec resume`) y el preset
   seleccionado; al abrir, la pedalera carga ese preset (si el actual tiene cambios sin guardar, pregunta: cambiar y
   descartar, abrir sin cambiar o cancelar).
+- **Backup automático (2026-11-22):** `services/auto_backup.py`: antes de «Aplicar» y de «Deshacer la última edición»
+  en la pestaña Asistente se lee la pedalera completa (volcados `0xA0`/`0xC4`, de solo lectura: no cambia lo que suena)
+  y se guarda un `.mbf` compatible en `$XDG_DATA_HOME/ge150/backups/auto-<fecha>-<motivo>.mbf` (0600). Se conservan
+  los 20 automáticos más nuevos; los demás archivos de la carpeta no se tocan. Si el backup falla, `BackupError` y no
+  se escribe nada.

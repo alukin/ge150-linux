@@ -282,6 +282,9 @@ def test_assistant_tab_plans_reviews_and_applies(window: MainWindow) -> None:
         return
     page.review.apply()
     assert wait(lambda: not page.review.edits and page.review.undo_button.isEnabled())
+    assert "Backup previo: " in page.status.text()
+    from ge150.services.auto_backup import backup_dir
+    assert len(list(backup_dir().glob("auto-*-aplicar.mbf"))) == 1
     assert all(not state.presets[s].module(8).switch for s in planned)
     page.review.undo()
     assert wait(lambda: all(state.presets[s].words == before[s] for s in (22, 23)))

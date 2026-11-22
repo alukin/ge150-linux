@@ -120,7 +120,9 @@ La pestaña **Asistente** sirve para cambiar varios presets a la vez ("baja el r
 presets en la lista, se lo pides a la IA o usas la edición manual (módulo, estado, modelo, un parámetro fijado o
 sumado), y los cambios quedan en **Cambios pendientes** (antes → después por módulo) hasta que aprietas **Aplicar**.
 **Deshacer última edición** vuelve a escribir los presets como estaban. El preset cargado con cambios sin guardar no
-se toca.
+se toca. Antes de escribir se hace solo un **backup completo** (`.mbf`, el mismo de *Archivo → Backup completo*) en
+`~/.local/share/ge150/backups/` (se guardan los últimos 20; *Archivo → Abrir carpeta de backups automáticos*); si el
+backup falla, no se escribe nada.
 
 ### La pedalera como servidor MCP
 

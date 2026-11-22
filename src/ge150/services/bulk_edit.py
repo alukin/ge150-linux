@@ -11,8 +11,9 @@ saved) so the user can hear it before applying.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from ge150.model.gear import MODULE_TAGS
@@ -122,18 +123,39 @@ def preview(editor: Editor, edit: PresetEdit, after: bool = True) -> None:
     tone_ai.restore_words(editor, edit.after if after else edit.before)
 
 
+#: Called once before the first write (e.g. a full backup); returns where it was saved.
+Backup = Callable[[], Path]
+
+
+class BackupError(RuntimeError):
+    """The backup before writing failed: nothing was written."""
+
+
+def _run_backup(backup: Backup) -> Path:
+    try:
+        return backup()
+    except Exception as exc:
+        raise BackupError(f"no se pudo hacer el backup automático ({exc}); no se escribió "
+                          "nada en la pedalera") from exc
+
+
 @dataclass
 class Applied:
     previous: list[Preset]  # what to write back to undo
     skipped: list[tuple[int, str]]
+    backup: Path | None = None
 
 
-def apply(editor: Editor, edits: Sequence[PresetEdit]) -> Applied:
-    """Write the edits that are not blocked; returns the previous versions."""
+def apply(editor: Editor, edits: Sequence[PresetEdit],
+          backup: Backup | None = None) -> Applied:
+    """Write the edits that are not blocked; returns the previous versions. ``backup`` runs
+    before anything is written (if it raises, nothing is)."""
     state = editor.state
     previous: list[Preset] = []
     skipped: list[tuple[int, str]] = []
     reload = False
+    saved = _run_backup(backup) if backup is not None and any(
+        e.changed and not e.blocked for e in edits) else None
     for edit in edits:
         stored = state.presets.get(edit.slot)
         if edit.blocked or stored is None or not edit.changed:
@@ -150,12 +172,15 @@ def apply(editor: Editor, edits: Sequence[PresetEdit]) -> Applied:
         reload = reload or edit.slot == state.current_slot
     if reload and state.current_slot is not None:
         editor.select(state.current_slot)
-    return Applied(previous, skipped)
+    return Applied(previous, skipped, saved)
 
 
-def restore(editor: Editor, previous: Sequence[Preset]) -> list[int]:
+def restore(editor: Editor, previous: Sequence[Preset],
+            backup: Backup | None = None) -> list[int]:
     """Write back the versions saved by :func:`apply`; returns the slots restored."""
     state = editor.state
+    if backup is not None and previous:
+        _run_backup(backup)
     reload = False
     clean = not state.dirty
     for preset in previous:

@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from ge150.model.preset import Preset
-from ge150.services import bulk_edit
+from ge150.services import auto_backup, bulk_edit
 from ge150.services.bulk_edit import PresetEdit
 from ge150.services.editor import Editor
 from ge150.ui.worker import TaskRunner
@@ -290,7 +290,8 @@ class BulkReview(QWidget):
         chosen = self.chosen()
         if not chosen:
             return
-        self.message.emit(f"Escribiendo {len(chosen)} presets…")
+        self.message.emit(f"Haciendo un backup de la pedalera y escribiendo {len(chosen)} "
+                          "presets…")
 
         def done(result: bulk_edit.Applied) -> None:
             self.previous = result.previous
@@ -298,11 +299,17 @@ class BulkReview(QWidget):
                 self.edits.pop(preset.slot, None)
             self.playing = None  # the applied preset was loaded again with its new sound
             skipped = "; ".join(f"{slot:03d}: {why}" for slot, why in result.skipped)
-            self.message.emit(f"Listo: {len(result.previous)} presets escritos."
+            saved = (f" Backup previo: {auto_backup.short(result.backup)}"
+                     if result.backup else "")
+            self.message.emit(f"Listo: {len(result.previous)} presets escritos.{saved}"
                               + (f" No se escribieron: {skipped}" if skipped else ""))
             self._render()
 
-        self.runner.run(lambda: bulk_edit.apply(self.editor, chosen), done, self._failed)
+        self.runner.run(lambda: bulk_edit.apply(self.editor, chosen, self._backup("aplicar")),
+                        done, self._failed)
+
+    def _backup(self, reason: str) -> bulk_edit.Backup:
+        return lambda: auto_backup.save_before(self.editor, reason)
 
     def undo(self) -> None:
         previous = self.previous
@@ -314,7 +321,9 @@ class BulkReview(QWidget):
             self.message.emit(f"Restaurados: {', '.join(f'{s:03d}' for s in slots)}.")
             self._count()
 
-        self.runner.run(lambda: bulk_edit.restore(self.editor, previous), done, self._failed)
+        self.runner.run(lambda: bulk_edit.restore(self.editor, previous,
+                                                  self._backup("deshacer")),
+                        done, self._failed)
 
     def _failed(self, error: str) -> None:
         self.message.emit(f"Error: {error}")
