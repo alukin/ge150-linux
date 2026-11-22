@@ -88,6 +88,12 @@ def stop_all() -> int:
     return len(running)
 
 
+#: Current Claude models (full ids, so the version is the one shown). Claude Code has no
+#: command that lists them; update this list when a new family ships.
+CLAUDE_MODELS = (("claude-fable-5-2", "Fable 5.2"), ("claude-opus-5-5", "Opus 5.5"),
+                 ("claude-sonnet-5-5", "Sonnet 5.5"), ("claude-haiku-5-5", "Haiku 5.5"))
+
+
 class Agent:
     name = ""
     command = ""
@@ -128,9 +134,8 @@ class ClaudeAgent(Agent):
 
     @classmethod
     def models(cls) -> list[ModelChoice]:
-        return [ModelChoice(alias, label, cls.EFFORTS) for alias, label in
-                (("", "Predeterminado"), ("fable", "Fable"), ("opus", "Opus"),
-                 ("sonnet", "Sonnet"), ("haiku", "Haiku"))]
+        return [ModelChoice(model_id, label, cls.EFFORTS) for model_id, label in
+                (("", "Predeterminado"), *CLAUDE_MODELS)]
 
     def args(self, session: str) -> list[str]:
         config = {"mcpServers": {"ge150": {"command": self.server[0], "args": self.server[1:]}}}

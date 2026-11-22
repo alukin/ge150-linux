@@ -102,5 +102,6 @@ def test_codex_models_come_from_the_cli(monkeypatch: pytest.MonkeyPatch) -> None
     choices = tone_agent.CodexAgent.models()
     assert [c.id for c in choices] == ["", "gpt-a"]
     assert choices[1].efforts == ("low", "ultra")
-    assert [c.label for c in tone_agent.ClaudeAgent.models()][:3] == [
-        "Predeterminado", "Fable", "Opus"]
+    claude = tone_agent.ClaudeAgent.models()
+    assert [c.label for c in claude][:3] == ["Predeterminado", "Fable 5.2", "Opus 5.5"]
+    assert claude[2].id == "claude-opus-5-5"
