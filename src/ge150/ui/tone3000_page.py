@@ -59,7 +59,11 @@ def _web_view(callbacks: _Callbacks, is_callback: Any) -> QWidget | None:
             return bool(super().acceptNavigationRequest(url, kind, main_frame))
 
     view = QWebEngineView()
-    profile = QWebEngineProfile("ge150-tone3000", view)  # keeps the TONE3000 sign-in
+    # A named profile lives on disk; forcing persistence also keeps session cookies, so the
+    # TONE3000 sign-in (an emailed code) survives restarts of the editor.
+    profile = QWebEngineProfile("ge150-tone3000", view)
+    profile.setPersistentCookiesPolicy(
+        QWebEngineProfile.PersistentCookiesPolicy.ForcePersistentCookies)
     view.setPage(Page(profile, view))
     return view
 
