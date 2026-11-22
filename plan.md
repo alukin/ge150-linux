@@ -658,7 +658,10 @@ ge150-linux/
 - [x] 11.4 TONE3000 por CLI (`ge150ctl t3k-*`); falta probar con la cuenta real.
 - [x] 11.2 el editor comparte la pedalera con `ge150-mcp` (confirmación al guardar o cargar IR).
 - [x] 11.5 herramientas TONE3000 para la IA.
-- [ ] 11.3 panel de chat en la GUI (diseño a aprobar) · TONE3000 en la GUI · 11.6.
+- [x] 11.3 panel ✦ IA en la GUI (chat agente con Claude/Codex, Deshacer, Detener).
+- [x] TONE3000 en la GUI: pestaña con el catálogo integrado (Qt WebEngine) y «Agregar a la pedalera».
+- [x] 11.6 documentación (README).
+- [ ] Probar con la cuenta real de TONE3000 y la pedalera (usuario).
       Plan detallado y decisiones: [`docs/plan-ia-tone3000.md`](docs/plan-ia-tone3000.md).
 
 ---

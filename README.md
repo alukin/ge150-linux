@@ -59,6 +59,10 @@ ge150 --sim      # con el simulador, sin hardware
 - En las cabinas, el micrófono se arrastra frente al parlante para cambiar CENTER y DISTANCE.
 - Fotos propias: pon `<id>.jpg` o `.png` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en
   `src/ge150/data/gear.json`). Tienen prioridad sobre las incluidas; si no hay foto, se dibuja el equipo.
+- Pestaña **TONE3000**: el catálogo de IR de cabinas de [TONE3000](https://www.tone3000.com) dentro de la app. Al
+  elegir una IR aparece su ficha (imagen, autor, licencia, descripción y archivos) con la ranura de destino y
+  **Agregar a la pedalera**. Necesita `qt6-webengine`; sin él, el catálogo se abre en el navegador.
+- Botón **✦ IA** (Ctrl+K): panel lateral para pedir sonidos a Claude o Codex (ver más abajo).
 
 ## Línea de comandos
 
@@ -107,6 +111,11 @@ catálogo exacto de la GE150 (modelos, en qué equipo se basa cada uno y rangos)
 completo y la app lo aplica en vivo; guárdalo con `ge150ctl save` si te gusta. Las herramientas se ejecutan sin
 acceso a archivos ni otras herramientas.
 
+En la interfaz gráfica, el panel **✦ IA** (Ctrl+K) conversa con Claude o Codex, que cambian el sonido con las
+herramientas MCP de abajo: ves cada paso en el chat y en la pedalera, puedes seguir pidiendo ajustes ("un poco menos
+de ganancia"), **Deshacer** vuelve al sonido anterior y **Detener** corta la petición. La IA solo guarda un preset o
+carga una IR de TONE3000 si se lo pides, y siempre te pregunta antes en una ventana.
+
 ### La pedalera como servidor MCP
 
 `ge150-mcp` expone la pedalera a cualquier cliente MCP (Claude Code, Codex…) con herramientas para leer el catálogo,
@@ -128,7 +137,8 @@ esas dos herramientas se rechazan. La IA nunca restaura, resetea ni actualiza el
 
 ## Cabinas de TONE3000
 
-Descarga IR de cabinas de [TONE3000](https://www.tone3000.com) y cárgalas en las ranuras de usuario (CAB 27-36).
+Descarga IR de cabinas de [TONE3000](https://www.tone3000.com) y cárgalas en las ranuras de usuario (CAB 27-36),
+desde la pestaña TONE3000 de la app, desde la línea de comandos o pidiéndoselo a la IA.
 Una vez: copia la clave publicable (*Publishable Key*, `t3k_pub_…`) de los ajustes de API de tu cuenta de TONE3000.
 No hace falta registrar redirects: TONE3000 siempre acepta `http://127.0.0.1`. La *Secret Key* no se usa; no la
 compartas.
@@ -141,7 +151,8 @@ ge150ctl t3k-load 4 --tone 12345      # o directo por id de tono
 ge150ctl t3k-status                   # sesión e IR descargadas (autor y licencia)
 ```
 
-Se muestran autor y licencia de cada IR; respétala (por ejemplo, `cc-by-nc` = solo uso no comercial). Las IR
+Al elegir un CAB de usuario en la pestaña Efectos se ve de qué IR de TONE3000 viene. Se muestran autor y licencia
+de cada IR; respétala (por ejemplo, `cc-by-nc` = solo uso no comercial). Las IR
 descargadas quedan en `~/.cache/ge150/tone3000/` y no se versionan.
 
 ## Desarrollo
