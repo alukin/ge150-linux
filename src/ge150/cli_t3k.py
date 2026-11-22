@@ -78,7 +78,7 @@ def cmd_load(args: argparse.Namespace) -> int:
             if answer.strip().lower() not in ("y", "yes", "s", "si", "sí"):
                 return 1
         editor.upload_user_slot(Op.USER_IR, args.slot - 1, name, payload)
-    IrSources().record(args.slot, download)
+    IrSources().record(args.slot, download, name)
     print(f"IR slot {args.slot} (CAB {26 + args.slot}): {name}")
     return 0
 

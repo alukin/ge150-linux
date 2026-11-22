@@ -144,11 +144,13 @@ class PedalTools:
         return {"slot": slot, "name": preset.name, "modules": modules}
 
     def list_user_irs(self) -> dict[str, Any]:
+        from ge150.services.tone3000 import IrSources
+
         names = self.editor.state.user_names
         if names is None:
             return {"ir": [], "nr": []}
-        return {"ir": [{"slot": i + 1, "model": f"CAB {27 + i}", "name": n}
-                       for i, n in enumerate(names.ir)],
+        sources = IrSources().matching(names.ir)
+        return {"ir": [_ir_entry(i, n, sources) for i, n in enumerate(names.ir)],
                 "nr": [{"slot": i + 1, "model": f"AMP {56 + i}", "name": n}
                        for i, n in enumerate(names.nr)]}
 
@@ -298,11 +300,21 @@ class PedalTools:
             self.editor.upload_user_slot(Op.USER_IR, slot - 1, label, payload)
 
         self._locked(run)
-        IrSources().record(slot, download)
+        IrSources().record(slot, download, label)
         return {"stored": True, "slot": slot, "model": f"CAB {26 + slot}", "name": label,
                 "tone": tone.title, "file": download.model.name, "author": tone.author,
                 "license": tone.license, "url": tone.page_url,
                 "note": "select the model in the CAB module to hear it"}
+
+
+def _ir_entry(index: int, name: str, sources: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    entry: dict[str, Any] = {"slot": index + 1, "model": f"CAB {27 + index}", "name": name}
+    source = sources.get(str(index + 1))
+    if source:
+        entry["tone3000"] = {k: source.get(k) for k in
+                             ("title", "model", "author", "license", "url")}
+        entry["tone3000"]["description"] = str(source.get("description") or "")[:300]
+    return entry
 
 
 def _param_info(param: Any) -> dict[str, Any]:

@@ -111,4 +111,6 @@ def test_load_tone3000_ir_with_confirmation(tools: PedalTools, tmp_path, monkeyp
     tools.confirm = lambda q: "irmaker" in q and "cc-by" in q
     result = tools.load_tone3000_ir(4)
     assert fake.picked and result["author"] == "irmaker" and result["model"] == "CAB 30"
-    assert tools.list_user_irs()["ir"][3]["name"] == "Mesa 4x12 V30"
+    entry = tools.list_user_irs()["ir"][3]
+    assert entry["name"] == "Mesa 4x12 V30" and entry["tone3000"]["author"] == "irmaker"
+    assert "tone3000" not in tools.list_user_irs()["ir"][0]
