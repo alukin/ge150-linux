@@ -14,6 +14,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,14 +44,39 @@ def _workdir() -> Path:
     return path
 
 
+_RUNNING: set[subprocess.Popen[str]] = set()
+_LOCK = threading.Lock()
+
+
 def _run(args: list[str], stdin: str, cwd: Path) -> subprocess.CompletedProcess[str]:
     try:
-        return subprocess.run(args, input=stdin, capture_output=True, text=True, cwd=cwd,
-                              timeout=TIMEOUT_S, check=False)
+        process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, cwd=cwd)
     except FileNotFoundError as exc:
         raise ToneAIError(f"{args[0]} is not installed") from exc
+    with _LOCK:
+        _RUNNING.add(process)
+    try:
+        stdout, stderr = process.communicate(stdin, timeout=TIMEOUT_S)
     except subprocess.TimeoutExpired as exc:
+        process.kill()
+        process.communicate()
         raise ToneAIError(f"{args[0]} did not finish within {TIMEOUT_S} s") from exc
+    finally:
+        with _LOCK:
+            _RUNNING.discard(process)
+    if process.returncode < 0:
+        raise ToneAIError("stopped")
+    return subprocess.CompletedProcess(args, process.returncode, stdout, stderr)
+
+
+def stop_all() -> int:
+    """Stop every running request (Stop button, or the editor closing)."""
+    with _LOCK:
+        running = list(_RUNNING)
+    for process in running:
+        process.terminate()
+    return len(running)
 
 
 class Agent:

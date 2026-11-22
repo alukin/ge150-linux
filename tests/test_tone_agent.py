@@ -53,3 +53,26 @@ def test_codex_agent_resumes_the_thread(monkeypatch: pytest.MonkeyPatch) -> None
     assert 'sandbox_mode="read-only"' in calls[0] and calls[0][-1] == "-"
     agent.reset()
     assert agent.session == ""
+
+
+def test_stop_all_ends_a_running_request(tmp_path: Path) -> None:
+    import threading
+    import time
+
+    errors: list[str] = []
+
+    def run() -> None:
+        try:
+            tone_agent._run(["sleep", "30"], "", tmp_path)
+        except ToneAIError as exc:
+            errors.append(str(exc))
+
+    thread = threading.Thread(target=run)
+    thread.start()
+    for _ in range(100):
+        if tone_agent._RUNNING:
+            break
+        time.sleep(0.01)
+    assert tone_agent.stop_all() == 1
+    thread.join(5)
+    assert errors == ["stopped"] and not tone_agent._RUNNING
