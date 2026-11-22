@@ -97,3 +97,13 @@ def test_schema_is_strict_for_both_clis() -> None:
 def test_no_module_is_an_error(editor: Editor) -> None:
     with pytest.raises(tone_ai.ToneAIError):
         tone_ai.parse_proposal({"name": "", "explanation": "", "modules": []}, editor)
+
+
+def test_undo_restores_previous_sound(editor: Editor) -> None:
+    before = list(editor.state.edit.words)  # type: ignore[union-attr]
+    assistant = tone_ai.ToneAssistant(editor, FakeBackend(ANSWER))
+    assistant.ask("Slash")
+    assert editor.state.edit.words != before  # type: ignore[union-attr]
+    assert assistant.undo()
+    assert editor.state.edit.words == before  # type: ignore[union-attr]
+    assert not assistant.undo()

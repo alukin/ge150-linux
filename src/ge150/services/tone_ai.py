@@ -376,12 +376,24 @@ def apply_proposal(editor: Editor, proposal: Proposal) -> None:
         editor.write_module(block)
 
 
+def restore_words(editor: Editor, words: Sequence[int]) -> None:
+    """Put back a previous edit buffer, module by module (undo of a proposal)."""
+    for index in range(len(MODULES)):
+        block = editor.module(index)
+        old = list(words[block.layout.slice])
+        if old != block.words:
+            block.words[:] = old
+            editor.write_module(block)
+
+
 class ToneAssistant:
-    """Ask -> validate -> apply, keeping the conversation for follow-up requests."""
+    """Ask -> validate -> apply, keeping the conversation for follow-up requests and the
+    edit buffer before each applied proposal (for :meth:`undo`)."""
 
     def __init__(self, editor: Editor, backend: Backend) -> None:
         self.editor, self.backend = editor, backend
         self.conversation = Conversation()
+        self.history: list[list[int]] = []
 
     def ask(self, request: str, apply: bool = True) -> Proposal:
         data = self.backend.run(self.conversation.prompt(self.editor, request))
@@ -389,5 +401,14 @@ class ToneAssistant:
         summary = proposal.explanation + "\n" + "\n".join(proposal.describe(self.editor.catalog))
         self.conversation.turns.append(Turn(request, summary))
         if apply:
+            if self.editor.state.edit is not None:
+                self.history.append(list(self.editor.state.edit.words))
             apply_proposal(self.editor, proposal)
         return proposal
+
+    def undo(self) -> bool:
+        """Back to the sound before the last applied proposal."""
+        if not self.history:
+            return False
+        restore_words(self.editor, self.history.pop())
+        return True
