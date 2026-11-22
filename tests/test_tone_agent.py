@@ -76,3 +76,31 @@ def test_stop_all_ends_a_running_request(tmp_path: Path) -> None:
     assert tone_agent.stop_all() == 1
     thread.join(5)
     assert errors == ["stopped"] and not tone_agent._RUNNING
+
+
+def test_model_and_effort_reach_both_clis(tmp_path: Path) -> None:
+    claude = tone_agent.ClaudeAgent(server=["x"], model="opus", effort="high").args("")
+    assert claude[claude.index("--model") + 1] == "opus"
+    assert claude[claude.index("--effort") + 1] == "high"
+    codex = tone_agent.CodexAgent(server=["x"], model="gpt-6-sol", effort="max")
+    args = codex.args("", tmp_path / "o.txt")
+    assert args[args.index("-m") + 1] == "gpt-6-sol"
+    assert 'model_reasoning_effort="max"' in args
+    assert "--effort" not in tone_agent.ClaudeAgent(server=["x"]).args("")
+
+
+def test_codex_models_come_from_the_cli(monkeypatch: pytest.MonkeyPatch) -> None:
+    listed = {"models": [
+        {"slug": "gpt-a", "display_name": "GPT A", "visibility": "list",
+         "supported_reasoning_levels": [{"effort": "low"}, {"effort": "ultra"}]},
+        {"slug": "hidden", "display_name": "H", "visibility": "hide"}]}
+
+    def run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess([], 0, json.dumps(listed), "")
+
+    monkeypatch.setattr(tone_agent.subprocess, "run", run)
+    choices = tone_agent.CodexAgent.models()
+    assert [c.id for c in choices] == ["", "gpt-a"]
+    assert choices[1].efforts == ("low", "ultra")
+    assert [c.label for c in tone_agent.ClaudeAgent.models()][:3] == [
+        "Predeterminado", "Fable", "Opus"]

@@ -32,6 +32,15 @@ other tool, file or command."""
 
 
 @dataclass
+class ModelChoice:
+    """A model the user can pick; empty ``id`` = the CLI's own default."""
+
+    id: str
+    label: str
+    efforts: tuple[str, ...] = ()
+
+
+@dataclass
 class Reply:
     text: str
     session: str = ""
@@ -83,14 +92,21 @@ class Agent:
     name = ""
     command = ""
 
-    def __init__(self, model: str = "", server: list[str] | None = None) -> None:
+    def __init__(self, model: str = "", server: list[str] | None = None,
+                 effort: str = "") -> None:
         self.model = model
+        self.effort = effort
         self.server = server or server_command()
         self.session = ""
 
     @classmethod
     def available(cls) -> bool:
         return shutil.which(cls.command) is not None
+
+    @classmethod
+    def models(cls) -> list[ModelChoice]:
+        """Models to offer (may run the CLI: call it off the GUI thread)."""
+        return [ModelChoice("", "Predeterminado")]
 
     def ask(self, request: str) -> str:
         reply = self.run(request, self.session)
@@ -108,6 +124,13 @@ class ClaudeAgent(Agent):
     """``claude -p`` with only the ge150 MCP server and its tools; ``--resume`` continues."""
 
     name, command = "Claude", "claude"
+    EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+    @classmethod
+    def models(cls) -> list[ModelChoice]:
+        return [ModelChoice(alias, label, cls.EFFORTS) for alias, label in
+                (("", "Predeterminado"), ("fable", "Fable"), ("opus", "Opus"),
+                 ("sonnet", "Sonnet"), ("haiku", "Haiku"))]
 
     def args(self, session: str) -> list[str]:
         config = {"mcpServers": {"ge150": {"command": self.server[0], "args": self.server[1:]}}}
@@ -119,6 +142,8 @@ class ClaudeAgent(Agent):
             args += ["--resume", session]
         if self.model:
             args += ["--model", self.model]
+        if self.effort:
+            args += ["--effort", self.effort]
         return args
 
     def run(self, request: str, session: str) -> Reply:
@@ -137,11 +162,32 @@ class CodexAgent(Agent):
 
     name, command = "Codex", "codex"
 
+    @classmethod
+    def models(cls) -> list[ModelChoice]:
+        """From ``codex debug models`` (the models this account can use)."""
+        try:
+            result = subprocess.run([cls.command, "debug", "models"], capture_output=True,
+                                    text=True, timeout=20, check=False)
+            listed = json.loads(result.stdout)["models"]
+        except (OSError, subprocess.TimeoutExpired, ValueError, KeyError, TypeError):
+            return super().models()
+        choices = [ModelChoice("", "Predeterminado", ("low", "medium", "high", "xhigh", "max"))]
+        for model in listed:
+            if model.get("visibility") != "list":
+                continue
+            efforts = tuple(str(level["effort"]) for level in
+                            model.get("supported_reasoning_levels") or [])
+            choices.append(ModelChoice(str(model["slug"]),
+                                       str(model.get("display_name") or model["slug"]), efforts))
+        return choices
+
     def args(self, session: str, out: Path) -> list[str]:
         config = [f"mcp_servers.ge150.command={json.dumps(self.server[0])}",
                   f"mcp_servers.ge150.args={json.dumps(self.server[1:])}",
                   'sandbox_mode="read-only"', 'approval_policy="never"',
                   f"developer_instructions={json.dumps(GUIDE)}"]
+        if self.effort:
+            config.append(f"model_reasoning_effort={json.dumps(self.effort)}")
         args = [self.command, "exec"]
         if session:
             args += ["resume", session]
