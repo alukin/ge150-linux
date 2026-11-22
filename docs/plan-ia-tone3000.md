@@ -251,3 +251,16 @@ Dependencias nuevas (extra opcional `ai`): `mcp` (SDK oficial, 2.x), `keyring`. 
   acepta `slot=0` (reusa la ranura que ya tiene esa IR, si no la primera libre; si están las 10 ocupadas, el editor
   muestra `IrSlotPicker` con cuántos presets usa cada ranura) y con `use=true` la selecciona en el CAB en vivo
   (Deshacer revierte la selección, no la IR guardada). `list_user_irs` informa `used_by_presets`.
+- **Edición masiva / pestaña «Asistente» (2026-11-22):** pestaña junto a Efectos y TONE3000 con tres columnas: presets
+  con casillas y filtro + edición manual (`ui/bulk_form.py`), un chat propio (`ui/ai_chat.py`, extraído del panel
+  lateral, que conserva su conversación aparte) y «Cambios pendientes» (`ui/bulk_review.py`). `services/bulk_edit.py`
+  planifica sin escribir (`plan_edits`, mismo formato que `apply_patch`; un módulo sin `on` conserva su estado),
+  aplica con `Editor.copy_preset_data` sin cambiar de preset (rechaza el preset cargado si tiene cambios sin guardar;
+  si lo reescribe, lo vuelve a seleccionar) y deshace con `restore`. La IA usa `get_presets(query)` y
+  `propose_preset_edits` (no escribe: la propuesta aparece en la tabla y la pestaña se abre sola).
+- **Historial de conversaciones (2026-11-22):** como el plugin AgentHub de Obsidian. Botón de reloj en cada chat
+  (panel lateral y pestaña Asistente, historiales separados por `scope`): buscar, abrir, renombrar en la fila y borrar
+  con un segundo clic. `services/chat_history.py` guarda en `$XDG_DATA_HOME/ge150/chats/` (`index.json` + `<id>.json`,
+  0600) el HTML del chat, el id de sesión de cada CLI (abrir continúa con `--resume` / `exec resume`) y el preset
+  seleccionado; al abrir, la pedalera carga ese preset (si el actual tiene cambios sin guardar, pregunta: cambiar y
+  descartar, abrir sin cambiar o cancelar).

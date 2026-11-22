@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import QApplication
 
@@ -12,6 +14,9 @@ RAISED = "#262b33"
 BORDER = "#323843"
 TEXT = "#e9edf2"
 MUTED = "#8b95a3"
+#: Down arrow of the combo boxes (QSS only takes an image file).
+CHEVRON = str(Path(__file__).resolve().parent.parent / "data" / "chevron-down.svg").replace(
+    "\\", "/")
 
 STYLE = f"""
 QMainWindow, QDialog {{ background: {BG}; }}
@@ -164,6 +169,87 @@ QPlainTextEdit#guitarField {{ padding: 2px 6px; }}
 QScrollArea#guitarForm, QWidget#guitarFormBody {{ background: {PANEL}; border-radius: 10px; }}
 QLabel#fieldLabel {{ color: {MUTED}; padding-top: 6px; }}
 QLabel#sectionTitle {{ color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 4px; }}
+QFrame#sidePanel {{ background: {PANEL}; border-radius: 12px; }}
+QToolButton#iconButton {{
+    background: transparent; border: none; border-radius: 6px; padding: 5px;
+}}
+QToolButton#iconButton:hover, QToolButton#iconButton:checked {{ background: {RAISED}; }}
+QScrollArea#historyScroll, QWidget#historyBody {{ background: transparent; }}
+QFrame#historyEntry {{ border-radius: 8px; border-left: 2px solid transparent; }}
+QFrame#historyEntry:hover {{ background: {RAISED}; }}
+QFrame#historyEntry[current="true"] {{ border-left: 2px solid {ACCENT}; }}
+QLabel#historyTitle {{ font-weight: 600; }}
+QLabel#historyMeta {{ color: {MUTED}; font-size: 11px; }}
+QLabel#agentBadge {{
+    border-radius: 11px; font-size: 11px; font-weight: 800; color: #1a1208; background: #d97757;
+}}
+QLabel#agentBadge[agent="codex"] {{ background: {TEXT}; }}
+QLabel#cardTitle {{ font-size: 14px; font-weight: 800; }}
+QLabel#stepTitle {{
+    color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 8px; letter-spacing: 0.5px;
+}}
+QLabel#countBadge {{
+    color: {MUTED}; background: {RAISED}; border-radius: 9px; padding: 2px 9px; font-size: 11px;
+    font-weight: 700;
+}}
+QLabel#countBadge[on="true"] {{ color: #1a1208; background: {ACCENT}; }}
+QLabel#summaryBox {{
+    background: {BG}; border: 1px dashed {BORDER}; border-radius: 8px; padding: 10px 12px;
+    color: {TEXT};
+}}
+QLabel#emptyState {{ color: {MUTED}; padding: 24px; font-size: 12px; }}
+QPushButton#linkButton {{
+    background: transparent; border: none; color: {ACCENT}; padding: 2px 0; font-size: 12px;
+    font-weight: 600;
+}}
+QPushButton#linkButton:hover {{ color: #ffb066; }}
+QPushButton#linkButton:disabled {{ color: {MUTED}; }}
+QFrame#modeSwitch {{ background: {PANEL}; border-radius: 10px; }}
+QPushButton#modeTab {{
+    background: transparent; border: none; border-radius: 8px; padding: 7px 12px; color: {MUTED};
+    font-weight: 700;
+}}
+QPushButton#modeTab:hover {{ color: {TEXT}; }}
+QPushButton#modeTab:checked {{ background: {RAISED}; color: {TEXT}; }}
+QPushButton#segment {{
+    background: {RAISED}; border: 1px solid {BORDER}; border-radius: 7px; padding: 6px 10px;
+    color: {MUTED}; font-weight: 700; font-size: 12px;
+}}
+QPushButton#segment:hover {{ color: {TEXT}; border-color: #8a5a2e; }}
+QPushButton#segment:checked {{ background: #3a2a1a; border-color: {ACCENT}; color: {ACCENT}; }}
+QWidget#assistantPage QComboBox {{ padding: 6px 28px 6px 10px; }}
+QWidget#assistantPage QComboBox:hover {{ border-color: #8a5a2e; }}
+QWidget#assistantPage QComboBox:disabled {{ color: {MUTED}; }}
+QWidget#assistantPage QComboBox::drop-down {{
+    subcontrol-origin: padding; subcontrol-position: center right; width: 24px; border: none;
+}}
+QWidget#assistantPage QComboBox::down-arrow {{ image: url({CHEVRON}); width: 12px; height: 12px; }}
+QWidget#assistantPage QDoubleSpinBox {{
+    background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px 10px;
+}}
+QWidget#assistantPage QDoubleSpinBox QLineEdit {{
+    background: transparent; border: none; padding: 0;
+}}
+QWidget#assistantPage QDoubleSpinBox::up-button,
+QWidget#assistantPage QDoubleSpinBox::down-button {{
+    width: 0px; border: none; subcontrol-origin: border;  /* else the text box is 1 px wide */
+}}
+QWidget#assistantPage QSlider::groove:horizontal {{
+    height: 4px; background: {BORDER}; border-radius: 2px;
+}}
+QWidget#assistantPage QSlider::sub-page:horizontal {{ background: {ACCENT}; border-radius: 2px; }}
+QWidget#assistantPage QSlider::handle:horizontal {{
+    background: {TEXT}; border: 2px solid {ACCENT}; width: 12px; height: 12px;
+    margin: -6px 0; border-radius: 8px;
+}}
+QListWidget#presetChecks, QTreeWidget#bulkTree {{
+    background: {BG}; border: 1px solid {BORDER}; border-radius: 8px; padding: 4px;
+}}
+QTreeWidget#bulkTree::item {{ padding: 3px 2px; }}
+QTreeWidget#bulkTree QHeaderView::section {{
+    background: {BG}; color: {MUTED}; border: none; border-bottom: 1px solid {BORDER};
+    padding: 4px 6px; font-size: 11px; font-weight: 700;
+}}
 QLabel#guitarPicture {{
     background: {PANEL}; border-radius: 12px; color: {MUTED}; padding: 8px;
 }}

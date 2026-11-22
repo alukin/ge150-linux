@@ -204,17 +204,17 @@ def test_ai_clients_drive_the_open_editor(window: MainWindow) -> None:
 def test_ai_panel_sends_the_selected_preset_unless_unticked(window: MainWindow) -> None:
     sim = window.sim  # type: ignore[attr-defined]
     sim.inject(sim.device.footswitch(11))
-    assert wait(lambda: "011" in window.ai_panel.context.text())
-    message = window.ai_panel._with_context("más ganancia")
+    assert wait(lambda: "011" in window.ai_panel.body.context.text())
+    message = window.ai_panel.body._with_context("más ganancia")
     assert message.startswith("[Contexto: preset seleccionado 11") and "AMP:" in message
     assert message.endswith("más ganancia")
-    window.ai_panel.context.setChecked(False)
-    assert "no incluido" in window.ai_panel.context.text()
-    assert window.ai_panel._with_context("más ganancia") == "más ganancia"
+    window.ai_panel.body.context.setChecked(False)
+    assert "no incluido" in window.ai_panel.body.context.text()
+    assert window.ai_panel.body._with_context("más ganancia") == "más ganancia"
 
 
 def test_ai_panel_compares_original_and_suggested_sound(window: MainWindow) -> None:
-    panel = window.ai_panel
+    panel = window.ai_panel.body
     editor = window.editor
     before = list(editor.state.edit.words)  # type: ignore[union-attr]
     panel._before = list(before)
@@ -234,7 +234,7 @@ def test_ai_panel_compares_original_and_suggested_sound(window: MainWindow) -> N
 
 
 def test_original_sound_is_the_saved_preset(window: MainWindow) -> None:
-    panel, editor = window.ai_panel, window.editor
+    panel, editor = window.ai_panel.body, window.editor
     saved = list(window.state.presets[window.state.current_slot].words)  # type: ignore[index]
 
     def ai_turn(module: str) -> None:  # what the panel does around one AI request
@@ -258,3 +258,129 @@ def test_original_sound_is_the_saved_preset(window: MainWindow) -> None:
 
 
 MODULES_INDEX = {"DS": 1, "MOD": 6}
+
+
+def test_assistant_tab_plans_reviews_and_applies(window: MainWindow) -> None:
+    page = window.assistant
+    state = window.editor.state
+    assert page.list.count() == 200
+    page.filter.setText("PRESET 02")  # 020..029 visible
+    assert wait(lambda: not page.list.item(21).isHidden() and page.list.item(40).isHidden())
+    page.tick([22, 23])
+    assert page.ticked() == [22, 23] and "22" in page._context()
+    page.form.select_module(8)  # REVERB
+    page.form.select_state("off")
+    assert "Apagar REVERB" in page.form.summary.text() and page.form.add_button.isEnabled()
+    before = {s: list(state.presets[s].words) for s in (22, 23)}
+    on = {s: state.presets[s].module(8).switch for s in (22, 23)}
+    page.form.plan()
+    planned = [s for s in (22, 23) if on[s]]  # only presets with the REVERB on change
+    assert sorted(page.review.edits) == planned
+    assert all(state.presets[s].words == before[s] for s in (22, 23))  # nothing written yet
+    if not planned:
+        return
+    page.review.apply()
+    assert wait(lambda: not page.review.edits and page.review.undo_button.isEnabled())
+    assert all(not state.presets[s].module(8).switch for s in planned)
+    page.review.undo()
+    assert wait(lambda: all(state.presets[s].words == before[s] for s in (22, 23)))
+
+
+def test_ai_proposal_opens_the_assistant_tab(window: MainWindow) -> None:
+    tools = window.ai_host.tools
+    on = window.editor.state.presets[30].module(1).switch
+    tools.propose_preset_edits([{"slot": 30, "modules": [{"module": "DS", "on": not on}]}],
+                               "DS al revés")
+    assert wait(lambda: window.tabs.currentWidget() is window.assistant)
+    assert 30 in window.assistant.review.edits and 30 in window.assistant.ticked()
+
+
+def test_assistant_preset_rows_tick_on_click(window: MainWindow) -> None:
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+
+    page = window.assistant
+    window.tabs.setCurrentWidget(page)
+    page.list.scrollToTop()
+    item = page.list.item(4)
+    rect = page.list.visualItemRect(item)
+    name = QPoint(rect.center().x(), rect.center().y())  # on the name, not the box
+    QTest.mouseClick(page.list.viewport(), Qt.MouseButton.LeftButton, pos=name)
+    assert item.checkState() == Qt.CheckState.Checked and page.ticked() == [5]
+    QTest.mouseClick(page.list.viewport(), Qt.MouseButton.LeftButton, pos=name)
+    assert item.checkState() == Qt.CheckState.Unchecked and page.ticked() == []
+    assert not page.list.selectedItems()
+    box = QPoint(rect.left() + 14, rect.center().y())  # on the check box itself: once
+    QTest.mouseClick(page.list.viewport(), Qt.MouseButton.LeftButton, pos=box)
+    assert item.checkState() == Qt.CheckState.Checked
+
+
+def test_assistant_chat_shows_the_ticked_presets(window: MainWindow) -> None:
+    page = window.assistant
+    assert page.ticks_chip.text() == "Sin presets marcados"
+    page.tick([22, 23, 24, 26])
+    assert page.ticks_chip.text() == "Presets marcados: 022, 023, 024 +1"
+    assert "026" in page.ticks_chip.toolTip() and "26" in page._context()
+    page.ticks_chip.setChecked(False)
+    assert "no incluidos" in page.ticks_chip.text() and page._context() == ""
+    assert "Presets marcados" not in page.chat._with_context("hola")
+
+
+def test_chat_history_reopens_a_conversation_and_its_preset(window: MainWindow,
+                                                             monkeypatch: pytest.MonkeyPatch,
+                                                             tmp_path: "os.PathLike[str]") -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    from ge150.services.chat_history import ChatStore
+
+    chat = window.ai_panel.body
+    chat.store = chat.history.store = ChatStore()
+    agent = type("A", (), {"name": "Claude", "session": "sess-1", "reset": lambda s: None,
+                           "ask": lambda s, m: "Listo, más ganancia."})()
+    chat.agents = {"claude": agent}  # type: ignore[dict-item]
+    chat._agent = lambda: agent  # type: ignore[method-assign,assignment]
+    window.presets.activated.emit(11)
+    assert wait(lambda: window.editor.state.current_slot == 11)
+    chat.prompt.setPlainText("más ganancia")
+    chat.ask()
+    assert wait(lambda: not chat.busy)
+    saved = chat.store.entries("panel")
+    assert len(saved) == 1 and saved[0].title == "más ganancia" and saved[0].slot == 11
+    assert chat.store.entries("asistente") == []  # the tab has its own history
+
+    window.presets.activated.emit(30)  # elsewhere, then reopen it
+    assert wait(lambda: window.editor.state.current_slot == 30)
+    chat.new_conversation()
+    assert "más ganancia" not in chat.chat.toPlainText()
+    chat.history_button.setChecked(True)
+    assert chat.pages.currentWidget() is chat.history
+    chat.open_chat(saved[0].id)
+    assert "Listo, más ganancia." in chat.chat.toPlainText()
+    assert chat.chat_id == saved[0].id and chat.agents["claude"].session == "sess-1"
+    assert chat.pages.currentIndex() == 0
+    assert wait(lambda: window.editor.state.current_slot == 11)
+
+
+def test_chat_history_asks_before_dropping_unsaved_changes(window: MainWindow) -> None:
+    from ge150.services.chat_history import ChatEntry
+
+    chat = window.ai_panel.body
+    editor = window.editor
+    block = editor.module(1)
+    block.switch = not block.switch
+    editor.write_module(block)
+    assert editor.state.dirty
+    asked: list[str] = []
+
+    def answer(box: QMessageBox) -> int:
+        asked.append(box.text())
+        box.setProperty("clicked", "cancel")
+        return 0
+
+    monkeypatch_exec = QMessageBox.exec
+    try:
+        QMessageBox.exec = answer  # type: ignore[method-assign,assignment]
+        entry = ChatEntry("x", "panel", "t", "claude", 1, 1, 40, "Otro")
+        assert chat._ask_switch(entry) is None  # nothing clicked = cancel
+    finally:
+        QMessageBox.exec = monkeypatch_exec  # type: ignore[method-assign]
+    assert "cambios sin guardar" in asked[0] and "040" in asked[0]

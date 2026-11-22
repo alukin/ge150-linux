@@ -29,12 +29,15 @@ LABELS = {"get_catalog": "revisa el catálogo", "get_current_patch": "lee el son
           "set_module": "cambia un módulo", "apply_patch": "aplica un sonido",
           "undo": "deshace", "select_preset": "cambia de preset", "save_preset": "guarda",
           "tone3000_search": "busca en TONE3000", "tone3000_get": "lee TONE3000",
-          "load_tone3000_ir": "carga una IR de TONE3000"}
+          "load_tone3000_ir": "carga una IR de TONE3000", "get_presets": "lee varios presets",
+          "propose_preset_edits": "propone cambios en varios presets"}
 
 
 class AiHost(QObject):
     #: tool name, emitted for every call (on the GUI thread).
     called = Signal(str)
+    #: (list[bulk_edit.PresetEdit], summary): stored-preset changes for the user to review.
+    proposed = Signal(object, str)
     _ask = Signal(object, object)  # function to run on the GUI thread, answer box
     _call = Signal(str)
 
@@ -42,7 +45,8 @@ class AiHost(QObject):
         super().__init__(parent)
         self.window = parent
         self.tools = PedalTools(editor, runner.lock, confirm=self.confirm,
-                                pick_ir_slot=self.pick_ir_slot)
+                                pick_ir_slot=self.pick_ir_slot,
+                                on_proposal=self.proposed.emit)
         self.server: LocalServer | None = None
         self._ask.connect(self._on_ask)
         self._call.connect(self.called)

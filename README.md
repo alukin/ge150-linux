@@ -116,6 +116,12 @@ herramientas MCP de abajo: ves cada paso en el chat y en la pedalera, puedes seg
 de ganancia"), **Deshacer** vuelve al sonido anterior y **Detener** corta la petición. La IA solo guarda un preset o
 carga una IR de TONE3000 si se lo pides, y siempre te pregunta antes en una ventana.
 
+La pestaña **Asistente** sirve para cambiar varios presets a la vez ("baja el reverb a 20 en todos los Av83"): marcas
+presets en la lista, se lo pides a la IA o usas la edición manual (módulo, estado, modelo, un parámetro fijado o
+sumado), y los cambios quedan en **Cambios pendientes** (antes → después por módulo) hasta que aprietas **Aplicar**.
+**Deshacer última edición** vuelve a escribir los presets como estaban. El preset cargado con cambios sin guardar no
+se toca.
+
 ### La pedalera como servidor MCP
 
 `ge150-mcp` expone la pedalera a cualquier cliente MCP (Claude Code, Codex…) con herramientas para leer el catálogo,

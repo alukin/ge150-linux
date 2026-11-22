@@ -115,12 +115,13 @@ class Agent:
         self.server = server or [*server_command(), "--editor-only"]
         self.session = ""
         self.search_cabs = False
+        self.extra_guide = ""  # e.g. the «Asistente» tab: how to change stored presets
 
     @property
     def guide(self) -> str:
-        if self.search_cabs:
-            return f"{GUIDE}\n\n{CABS_GUIDE}"
-        return f"{GUIDE}\nOnly call load_tone3000_ir when the user asks for an IR."
+        guide = (f"{GUIDE}\n\n{CABS_GUIDE}" if self.search_cabs else
+                 f"{GUIDE}\nOnly call load_tone3000_ir when the user asks for an IR.")
+        return f"{guide}\n\n{self.extra_guide}" if self.extra_guide else guide
 
     @classmethod
     def available(cls) -> bool:

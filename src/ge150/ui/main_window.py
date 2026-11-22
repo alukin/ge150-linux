@@ -35,6 +35,7 @@ from ge150.services import reader
 from ge150.services.editor import Editor
 from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.ai_panel import AIPanel
+from ge150.ui.assistant_page import AssistantPage
 from ge150.ui.bridge import StateBridge
 from ge150.ui.chain_view import ChainView
 from ge150.ui.dialogs import ExpDialog, IrDialog
@@ -125,6 +126,9 @@ class MainWindow(QMainWindow):
         self.tabs.setDocumentMode(True)
         self.tabs.addTab(effects, "Efectos")
         self.tabs.addTab(self.tone3000, "TONE3000")
+        self.assistant = AssistantPage(editor, self.runner, self.ai_host)
+        self.tabs.addTab(self.assistant, "Asistente")
+        self.ai_host.proposed.connect(self._proposed)
         central_layout.addWidget(self.tabs, 1)
         self.setCentralWidget(central)
         self.central = central
@@ -193,6 +197,11 @@ class MainWindow(QMainWindow):
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
         self._action("Ay&uda", "Acerca de", self.about)
 
+    def _proposed(self, edits: object, summary: str) -> None:
+        """The AI proposes changes to stored presets: review them in «Asistente»."""
+        self.assistant.show_proposal(list(edits), summary)  # type: ignore[call-overload]
+        self.tabs.setCurrentWidget(self.assistant)
+
     # --- sync ------------------------------------------------------------------
 
     def start_sync(self) -> None:
@@ -207,22 +216,28 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Listo", 3000)
         self.central.setEnabled(True)
         self.presets.reload()
+        self.assistant.reload_presets()
         self._refresh_current()
         self.module_editor.show_module(self.chain.selected)
         self.ai_host.start()
         self.ai_panel.refresh_context()
+        self.assistant.chat.refresh_context()
 
     # --- state changes (GUI thread) ------------------------------------------
 
     def _on_change(self, kind: str, slot: int, module: int) -> None:
         if kind == ds.KIND_PRESETS:
             self.presets.reload()
+            self.assistant.reload_presets()
         elif kind == ds.KIND_PRESET:
             self.presets.update_slot(slot)
+            self.assistant.update_slot(slot)
             self.ai_panel.refresh_context()
+            self.assistant.chat.refresh_context()
         elif kind in (ds.KIND_CURRENT, ds.KIND_SELECTED):
             self._refresh_current()
             self.ai_panel.refresh_context()
+            self.assistant.chat.refresh_context()
         elif kind == ds.KIND_USER_NAMES:
             self.chain.refresh()
             self.module_editor.show_module(self.module_editor.index)
