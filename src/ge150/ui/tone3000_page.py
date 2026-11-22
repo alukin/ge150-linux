@@ -13,7 +13,7 @@ from __future__ import annotations
 import html
 from typing import Any
 
-from PySide6.QtCore import QObject, QUrl, Signal
+from PySide6.QtCore import QObject, Qt, QUrl, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QFormLayout,
@@ -80,7 +80,9 @@ class Tone3000Page(QWidget):
         self.user_name = ""
         self.view: QWidget | None = None
         self._callbacks = _Callbacks(self)
-        self._callbacks.url.connect(self._callback)
+        # Queued: handle it after the browser has finished refusing that navigation; loading
+        # a page from inside acceptNavigationRequest aborts Qt WebEngine.
+        self._callbacks.url.connect(self._callback, Qt.ConnectionType.QueuedConnection)
         self.loader._done.connect(self._background_done)
         self.loader.stored.connect(self._stored)
         self.loader.failed.connect(self._failed)
@@ -271,7 +273,7 @@ class Tone3000Page(QWidget):
             who = f" como <b>{html.escape(self.user_name)}</b>" if self.user_name else ""
             text = f"Sesión iniciada{who}."
         else:
-            text = "Inicia sesión en el catálogo para elegir IR."
+            text = "Elige una IR en el catálogo (botón «Select») para conectar tu cuenta."
         self.account.setText(text)
         self.logout_button.setVisible(creds.signed_in)
 
