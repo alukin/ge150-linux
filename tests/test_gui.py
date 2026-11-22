@@ -230,3 +230,28 @@ def test_ai_panel_compares_original_and_suggested_sound(window: MainWindow) -> N
     sim = window.sim  # type: ignore[attr-defined]
     sim.inject(sim.device.footswitch(12))
     assert wait(lambda: not panel.compare.isVisibleTo(panel))
+
+
+def test_original_sound_is_the_saved_preset(window: MainWindow) -> None:
+    panel, editor = window.ai_panel, window.editor
+    saved = list(window.state.presets[window.state.current_slot].words)  # type: ignore[index]
+
+    def ai_turn(module: str) -> None:  # what the panel does around one AI request
+        panel.prompt.setPlainText("algo")
+        panel._agent = lambda: type("A", (), {"name": "X", "ask": lambda s, m: "ok"})()  # type: ignore[method-assign,assignment]
+        panel.ask()
+        panel.host.tools.set_module(module, not editor.module(MODULES_INDEX[module]).switch)
+        assert wait(lambda: not panel.busy)
+
+    ai_turn("DS")
+    ai_turn("MOD")  # a second suggestion on top of the first one
+    assert panel.compare.isVisibleTo(panel)
+    panel.compare.original.click()
+    assert wait(lambda: editor.state.edit.words == saved)  # type: ignore[union-attr]
+    panel.compare.suggested.click()
+    assert wait(lambda: editor.state.edit.words != saved)  # type: ignore[union-attr]
+    editor.save()  # keeping the suggestion: nothing left to compare
+    assert wait(lambda: not panel.compare.isVisibleTo(panel))
+
+
+MODULES_INDEX = {"DS": 1, "MOD": 6}

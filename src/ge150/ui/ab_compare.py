@@ -1,5 +1,5 @@
-"""A/B bar of the AI panel: switch the pedal between the sound before the AI's changes and
-the one it suggested, to compare them by playing.
+"""A/B bar of the AI panel: switch the pedal between the preset as saved on the pedal and
+the sound the AI suggested, to compare them by playing.
 
 Both sounds are whole edit buffers. Switching writes only the modules that differ, under the
 pedal lock (off the GUI thread). Nothing is saved: the user keeps whichever is on by pressing
@@ -44,7 +44,7 @@ class SoundCompare(QFrame):
             button.setObjectName("abButton")
             button.setCheckable(True)
             self.group.addButton(button, which)
-        self.original.setToolTip("Lo que tenías antes de este pedido")
+        self.original.setToolTip("El preset tal como está guardado en la pedalera")
         self.suggested.setToolTip("Lo que propuso la IA")
         self.group.idClicked.connect(self.switch)
         layout.addWidget(label)
@@ -65,9 +65,18 @@ class SoundCompare(QFrame):
         self.sounds = None
         self.hide()
 
-    def preset_changed(self, slot: int | None) -> None:
-        if self.sounds is not None and slot != self.slot:
+    def preset_changed(self, slot: int | None, stored: list[int] | None) -> None:
+        """Another preset loaded: hide. The preset saved: the saved sound is the new original
+        (if the suggestion was saved, there is nothing left to compare)."""
+        if self.sounds is None:
+            return
+        if slot != self.slot:
             self.clear()
+        elif stored is not None and stored != self.sounds[ORIGINAL]:
+            if stored == self.sounds[SUGGESTED]:
+                self.clear()
+            else:
+                self.sounds = (stored, self.sounds[SUGGESTED])
 
     def switch(self, which: int) -> None:
         if self.sounds is None:

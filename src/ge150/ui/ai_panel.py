@@ -156,7 +156,8 @@ class AIPanel(QDockWidget):
         """The chip: the selected preset goes with each message unless the user unticks it."""
         state = self.host.tools.editor.state
         slot = state.current_slot
-        self.compare.preset_changed(slot)
+        stored = state.presets.get(slot or 0)
+        self.compare.preset_changed(slot, list(stored.words) if stored else None)
         preset = state.presets.get(slot or 0)
         label = f"{slot:03d} {preset.name if preset else ''}".strip() if slot else "—"
         font = self.context.font()
@@ -216,8 +217,12 @@ class AIPanel(QDockWidget):
             return
         agent = self._agent()
         message = self._with_context(request)
-        edit = self.host.tools.editor.state.edit
-        self._before = list(edit.words) if edit is not None else None
+        # "Original" = the preset as stored on the pedal, not the AI's previous suggestion.
+        state = self.host.tools.editor.state
+        stored = state.presets.get(state.current_slot or 0)
+        edit = state.edit
+        self._before = list(stored.words) if stored is not None else (
+            list(edit.words) if edit is not None else None)
         self.compare.clear()
         self.prompt.clear()
         self._bubble("Tú", html.escape(request).replace("\n", "<br>"), USER)
