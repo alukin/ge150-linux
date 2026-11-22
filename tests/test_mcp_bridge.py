@@ -55,3 +55,29 @@ def test_stale_discovery_file_is_ignored(tmp_path: Path) -> None:
     server = LocalServer(object(), path=path).start()
     server.stop()
     assert not path.exists()
+
+
+def test_discovery_without_xdg_runtime_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ge150.mcp_server.bridge import discovery_path
+
+    monkeypatch.delenv("XDG_RUNTIME_DIR", raising=False)
+    run = Path(f"/run/user/{os.getuid()}")
+    expected = run if run.is_dir() else Path(__import__("tempfile").gettempdir())
+    assert discovery_path() == expected / "ge150" / "mcp.json"
+
+
+def test_editor_only_never_opens_the_pedal(tmp_path: Path,
+                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    pytest.importorskip("mcp")
+    from ge150.mcp_server import server
+
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))  # no editor here
+    monkeypatch.setattr(server, "_open_editor", lambda args: pytest.fail("opened the pedal"))
+    assert server.main(["--editor-only"]) == 1
+
+
+def test_panel_agents_use_editor_only() -> None:
+    from ge150.services.tone_agent import ClaudeAgent, CodexAgent
+
+    assert ClaudeAgent().server[-1] == "--editor-only"
+    assert CodexAgent().server[-1] == "--editor-only"

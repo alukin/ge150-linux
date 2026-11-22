@@ -102,7 +102,8 @@ class Agent:
                  effort: str = "") -> None:
         self.model = model
         self.effort = effort
-        self.server = server or server_command()
+        # The panel's agents act on the open editor only: never a second owner of the USB.
+        self.server = server or [*server_command(), "--editor-only"]
         self.session = ""
 
     @classmethod

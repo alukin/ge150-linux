@@ -169,6 +169,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--device", help="hidraw node, e.g. /dev/hidraw4")
     parser.add_argument("--standalone", action="store_true",
                         help="open the pedal even if the GE150 editor is running")
+    parser.add_argument("--editor-only", action="store_true",
+                        help="only forward to the GE150 editor; never open the pedal (used by "
+                             "the editor's own AI panel)")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     # stdout carries the MCP protocol: every log goes to stderr.
@@ -181,6 +184,9 @@ def main(argv: list[str] | None = None) -> int:
         logging.info("forwarding to the GE150 editor at %s", remote.url)
         build_server(remote).run("stdio")
         return 0
+    if args.editor_only:
+        print("ge150-mcp: the GE150 editor is not answering (--editor-only)", file=sys.stderr)
+        return 1
     try:
         session, editor = _open_editor(args)
     except Exception as exc:

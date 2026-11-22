@@ -34,7 +34,12 @@ CALL_TIMEOUT_S = 330
 
 
 def discovery_path() -> Path:
-    base = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    """``$XDG_RUNTIME_DIR/ge150/mcp.json``. AI clients may start ``ge150-mcp`` with a trimmed
+    environment (Codex drops ``XDG_RUNTIME_DIR``), so also derive it from the user id."""
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    if not base:
+        run = Path(f"/run/user/{os.getuid()}")
+        base = str(run) if run.is_dir() else tempfile.gettempdir()
     return Path(base) / "ge150" / "mcp.json"
 
 
