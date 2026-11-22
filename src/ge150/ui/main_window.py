@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         header_layout.addSpacing(8)
         header_layout.addWidget(self.number)
         header_layout.addWidget(self.name)
+        header_layout.addSpacing(14)
         header_layout.addWidget(self.dirty_badge)
         header_layout.addStretch(1)
         header_layout.addWidget(self.header)
@@ -208,6 +209,7 @@ class MainWindow(QMainWindow):
         self._refresh_current()
         self.module_editor.show_module(self.chain.selected)
         self.ai_host.start()
+        self.ai_panel.refresh_context()
 
     # --- state changes (GUI thread) ------------------------------------------
 
@@ -216,8 +218,10 @@ class MainWindow(QMainWindow):
             self.presets.reload()
         elif kind == ds.KIND_PRESET:
             self.presets.update_slot(slot)
+            self.ai_panel.refresh_context()
         elif kind in (ds.KIND_CURRENT, ds.KIND_SELECTED):
             self._refresh_current()
+            self.ai_panel.refresh_context()
         elif kind == ds.KIND_USER_NAMES:
             self.chain.refresh()
             self.module_editor.show_module(self.module_editor.index)
