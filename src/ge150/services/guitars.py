@@ -138,8 +138,11 @@ SYSTEM = ("You identify electric guitars for a guitar-effects editor. Use your k
           "alnico'): no doubts, sources or comments there, those go in 'explanation'. Write "
           "'No tiene' for a part the guitar does not have (e.g. a middle pickup on a two-pickup "
           "guitar). Keep the model name as the user wrote it. Leave a field empty when you "
-          "cannot confirm it, never invent. Say in 'explanation' how you decoded "
-          "the serial and what the user should check.")
+          "cannot confirm it, never invent. The country/factory in particular: fill it only "
+          "when the serial scheme or a source about this serial confirms it; the usual factory "
+          "of a series is not enough (the same model is often built in several countries). "
+          "'confidence' is 'alta' only when every filled field is confirmed. Say in "
+          "'explanation' how you decoded the serial and what the user should check.")
 
 
 def identify(guitar: Guitar, provider: str = "", model: str = "") -> tuple[Guitar, str, str]:
