@@ -9,8 +9,11 @@ AI assistant receives about the guitar in use.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import shutil
+import urllib.request
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -58,6 +61,8 @@ class Guitar:
     evidence: dict[str, str] = field(default_factory=dict)
     #: the last identification: how it was done and its sources.
     report: str = ""
+    #: local picture of the guitar (downloaded official photo or the user's own).
+    image: str = ""
 
     @property
     def title(self) -> str:
@@ -75,6 +80,46 @@ class Guitar:
         if isinstance(evidence, dict):
             guitar.evidence = {str(k): str(v) for k, v in evidence.items() if v in EVIDENCE}
         return guitar
+
+
+def images_dir() -> Path:
+    base = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
+    return Path(base) / "ge150" / "guitars"
+
+
+#: Some shops refuse unknown clients; a browser-like agent gets the same public picture.
+IMAGE_AGENT = "Mozilla/5.0 (X11; Linux x86_64) ge150-linux"
+IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+
+
+def download_image(url: str, guitar_id: str) -> Path:
+    """Fetch a guitar picture (https only, an image, at most 10 MB) next to its record."""
+    if not url.startswith("https://"):
+        raise ValueError(f"not an https image: {url[:80]}")
+    request = urllib.request.Request(url, headers={"User-Agent": IMAGE_AGENT})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        kind = response.headers.get_content_type()
+        if kind not in IMAGE_TYPES:
+            raise ValueError(f"not an image ({kind})")
+        data = response.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        raise ValueError("image too large")
+    path = images_dir() / f"{guitar_id}{IMAGE_TYPES[kind]}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
+def set_own_image(guitar: Guitar, source: Path) -> Path:
+    """Copy the user's own picture of ``guitar`` into the guitars folder."""
+    suffix = source.suffix.lower() if source.suffix.lower() in (".jpg", ".jpeg", ".png",
+                                                                 ".webp") else ".jpg"
+    path = images_dir() / f"{guitar.id}{suffix}"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if source.resolve() != path.resolve():
+        shutil.copyfile(source, path)
+    guitar.image = str(path)
+    return path
 
 
 def _config_path() -> Path:
@@ -119,6 +164,9 @@ class GuitarStore:
         self.save()
 
     def remove(self, guitar_id: str) -> None:
+        guitar = self.get(guitar_id)
+        if guitar is not None and guitar.image and Path(guitar.image).parent == images_dir():
+            Path(guitar.image).unlink(missing_ok=True)
         self.guitars = [g for g in self.guitars if g.id != guitar_id]
         if self.active == guitar_id:
             self.active = ""
@@ -144,13 +192,14 @@ def context_text(guitar: Guitar) -> str:
 SCHEMA: dict[str, object] = {
     "type": "object",
     "additionalProperties": False,
-    "required": [*SPEC_FIELDS, "confidence", "explanation"],
+    "required": [*SPEC_FIELDS, "image_url", "confidence", "explanation"],
     "properties": {**{name: {"type": "object", "additionalProperties": False,
                              "required": ["value", "evidence"],
                              "properties": {"value": {"type": "string"},
                                             "evidence": {"type": "string",
                                                          "enum": [*EVIDENCE, ""]}}}
                       for name in SPEC_FIELDS},
+                   "image_url": {"type": "string"},
                    "confidence": {"type": "string", "enum": ["alta", "media", "baja"]},
                    "explanation": {"type": "string"}},
 }
@@ -170,7 +219,9 @@ with its evidence level; write "No tiene" for a part the guitar does not have; k
 name as the user wrote it; leave value and evidence empty when you cannot support it, never
 invent. In "explanation" say, briefly, how each uncertain field was established, any
 disagreement between sources (do not hide it), what the user should check on the instrument,
-and list the source URLs. "confidence" is "alta" only when the specs are "oficial" and nothing
+and list the source URLs. "image_url": a direct link to an image file (jpg/png/webp) of this
+model and colour, the whole guitar seen from the front, preferably from the maker's site; ""
+if none. "confidence" is "alta" only when the specs are "oficial" and nothing
 important is only "probable"."""
 
 
@@ -195,4 +246,8 @@ def identify(guitar: Guitar, provider: str = "", model: str = "") -> tuple[Guita
                 suggested.evidence[name] = evidence
     why = str(data.get("explanation", ""))
     suggested.report = why
+    url = str(data.get("image_url") or "")
+    if url and not suggested.image:
+        with contextlib.suppress(OSError, ValueError):
+            suggested.image = str(download_image(url, suggested.id))
     return suggested, str(data.get("confidence", "")), why

@@ -66,3 +66,21 @@ def test_claude_backend_web_search_flags(monkeypatch: pytest.MonkeyPatch) -> Non
     args = calls[0]
     assert args[args.index("--tools") + 1] == "WebSearch,WebFetch"
     assert args[-2:] == ["WebSearch", "WebFetch"] and "sys" in args
+
+
+def test_pictures_are_kept_and_removed_with_the_guitar(tmp_path: Path,
+                                                       monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    with pytest.raises(ValueError, match="https"):
+        guitars.download_image("http://example.com/g.jpg", "x")
+    own = tmp_path / "mine.png"
+    own.write_bytes(b"\x89PNG fake")
+    store = GuitarStore(tmp_path / "g.json")
+    guitar = Guitar(brand="Ibanez", model="AM93QA-JBB")
+    path = guitars.set_own_image(guitar, own)
+    assert path == guitars.images_dir() / f"{guitar.id}.png"
+    assert path.read_bytes() == own.read_bytes()
+    store.put(guitar)
+    assert GuitarStore(tmp_path / "g.json").get(guitar.id).image == str(path)  # type: ignore[union-attr]
+    store.remove(guitar.id)
+    assert not path.exists() and own.exists()  # only our copy goes
