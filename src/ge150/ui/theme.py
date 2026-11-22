@@ -43,12 +43,50 @@ QPushButton#aiButton {{
 }}
 QPushButton#aiButton:hover {{ background: #2d2620; }}
 QPushButton#aiButton:checked {{ background: #3a2a1a; }}
+QFrame#composer {{
+    background: {PANEL}; border: 1px solid {BORDER}; border-radius: 12px;
+}}
+QFrame#composer[focused="true"] {{ border-color: {ACCENT}; }}
+QPlainTextEdit#aiPrompt {{ background: transparent; border: none; padding: 2px; }}
+QPushButton#contextChip {{
+    background: {RAISED}; color: {TEXT}; border: 1px solid {BORDER}; border-radius: 6px;
+    padding: 4px 8px; font-size: 12px; text-align: left;
+}}
+QPushButton#contextChip:!checked {{
+    background: transparent; color: {MUTED}; border-style: dashed;
+}}
+QPushButton#contextChip:hover {{ border-color: {ACCENT}; }}
+QToolButton#pill {{
+    background: transparent; color: {MUTED}; border: 1px solid {BORDER}; border-radius: 11px;
+    padding: 2px 9px; font-size: 12px; min-height: 18px;
+}}
+QToolButton#pill:hover, QToolButton#pill:open {{
+    color: {TEXT}; border-color: #8a5a2e; background: #2a2119;
+}}
+QToolButton#pill::menu-indicator {{ image: none; width: 0; }}
+QToolButton#pill:disabled {{ color: #4d5562; }}
+QMenu#pillMenu {{ padding: 4px; border-top: 2px solid {ACCENT}; border-radius: 8px; }}
+QMenu#pillMenu::item {{ padding: 5px 22px 5px 10px; border-radius: 5px; }}
+QToolButton#sendButton {{
+    background: {ACCENT}; color: #1b1205; border: none; border-radius: 14px;
+    min-width: 28px; max-width: 28px; min-height: 28px; max-height: 28px;
+    font-size: 15px; font-weight: 800;
+}}
+QToolButton#sendButton:hover {{ background: #ffa04d; }}
+QToolButton#sendButton:disabled {{ background: {RAISED}; color: {MUTED}; }}
+QToolButton#sendButton[busy="true"] {{
+    background: #3a2a1a; color: {ACCENT}; border: 2px solid {ACCENT}; font-size: 11px;
+}}
+QFrame#soundCompare {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 10px; }}
+QPushButton#abButton {{
+    background: transparent; color: {MUTED}; border: 1px solid {BORDER}; border-radius: 8px;
+    padding: 6px 10px; font-weight: 700;
+}}
+QPushButton#abButton:hover {{ color: {TEXT}; border-color: #8a5a2e; }}
+QPushButton#abButton:checked {{ background: {ACCENT}; color: #1b1205; border-color: {ACCENT}; }}
 QDockWidget#aiPanel {{ color: {MUTED}; font-weight: 700; }}
 QDockWidget#aiPanel::title {{ background: {BG}; padding: 8px 10px; }}
 QTextBrowser#aiChat {{ background: {PANEL}; border: none; border-radius: 10px; padding: 8px; }}
-QPlainTextEdit#aiPrompt {{
-    background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px;
-}}
 QTabWidget#mainTabs::pane {{ border: none; }}
 QTabWidget#mainTabs > QTabBar {{ background: {BG}; }}
 QTabWidget#mainTabs > QTabBar::tab {{

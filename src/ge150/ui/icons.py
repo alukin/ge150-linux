@@ -1,0 +1,36 @@
+"""Small line icons (Lucide shapes, ISC licence) drawn from SVG in any colour."""
+
+from __future__ import annotations
+
+from PySide6.QtCore import QByteArray, QRectF, Qt
+from PySide6.QtGui import QIcon, QPainter, QPixmap
+from PySide6.QtSvg import QSvgRenderer
+
+_PATHS = {
+    "sparkles": '<path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.13-1.58a.5.5 0 0 1 0-.96L8.5 9.94'
+                'A2 2 0 0 0 9.94 8.5l1.58-6.13a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94'
+                'l6.13 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.13'
+                'a.5.5 0 0 1-.96 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+    "gauge": '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+    "undo": '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+    "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+    "square": '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>',
+    "sliders": '<path d="M21 4h-7"/><path d="M10 4H3"/><path d="M21 12h-9"/><path d="M8 12H3"/>'
+               '<path d="M21 20h-5"/><path d="M12 20H3"/><path d="M14 2v4"/><path d="M8 10v4"/>'
+               '<path d="M16 18v4"/>',
+    "slash": '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+}
+
+
+def icon(name: str, color: str, size: int = 16) -> QIcon:
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+           f'stroke="{color}" color="{color}" stroke-width="2" stroke-linecap="round" '
+           f'stroke-linejoin="round">{_PATHS[name]}</svg>')
+    renderer = QSvgRenderer(QByteArray(svg.encode()))
+    pixmap = QPixmap(size * 2, size * 2)  # sharp on HiDPI
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter, QRectF(0, 0, size * 2, size * 2))
+    painter.end()
+    pixmap.setDevicePixelRatio(2)
+    return QIcon(pixmap)

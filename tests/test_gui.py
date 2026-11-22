@@ -198,3 +198,35 @@ def test_ai_clients_drive_the_open_editor(window: MainWindow) -> None:
     assert window.state.presets[30].name == "AI PLEXI"
     window.close()
     assert find_editor() is None
+
+
+def test_ai_panel_sends_the_selected_preset_unless_unticked(window: MainWindow) -> None:
+    sim = window.sim  # type: ignore[attr-defined]
+    sim.inject(sim.device.footswitch(11))
+    assert wait(lambda: "011" in window.ai_panel.context.text())
+    message = window.ai_panel._with_context("más ganancia")
+    assert message.startswith("[Contexto: preset seleccionado 11") and "AMP:" in message
+    assert message.endswith("más ganancia")
+    window.ai_panel.context.setChecked(False)
+    assert "no incluido" in window.ai_panel.context.text()
+    assert window.ai_panel._with_context("más ganancia") == "más ganancia"
+
+
+def test_ai_panel_compares_original_and_suggested_sound(window: MainWindow) -> None:
+    panel = window.ai_panel
+    editor = window.editor
+    before = list(editor.state.edit.words)  # type: ignore[union-attr]
+    panel._before = list(before)
+    panel.busy = True
+    panel.host.tools.set_module("DS", not editor.module(1).switch)  # what the AI would do
+    after = list(editor.state.edit.words)  # type: ignore[union-attr]
+    panel._finished("Listo", "")
+    assert panel.compare.isVisibleTo(panel) and panel.compare.suggested.isChecked()
+    panel.compare.original.click()
+    assert wait(lambda: editor.state.edit.words == before)  # type: ignore[union-attr]
+    assert wait(lambda: panel.compare.original.isChecked() and panel.compare.isEnabled())
+    panel.compare.suggested.click()
+    assert wait(lambda: editor.state.edit.words == after)  # type: ignore[union-attr]
+    sim = window.sim  # type: ignore[attr-defined]
+    sim.inject(sim.device.footswitch(12))
+    assert wait(lambda: not panel.compare.isVisibleTo(panel))

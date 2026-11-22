@@ -10,22 +10,29 @@ import html
 import importlib.util
 import threading
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QComboBox,
     QDockWidget,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QPushButton,
     QTextBrowser,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from ge150.services import tone_agent
+from ge150.services import tone_agent, tone_ai
+from ge150.ui.ab_compare import SoundCompare
 from ge150.ui.ai_host import LABELS, AiHost
+from ge150.ui.ai_options import AgentOptions
+from ge150.ui.icons import icon
+from ge150.ui.theme import ACCENT
+from ge150.ui.theme import MUTED as MUTED_ICON
 
 EXAMPLES = ("Tono de Slash en el solo de Sweet Child O' Mine",
             "Clean brillante con chorus estilo The Police",
@@ -59,6 +66,7 @@ class AIPanel(QDockWidget):
         self.host = host
         self.agents: dict[str, tone_agent.Agent] = {}
         self.blocks: list[str] = []
+        self._before: list[int] | None = None
         self.busy = False
         self._done = _Done(self)
         self._done.finished.connect(self._finished)
@@ -85,26 +93,96 @@ class AIPanel(QDockWidget):
         self.status = QLabel()
         self.status.setObjectName("note")
         layout.addWidget(self.status)
+        # The composer (like the AgentHub plugin for Obsidian): context chips, the message and a
+        # toolbar with option pills and a round send/stop button, all inside one rounded box.
+        self.composer = QFrame()
+        self.composer.setObjectName("composer")
+        box = QVBoxLayout(self.composer)
+        box.setContentsMargins(10, 8, 8, 8)
+        box.setSpacing(4)
+        self.context = QPushButton()
+        self.context.setObjectName("contextChip")
+        self.context.setCheckable(True)
+        self.context.setChecked(True)
+        self.context.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.context.toggled.connect(lambda _: self.refresh_context())
+        box.addWidget(self.context, 0, Qt.AlignmentFlag.AlignLeft)
         self.prompt = _Prompt()
         self.prompt.setObjectName("aiPrompt")
-        self.prompt.setPlaceholderText("Describe el sonido (Enter para enviar)")
-        self.prompt.setFixedHeight(76)
+        self.prompt.setPlaceholderText("Describe el sonido…  (Enter envía, Shift+Enter salto)")
+        self.prompt.setFixedHeight(64)
         self.prompt.submitted.connect(self.ask)
-        layout.addWidget(self.prompt)
-        buttons = QHBoxLayout()
-        self.undo_button = QPushButton("Deshacer")
-        self.undo_button.setToolTip("Volver al sonido anterior al último cambio de la IA")
+        self.prompt.installEventFilter(self)
+        box.addWidget(self.prompt)
+        toolbar = QHBoxLayout()
+        toolbar.setSpacing(4)
+        self.undo_button = QToolButton()
+        self.undo_button.setObjectName("pill")
+        self.undo_button.setIcon(icon("undo", MUTED_ICON, 13))
+        self.undo_button.setToolTip("Deshacer: volver al sonido anterior al último cambio de la IA")
         self.undo_button.clicked.connect(self.undo)
-        self.ask_button = QPushButton("Enviar")
-        self.ask_button.setObjectName("saveButton")
+        self.options = AgentOptions()
+        self.provider.currentIndexChanged.connect(
+            lambda _: self.options.set_provider(str(self.provider.currentData() or "")))
+        self.options.set_provider(str(self.provider.currentData() or ""))
+        self.ask_button = QToolButton()
+        self.ask_button.setObjectName("sendButton")
+        self.ask_button.setIcon(icon("arrow-up", "#1b1205", 16))
+        self.ask_button.setToolTip("Enviar (Enter)")
         self.ask_button.clicked.connect(self._send_or_stop)
-        buttons.addWidget(self.undo_button)
-        buttons.addStretch(1)
-        buttons.addWidget(self.ask_button)
-        layout.addLayout(buttons)
+        toolbar.addWidget(self.undo_button)
+        toolbar.addWidget(self.options)
+        toolbar.addStretch(1)
+        toolbar.addWidget(self.ask_button)
+        box.addLayout(toolbar)
+        self.compare = SoundCompare(host)
+        layout.addWidget(self.compare)
+        layout.addWidget(self.composer)
         self.setWidget(body)
         self.setMinimumWidth(340)
+        self.refresh_context()
         self._welcome()
+
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        """The whole box shows the focus of the message (like :focus-within)."""
+        if watched is self.prompt and event.type() in (QEvent.Type.FocusIn,
+                                                       QEvent.Type.FocusOut):
+            self.composer.setProperty("focused", event.type() == QEvent.Type.FocusIn)
+            self.composer.style().unpolish(self.composer)
+            self.composer.style().polish(self.composer)
+        return super().eventFilter(watched, event)
+
+    def refresh_context(self) -> None:
+        """The chip: the selected preset goes with each message unless the user unticks it."""
+        state = self.host.tools.editor.state
+        slot = state.current_slot
+        self.compare.preset_changed(slot)
+        preset = state.presets.get(slot or 0)
+        label = f"{slot:03d} {preset.name if preset else ''}".strip() if slot else "—"
+        font = self.context.font()
+        font.setStrikeOut(not self.context.isChecked())  # QSS text-decoration ignores :checked
+        self.context.setFont(font)
+        on = self.context.isChecked()
+        self.context.setIcon(icon("sliders" if on else "slash", ACCENT if on else MUTED_ICON, 13))
+        if on:
+            self.context.setText(f"Preset actual: {label}")
+            self.context.setToolTip("Se envía con tu mensaje. Clic para no incluirlo.")
+        else:
+            self.context.setText(f"Preset actual no incluido: {label}")
+            self.context.setToolTip("Clic para incluir el preset actual en tu mensaje.")
+
+    def _with_context(self, request: str) -> str:
+        if not self.context.isChecked():
+            return request
+        editor = self.host.tools.editor
+        state = editor.state
+        if state.edit is None:
+            return request
+        preset = state.presets.get(state.current_slot or 0)
+        name = preset.name if preset else ""
+        changed = " (con cambios sin guardar)" if state.dirty else ""
+        return (f"[Contexto: preset seleccionado {state.current_slot} «{name}»{changed}. "
+                f"Sonido actual:\n{tone_ai.current_text(editor)}]\n\n{request}")
 
     def _welcome(self) -> None:
         if importlib.util.find_spec("mcp") is None:
@@ -123,23 +201,31 @@ class AIPanel(QDockWidget):
     # --- actions ----------------------------------------------------------------------
 
     def _agent(self) -> tone_agent.Agent:
+        """The provider's agent (one per provider keeps its conversation), with the model
+        and effort picked now: changing them goes on with the same conversation."""
         key = str(self.provider.currentData())
         if key not in self.agents:
             self.agents[key] = tone_agent.AGENTS[key]()
-        return self.agents[key]
+        agent = self.agents[key]
+        agent.model, agent.effort = self.options.selection()
+        return agent
 
     def ask(self, text: str = "") -> None:
         request = (text or self.prompt.toPlainText()).strip()
         if not request or self.busy or not self.prompt.isEnabled():
             return
         agent = self._agent()
+        message = self._with_context(request)
+        edit = self.host.tools.editor.state.edit
+        self._before = list(edit.words) if edit is not None else None
+        self.compare.clear()
         self.prompt.clear()
         self._bubble("Tú", html.escape(request).replace("\n", "<br>"), USER)
         self._set_busy(True, f"{agent.name} está trabajando…")
 
         def work() -> None:
             try:
-                reply: object = agent.ask(request)
+                reply: object = agent.ask(message)
                 error = ""
             except Exception as exc:  # shown in the chat
                 reply, error = None, str(exc)
@@ -169,6 +255,7 @@ class AIPanel(QDockWidget):
     def new_conversation(self) -> None:
         for agent in self.agents.values():
             agent.reset()
+        self.compare.clear()
         self.blocks.clear()
         self._welcome()
 
@@ -176,6 +263,10 @@ class AIPanel(QDockWidget):
 
     def _finished(self, reply: object, error: str) -> None:
         self._set_busy(False)
+        state = self.host.tools.editor.state
+        if self._before is not None and state.edit is not None:
+            self.compare.offer(self._before, list(state.edit.words), state.current_slot)
+        self._before = None
         if error == "stopped":
             self._note("Detenido. Lo que alcanzó a cambiar sigue aplicado (Deshacer lo revierte).")
         elif error:
@@ -189,9 +280,15 @@ class AIPanel(QDockWidget):
 
     def _set_busy(self, busy: bool, text: str = "") -> None:
         self.busy = busy
-        self.ask_button.setText("Detener" if busy else "Enviar")
+        self.ask_button.setIcon(icon("square", ACCENT, 12) if busy else
+                                icon("arrow-up", "#1b1205", 16))
+        self.ask_button.setToolTip("Detener" if busy else "Enviar (Enter)")
+        self.ask_button.setProperty("busy", busy)
+        self.ask_button.style().unpolish(self.ask_button)
+        self.ask_button.style().polish(self.ask_button)
         self.undo_button.setEnabled(not busy)
         self.provider.setEnabled(not busy)
+        self.options.setEnabled(not busy)
         self.prompt.setReadOnly(busy)
         self.status.setText(text)
 
