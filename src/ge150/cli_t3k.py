@@ -20,8 +20,7 @@ ArgSetup = Callable[[argparse.ArgumentParser], object]
 def cmd_key(args: argparse.Namespace) -> int:
     client = Tone3000Client()
     client.set_client_id(args.client_id)
-    print(f"TONE3000 publishable key saved. Register this redirect URI in your TONE3000 "
-          f"API settings:\n  {client.redirect_uri}")
+    print("TONE3000 publishable key saved. Next: ge150ctl t3k-login")
     return 0
 
 

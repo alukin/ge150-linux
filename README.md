@@ -126,8 +126,9 @@ más adelante, ver `docs/plan-ia-tone3000.md`).
 ## Cabinas de TONE3000
 
 Descarga IR de cabinas de [TONE3000](https://www.tone3000.com) y cárgalas en las ranuras de usuario (CAB 27-36).
-Una vez: crea una clave de aplicación (*publishable key*) en los ajustes de API de tu cuenta de TONE3000 y registra
-el redirect `http://127.0.0.1:53682/callback`.
+Una vez: copia la clave publicable (*Publishable Key*, `t3k_pub_…`) de los ajustes de API de tu cuenta de TONE3000.
+No hace falta registrar redirects: TONE3000 siempre acepta `http://127.0.0.1`. La *Secret Key* no se usa; no la
+compartas.
 
 ```bash
 ge150ctl t3k-key pk_…                 # guarda tu clave publicable
