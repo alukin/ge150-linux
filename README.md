@@ -107,6 +107,22 @@ catálogo exacto de la GE150 (modelos, en qué equipo se basa cada uno y rangos)
 completo y la app lo aplica en vivo; guárdalo con `ge150ctl save` si te gusta. Las herramientas se ejecutan sin
 acceso a archivos ni otras herramientas.
 
+### La pedalera como servidor MCP
+
+`ge150-mcp` expone la pedalera a cualquier cliente MCP (Claude Code, Codex…) con herramientas para leer el catálogo,
+el preset actual, los presets guardados, las IR de usuario y los ajustes, y para cambiar el sonido en vivo
+(`set_module`, `apply_patch`, `undo`, `select_preset`). La IA nunca guarda: guardas tú desde el editor.
+
+```bash
+.venv/bin/pip install -e '.[ai]'       # SDK de MCP
+ge150ctl mcp-install                   # registra el servidor en Claude Code y/o Codex
+claude "ponme el tono de Gilmour en el solo de Comfortably Numb"
+codex "un clean funk tipo Nile Rodgers"
+```
+
+Cierra el editor gráfico antes: solo un programa puede usar la pedalera a la vez (el editor alojará el servidor
+más adelante, ver `docs/plan-ia-tone3000.md`).
+
 ## Desarrollo
 
 ```bash

@@ -1,6 +1,6 @@
 # Plan: asistente de tono con IA (MCP) y cabinas de TONE3000
 
-Estado: **plan, sin implementar** (2026-11-21). Complementa `plan.md` (fase 11). Las reglas de `plan.md` §0
+Estado: **11.1 hecha** (2026-11-21); el resto, planificado. Complementa `plan.md` (fase 11). Las reglas de `plan.md` §0
 siguen vigentes: archivos de código ≤ 1000 líneas, nada destructivo sin confirmación, commits con
 `/commit:commit`, diseños visuales aprobados por el usuario antes del commit.
 
@@ -156,7 +156,7 @@ acceso permanente al catálogo) y los flujos OAuth permitidos.
 
 | Fase | Contenido | Aceptación |
 |---|---|---|
-| **11.1 Núcleo MCP** | `ge150/mcp/tools.py` (lógica, sin transporte, reutiliza `tone_ai` y `Editor`), `ge150/mcp/server.py` (FastMCP del SDK `mcp`), ejecutable `ge150-mcp` (stdio) y `ge150ctl mcp install`. Extra opcional `[ai]` en `pyproject.toml`. | Claude Code en la terminal lee el preset y cambia un parámetro en el simulador y en la pedalera; tests con un cliente MCP en memoria. |
+| **11.1 Núcleo MCP ✅** | `ge150/mcp/tools.py` (lógica, sin transporte, reutiliza `tone_ai` y `Editor`), `ge150/mcp/server.py` (FastMCP del SDK `mcp`), ejecutable `ge150-mcp` (stdio) y `ge150ctl mcp install`. Extra opcional `[ai]` en `pyproject.toml`. | Claude Code en la terminal lee el preset y cambia un parámetro en el simulador y en la pedalera; tests con un cliente MCP en memoria. |
 | **11.2 Servidor embebido** | Servidor HTTP local dentro de la GUI (hilo propio, token, archivo de descubrimiento), proxy de `ge150-mcp` hacia la app, diálogos de confirmación. | Con la GUI abierta, Claude Code cambia el tono y la GUI se actualiza al instante; `save_preset` pide permiso en la GUI. |
 | **11.3 Chat agente en la GUI** | El panel lanza `claude -p` / `codex exec` con el MCP de la app, muestra el progreso, Deshacer y Guardar. Diseño aprobado por el usuario. | Pedido real ("tono de Slash") resuelto en < 60 s con la pedalera; Deshacer vuelve al estado previo exacto. |
 | **11.4 TONE3000: cuenta y descarga** | `services/tone3000.py` (OAuth PKCE, cliente REST, caché), flujo Select, descarga, conversión y carga en ranura, metadatos y atribución. | Iniciar sesión, elegir una IR en TONE3000, cargarla en una ranura y verla con autor/licencia en la galería. |
@@ -210,3 +210,11 @@ Dependencias nuevas (extra opcional `ai`): `mcp` (SDK oficial, 2.x), `keyring`. 
 4. Logo en la barra superior aprobado.
 5. Orden: **11.1** (MCP para la terminal) → **11.4** (TONE3000 sin IA) → **11.2/11.3** (servidor embebido y chat
    agente) → **11.5** → **11.6**. Pendiente: puerto del redirect de TONE3000.
+
+## 11. Registro
+
+- **11.1 (2026-11-21):** `ge150/mcp_server/` (`tools.py`, `server.py` con `MCPServer` del SDK `mcp` 2.3 —
+  `FastMCP` se renombró en 2.x y los campos usan snake_case—, `install.py`), ejecutable `ge150-mcp`,
+  `ge150ctl mcp-install`, extra `[ai]`. Probado de punta a punta con el simulador: Claude Code (`claude -p
+  --mcp-config … --allowedTools "mcp__ge150__*"`, 10 llamadas, 20 s, tono de Gilmour) y Codex (`codex exec -c
+  mcp_servers.ge150…`, clean funk). Ojo: `--allowedTools` es variádico; el pedido va por stdin.
