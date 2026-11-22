@@ -14,7 +14,8 @@ from ge150.services import tone3000
 
 WAV = wav_ir.ir_to_wav([4_000_000] + [0] * 511)
 TONE = {"id": 42, "title": "Mesa 4x12 V30", "format": "ir", "gear": "cab", "license": "cc-by",
-        "description": "", "user": {"username": "irmaker", "display_name": None,
+        "description": "Oversized 4x12 with V30s", "images": ["https://x/cab.jpg"],
+        "user": {"username": "irmaker", "display_name": None,
                                     "avatar_url": "https://x/a.png", "url": "https://x/u"}}
 
 
@@ -116,7 +117,11 @@ def test_select_download_and_attribution(api: str) -> None:
     assert download.path.read_bytes() == WAV
     sources = tone3000.IrSources()
     sources.record(3, download)
-    assert sources.load()["3"]["author"] == "irmaker"
+    record = sources.load()["3"]
+    assert record["author"] == "irmaker" and record["image_url"] == "https://x/cab.jpg"
+    assert record["description"] == "Oversized 4x12 with V30s"
+    sources.update(3, description="edited")
+    assert sources.load()["3"]["description"] == "edited"
 
 
 def test_state_mismatch_is_rejected(api: str) -> None:

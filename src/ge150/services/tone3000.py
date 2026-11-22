@@ -106,6 +106,19 @@ class Callback:
     error: str = ""
 
 
+def parse_callback(url: str) -> Callback:
+    query = {k: v[0] for k, v in urllib.parse.parse_qs(urllib.parse.urlparse(url).query).items()}
+    return Callback(query.get("code", ""), query.get("state", ""), query.get("tone_id", ""),
+                    query.get("error", ""))
+
+
+@dataclass
+class Pending:
+    url: str
+    verifier: str
+    state: str
+
+
 class _CallbackServer(HTTPServer):
     result: Callback | None = None
 
@@ -118,9 +131,7 @@ class _Handler(BaseHTTPRequestHandler):
         if url.path != "/callback":
             self.send_error(404)
             return
-        query = {k: v[0] for k, v in urllib.parse.parse_qs(url.query).items()}
-        self.server.result = Callback(query.get("code", ""), query.get("state", ""),
-                                      query.get("tone_id", ""), query.get("error", ""))
+        self.server.result = parse_callback(self.path)
         ok = not self.server.result.error
         body = ("<h2>GE150 Editor</h2><p>" + ("Listo: vuelve al editor." if ok else
                 f"TONE3000 respondió: {self.server.result.error}") + "</p>").encode()
@@ -169,6 +180,7 @@ class Tone:
     format: str
     gear: str
     description: str = ""
+    image_url: str = ""
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Tone:
@@ -177,7 +189,8 @@ class Tone:
         return cls(int(data["id"]), str(data.get("title", "")), str(author),
                    str(user.get("url", "")), str(user.get("avatar_url") or ""),
                    str(data.get("license", "")), str(data.get("format", "")),
-                   str(data.get("gear", "")), str(data.get("description") or ""))
+                   str(data.get("gear", "")), str(data.get("description") or ""),
+                   str(next(iter(data.get("images") or []), "")))
 
     @property
     def page_url(self) -> str:
@@ -247,20 +260,32 @@ class Tone3000Client:
             params["tone_id"] = tone_id
         return f"{self.base_url}{API}/oauth/authorize?{urllib.parse.urlencode(params)}"
 
-    def _flow(self, prompt: str = "", tone_id: str = "") -> Callback:
+    def begin(self, prompt: str = "", tone_id: str = "") -> Pending:
+        """Start an authorization: the URL to show and what :meth:`finish` needs."""
         verifier, challenge = pkce_pair()
         state = secrets.token_urlsafe(24)
-        url = self.authorize_url(challenge, state, prompt, tone_id)
-        callback = wait_for_callback(self.redirect_port,
-                                     ready=lambda: self.open_browser(url))
-        if callback.state != state:
+        return Pending(self.authorize_url(challenge, state, prompt, tone_id), verifier, state)
+
+    def finish(self, pending: Pending, callback: Callback) -> Callback:
+        """Check the redirect TONE3000 sent back and exchange its code for tokens."""
+        if callback.state != pending.state:
             raise Tone3000Error("state mismatch: ignoring the answer")
         if callback.error or not callback.code:
             raise Tone3000Error(f"TONE3000: {callback.error or 'no code'}")
         self._token({"grant_type": "authorization_code", "code": callback.code,
-                     "code_verifier": verifier, "redirect_uri": self.redirect_uri,
+                     "code_verifier": pending.verifier, "redirect_uri": self.redirect_uri,
                      "client_id": self.creds.client_id})
         return callback
+
+    def is_callback(self, url: str) -> bool:
+        return url.split("?", 1)[0] == self.redirect_uri
+
+    def _flow(self, prompt: str = "", tone_id: str = "") -> Callback:
+        """In the user's browser, back through a one-shot server on 127.0.0.1."""
+        pending = self.begin(prompt, tone_id)
+        callback = wait_for_callback(self.redirect_port,
+                                     ready=lambda: self.open_browser(pending.url))
+        return self.finish(pending, callback)
 
     def login(self) -> None:
         self._flow()
@@ -368,6 +393,25 @@ class Tone3000Client:
 # --- where each user IR came from (attribution) -------------------------------------------------
 
 
+def fetch_image(url: str) -> Path:
+    """Download (once) a tone image or an avatar into the cache; returns the file."""
+    name = hashlib.sha256(url.encode()).hexdigest()[:32]
+    path = cache_dir() / "images" / name
+    if path.exists():
+        return path
+    if not url.startswith("https://"):
+        raise Tone3000Error(f"not an https image: {url[:80]}")
+    request = urllib.request.Request(url, headers={"User-Agent": AGENT})
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+            data = bytes(response.read(8 * 1024 * 1024))
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise Tone3000Error(f"cannot download the image: {exc}") from exc
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
 class IrSources:
     """``~/.local/share/ge150/ir_sources.json``: user IR slot -> TONE3000 tone, author, licence."""
 
@@ -382,15 +426,34 @@ class IrSources:
             return {}
         return data if isinstance(data, dict) else {}
 
-    def record(self, slot: int, download: Download) -> None:
+    def record(self, slot: int, download: Download, name: str = "") -> None:
+        """``name``: what the slot is called on the pedal (default: the tone title)."""
         data = self.load()
         tone = download.tone
         data[str(slot)] = {"source": "tone3000", "tone_id": tone.id, "title": tone.title,
+                           "name": name or tone.title[:14],
                            "model": download.model.name, "author": tone.author,
                            "author_url": tone.author_url, "avatar_url": tone.avatar_url,
-                           "license": tone.license, "url": tone.page_url}
+                           "license": tone.license, "url": tone.page_url,
+                           "description": tone.description, "image_url": tone.image_url}
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text(json.dumps(data, indent=1))
+
+    def update(self, slot: int, **fields: Any) -> None:
+        data = self.load()
+        if str(slot) in data:
+            data[str(slot)].update(fields)
+            self.path.write_text(json.dumps(data, indent=1))
+
+    def matching(self, names: list[str]) -> dict[str, dict[str, Any]]:
+        """Records whose slot still holds the IR they describe (by its name on the pedal)."""
+        result = {}
+        for slot, source in self.load().items():
+            index = int(slot) - 1
+            stored = str(source.get("name") or str(source.get("title", ""))[:14])
+            if 0 <= index < len(names) and names[index] == stored:
+                result[slot] = source
+        return result
 
     def forget(self, slot: int) -> None:
         data = self.load()
