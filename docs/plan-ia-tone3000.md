@@ -159,7 +159,7 @@ acceso permanente al catálogo) y los flujos OAuth permitidos.
 | **11.1 Núcleo MCP ✅** | `ge150/mcp/tools.py` (lógica, sin transporte, reutiliza `tone_ai` y `Editor`), `ge150/mcp/server.py` (FastMCP del SDK `mcp`), ejecutable `ge150-mcp` (stdio) y `ge150ctl mcp install`. Extra opcional `[ai]` en `pyproject.toml`. | Claude Code en la terminal lee el preset y cambia un parámetro en el simulador y en la pedalera; tests con un cliente MCP en memoria. |
 | **11.2 Servidor embebido** | Servidor HTTP local dentro de la GUI (hilo propio, token, archivo de descubrimiento), proxy de `ge150-mcp` hacia la app, diálogos de confirmación. | Con la GUI abierta, Claude Code cambia el tono y la GUI se actualiza al instante; `save_preset` pide permiso en la GUI. |
 | **11.3 Chat agente en la GUI** | El panel lanza `claude -p` / `codex exec` con el MCP de la app, muestra el progreso, Deshacer y Guardar. Diseño aprobado por el usuario. | Pedido real ("tono de Slash") resuelto en < 60 s con la pedalera; Deshacer vuelve al estado previo exacto. |
-| **11.4 TONE3000: cuenta y descarga** | `services/tone3000.py` (OAuth PKCE, cliente REST, caché), flujo Select, descarga, conversión y carga en ranura, metadatos y atribución. | Iniciar sesión, elegir una IR en TONE3000, cargarla en una ranura y verla con autor/licencia en la galería. |
+| **11.4 TONE3000: cuenta y descarga (CLI ✅, GUI pendiente)** | `services/tone3000.py` (OAuth PKCE, cliente REST, caché), flujo Select, descarga, conversión y carga en ranura, metadatos y atribución. | Iniciar sesión, elegir una IR en TONE3000, cargarla en una ranura y verla con autor/licencia en la galería. |
 | **11.5 TONE3000 en la IA** | Herramientas `tone3000_search` / `tone3000_get` / `load_ir(source="tone3000:…")`; la IA sugiere IR y el usuario confirma. | "Tono de Slash con una IR real de Marshall 1960" termina con una IR descargada en una ranura (tras confirmar). |
 | **11.6 Documentación** | README, `plan.md`, guía de configuración de TONE3000 y de los clientes MCP. | Otra persona configura todo siguiendo la guía. |
 
@@ -218,3 +218,10 @@ Dependencias nuevas (extra opcional `ai`): `mcp` (SDK oficial, 2.x), `keyring`. 
   `ge150ctl mcp-install`, extra `[ai]`. Probado de punta a punta con el simulador: Claude Code (`claude -p
   --mcp-config … --allowedTools "mcp__ge150__*"`, 10 llamadas, 20 s, tono de Gilmour) y Codex (`codex exec -c
   mcp_servers.ge150…`, clean funk). Ojo: `--allowedTools` es variádico; el pedido va por stdin.
+- **11.4 CLI (2026-11-21):** `services/tone3000.py` (OAuth PKCE con redirect loopback
+  `http://127.0.0.1:53682/callback`, `prompt=select_tone` con `format=ir`, tokens en `~/.config/ge150/tone3000.json`
+  0600 con refresco, `GET /tones/{id}`, `GET /models?tone_id=` → `model_url` con Bearer, verificación RIFF, caché en
+  `~/.cache/ge150/tone3000/`, atribución en `~/.local/share/ge150/ir_sources.json`) y `ge150ctl t3k-key|login|logout|
+  status|load`. Probado contra un servidor TONE3000 falso; **falta probar con la API real** (requiere la clave del
+  usuario y confirmar que TONE3000 acepta un redirect `http://127.0.0.1`). Endpoints tomados de la documentación
+  oficial (www.tone3000.com/api).

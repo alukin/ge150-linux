@@ -123,6 +123,23 @@ codex "un clean funk tipo Nile Rodgers"
 Cierra el editor gráfico antes: solo un programa puede usar la pedalera a la vez (el editor alojará el servidor
 más adelante, ver `docs/plan-ia-tone3000.md`).
 
+## Cabinas de TONE3000
+
+Descarga IR de cabinas de [TONE3000](https://www.tone3000.com) y cárgalas en las ranuras de usuario (CAB 27-36).
+Una vez: crea una clave de aplicación (*publishable key*) en los ajustes de API de tu cuenta de TONE3000 y registra
+el redirect `http://127.0.0.1:53682/callback`.
+
+```bash
+ge150ctl t3k-key pk_…                 # guarda tu clave publicable
+ge150ctl t3k-login                    # inicia sesión en el navegador
+ge150ctl t3k-load 4                   # elige una IR en el catálogo de TONE3000 y la carga en la ranura 4
+ge150ctl t3k-load 4 --tone 12345      # o directo por id de tono
+ge150ctl t3k-status                   # sesión e IR descargadas (autor y licencia)
+```
+
+Se muestran autor y licencia de cada IR; respétala (por ejemplo, `cc-by-nc` = solo uso no comercial). Las IR
+descargadas quedan en `~/.cache/ge150/tone3000/` y no se versionan.
+
 ## Desarrollo
 
 ```bash
