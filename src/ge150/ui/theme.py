@@ -49,6 +49,25 @@ QTextBrowser#aiChat {{ background: {PANEL}; border: none; border-radius: 10px; p
 QPlainTextEdit#aiPrompt {{
     background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px;
 }}
+QTabWidget#mainTabs::pane {{ border: none; }}
+QTabWidget#mainTabs > QTabBar {{ background: {BG}; }}
+QTabWidget#mainTabs > QTabBar::tab {{
+    background: transparent; color: {MUTED}; font-weight: 700; padding: 10px 22px;
+    border: none; border-bottom: 2px solid transparent;
+}}
+QTabWidget#mainTabs > QTabBar::tab:selected {{ color: {TEXT}; border-bottom-color: {ACCENT}; }}
+QTabWidget#mainTabs > QTabBar::tab:hover {{ color: {TEXT}; }}
+QLabel#toneImage {{ background: {BG}; border-radius: 10px; color: {MUTED}; }}
+QLabel#licenceChip {{
+    background: {RAISED}; color: {TEXT}; border-radius: 9px; padding: 2px 10px; font-weight: 700;
+}}
+QScrollArea#toneDescription, QScrollArea#toneDescription > QWidget > QWidget {{
+    background: transparent;
+}}
+QLabel#sectionTitle {{ font-size: 15px; font-weight: 700; }}
+QListWidget#irSlots {{ background: {BG}; border: none; border-radius: 8px; }}
+QListWidget#irSlots::item {{ padding: 8px; border-bottom: 1px solid {PANEL}; }}
+QListWidget#irSlots::item:selected {{ background: #3a2a1a; color: {TEXT}; }}
 QFrame#modulePage {{ background: {PANEL}; border-radius: 14px; }}
 QLabel#moduleTitle {{ font-size: 22px; font-weight: 800; letter-spacing: 1px; }}
 QLabel#basedOn {{ color: {MUTED}; font-size: 12px; }}

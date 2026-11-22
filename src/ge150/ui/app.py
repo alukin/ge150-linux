@@ -8,7 +8,7 @@ import os
 import sys
 from importlib import resources
 
-from PySide6.QtCore import QLoggingCategory, QStandardPaths
+from PySide6.QtCore import QCoreApplication, QLoggingCategory, QStandardPaths, Qt
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -50,6 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     if "QT_LOGGING_RULES" not in os.environ:
         # Harmless Qt Wayland bug when the focus moves between text fields.
         QLoggingCategory.setFilterRules("qt.qpa.wayland.textinput.warning=false")
+    # Qt WebEngine (TONE3000 tab) needs this before the QApplication exists.
+    QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv[:1])
     apply_theme(app)
     icon = resources.files("ge150.data").joinpath("ge150.svg")

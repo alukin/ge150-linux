@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSplitter,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -40,6 +41,7 @@ from ge150.ui.dialogs import ExpDialog, IrDialog
 from ge150.ui.module_editor import ModuleEditor
 from ge150.ui.preset_list import PresetList
 from ge150.ui.settings_dialog import SettingsDialog
+from ge150.ui.tone3000_page import Tone3000Page
 from ge150.ui.worker import TaskRunner
 
 
@@ -110,8 +112,19 @@ class MainWindow(QMainWindow):
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.setSpacing(0)
         central_layout.addWidget(header_bar)
-        central_layout.addWidget(middle, 1)
-        central_layout.addWidget(self.chain)
+        effects = QWidget()
+        effects_layout = QVBoxLayout(effects)
+        effects_layout.setContentsMargins(0, 0, 0, 0)
+        effects_layout.setSpacing(0)
+        effects_layout.addWidget(middle, 1)
+        effects_layout.addWidget(self.chain)
+        self.tone3000 = Tone3000Page(editor, self.runner)
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("mainTabs")
+        self.tabs.setDocumentMode(True)
+        self.tabs.addTab(effects, "Efectos")
+        self.tabs.addTab(self.tone3000, "TONE3000")
+        central_layout.addWidget(self.tabs, 1)
         self.setCentralWidget(central)
         self.central = central
 
@@ -472,6 +485,9 @@ class MainWindow(QMainWindow):
                           "Linux.\nhttps://github.com/wh01s17/ge150-linux")
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        from ge150.services import tone_agent
+
+        tone_agent.stop_all()
         self.ai_host.stop()
         self.runner.wait(5000)
         self.bridge.detach()
