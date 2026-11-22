@@ -72,6 +72,7 @@ QToolButton#pill:hover, QToolButton#pill:open {{
 }}
 QToolButton#pill::menu-indicator {{ image: none; width: 0; }}
 QToolButton#pill:disabled {{ color: #4d5562; }}
+QToolButton#pill:checked {{ color: {TEXT}; border-color: #8a5a2e; }}
 QMenu#pillMenu {{ padding: 4px; border-top: 2px solid {ACCENT}; border-radius: 8px; }}
 QMenu#pillMenu::item {{ padding: 5px 22px 5px 10px; border-radius: 5px; }}
 QToolButton#sendButton {{

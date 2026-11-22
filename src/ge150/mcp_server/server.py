@@ -141,12 +141,14 @@ def build_server(tools: PedalTools | Any) -> MCPServer:
         return _call(lambda: tools.tone3000_get(tone_id))
 
     @server.tool(annotations=WEB_STORE)
-    def load_tone3000_ir(slot: int, tone_id: int = 0, model_id: int = 0,
-                         name: str = "") -> dict[str, Any]:
-        """Download a TONE3000 IR and store it in user IR slot 1..10 (model CAB 27..36).
-        tone_id 0 opens the TONE3000 catalogue so the user picks one. The GE150 editor
-        asks the user to confirm. Then select that CAB model to hear it."""
-        return _call(lambda: tools.load_tone3000_ir(slot, tone_id, model_id, name))
+    def load_tone3000_ir(slot: int = 0, tone_id: int = 0, model_id: int = 0,
+                         name: str = "", use: bool = True) -> dict[str, Any]:
+        """Download a TONE3000 IR, store it in a user IR slot (CAB 27..36) and select it
+        in the CAB module (live; use=false only stores it). slot 0 = automatic: the slot
+        already holding this IR, else a free one, else the editor asks the user which one
+        to overwrite. tone_id 0 opens the TONE3000 catalogue so the user picks one. The
+        GE150 editor asks the user to confirm."""
+        return _call(lambda: tools.load_tone3000_ir(slot, tone_id, model_id, name, use))
 
     return server
 

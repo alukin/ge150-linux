@@ -246,3 +246,8 @@ Dependencias nuevas (extra opcional `ai`): `mcp` (SDK oficial, 2.x), `keyring`. 
   (imagen, autor con avatar, licencia, descripción, archivos) con la ranura y «Agregar a la pedalera». El inicio de
   sesión de TONE3000 es por código al correo, que funciona dentro del navegador integrado. Sin WebEngine se usa el
   navegador del sistema. La IA ve el origen de cada IR (`list_user_irs`).
+- **Cabs de TONE3000 desde el chat (2026-11-22):** píldora con parlante en el panel (recordada en
+  `ai/tone3000_cabs`): encendida, el agente busca un gabinete en TONE3000 para cada sonido nuevo. `load_tone3000_ir`
+  acepta `slot=0` (reusa la ranura que ya tiene esa IR, si no la primera libre; si están las 10 ocupadas, el editor
+  muestra `IrSlotPicker` con cuántos presets usa cada ranura) y con `use=true` la selecciona en el CAB en vivo
+  (Deshacer revierte la selección, no la IR guardada). `list_user_irs` informa `used_by_presets`.

@@ -111,9 +111,75 @@ def test_load_tone3000_ir_with_confirmation(tools: PedalTools, tmp_path, monkeyp
     tools.confirm = lambda q: "irmaker" in q and "cc-by" in q
     result = tools.load_tone3000_ir(4)
     assert fake.picked and result["author"] == "irmaker" and result["model"] == "CAB 30"
+    assert result["selected"] and tools.get_current_patch()["modules"][3]["on"]
     entry = tools.list_user_irs()["ir"][3]
     assert entry["name"] == "Mesa 4x12 V30" and entry["tone3000"]["author"] == "irmaker"
     assert "tone3000" not in tools.list_user_irs()["ir"][0]
+
+
+def _ir_payload(tmp_path) -> bytes:  # type: ignore[no-untyped-def]
+    from ge150.formats import wav_ir
+
+    path = tmp_path / "plain.wav"
+    path.write_bytes(wav_ir.ir_to_wav([4_000_000] + [0] * 511))
+    return wav_ir.load_ir_file(path)
+
+
+def test_load_tone3000_ir_picks_a_free_slot_and_selects_it(tools: PedalTools, tmp_path,  # type: ignore[no-untyped-def]
+                                                          monkeypatch) -> None:
+    from ge150.formats import wav_ir
+    from ge150.protocol.opcodes import Op
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    tools._tone3000 = FakeT3k(wav_ir.ir_to_wav([4_000_000] + [0] * 511), tmp_path)
+    tools.editor.upload_user_slot(Op.USER_IR, 0, "MY CAB", _ir_payload(tmp_path))
+    asked: list[str] = []
+    tools.confirm = lambda q: asked.append(q) is None
+    before = tools.get_current_patch()["modules"][3]["model"]
+    result = tools.load_tone3000_ir(tone_id=42)
+    assert result["stored"] and result["slot"] == 2 and result["model"] == "CAB 28"
+    assert "ranura 2" in asked[0] and "Reemplaza" not in asked[0]
+    cab = tools.get_current_patch()["modules"][3]
+    assert cab["on"] and cab["model"] == "CAB 28 (user IR: Mesa 4x12 V30)"
+    # The same IR again: no download into another slot, no question, just selected.
+    again = tools.load_tone3000_ir(tone_id=42, use=False)
+    assert not again["stored"] and again["slot"] == 2 and len(asked) == 1
+    tools.undo()  # reverts the selection, the IR stays stored
+    assert tools.get_current_patch()["modules"][3]["model"] == before
+    assert tools.list_user_irs()["ir"][1]["name"] == "Mesa 4x12 V30"
+
+
+def test_load_tone3000_ir_when_every_slot_is_used(tools: PedalTools, tmp_path,  # type: ignore[no-untyped-def]
+                                                  monkeypatch) -> None:
+    from ge150.formats import wav_ir
+    from ge150.protocol.opcodes import Op
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    tools._tone3000 = FakeT3k(wav_ir.ir_to_wav([4_000_000] + [0] * 511), tmp_path)
+    payload = _ir_payload(tmp_path)
+    for slot in range(10):
+        tools.editor.upload_user_slot(Op.USER_IR, slot, f"CAB {slot + 1}", payload)
+    tools.confirm = lambda q: True
+    tools.apply_patch([{"module": "CAB", "on": True, "model": "CAB 33"}])
+    tools.save_preset(5, "USES SLOT 7")
+    assert tools.list_user_irs()["ir"][6]["used_by_presets"] == [5]
+    with pytest.raises(ToolError, match="all 10"):
+        tools.load_tone3000_ir(tone_id=42)
+    seen: list[list[dict]] = []
+
+    def cancel(question: str, slots: list[dict]) -> int:
+        seen.append(slots)
+        return 0
+
+    tools.pick_ir_slot = cancel
+    with pytest.raises(ToolError, match="declined"):
+        tools.load_tone3000_ir(tone_id=42)
+    assert len(seen[0]) == 10 and seen[0][6]["used_by_presets"] == [5]
+    tools.confirm = lambda q: pytest.fail("picking the slot is the confirmation")  # type: ignore[assignment]
+    tools.pick_ir_slot = lambda question, slots: 9
+    result = tools.load_tone3000_ir(tone_id=42)
+    assert result["stored"] and result["slot"] == 9 and result["model"] == "CAB 35"
+    assert tools.list_user_irs()["ir"][8]["name"] == "Mesa 4x12 V30"
 
 
 def test_ai_sees_and_picks_user_irs_by_their_name(tools: PedalTools) -> None:

@@ -10,7 +10,7 @@ import html
 import importlib.util
 import threading
 
-from PySide6.QtCore import QEvent, QObject, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QSettings, Qt, Signal
 from PySide6.QtGui import QKeyEvent
 from PySide6.QtWidgets import (
     QComboBox,
@@ -117,6 +117,13 @@ class AIPanel(QDockWidget):
         self.guitar_menu.setObjectName("pillMenu")
         self.guitar_menu.aboutToShow.connect(self._guitar_menu)
         self.guitar.setMenu(self.guitar_menu)
+        self.cabs = QToolButton()
+        self.cabs.setObjectName("pill")
+        self.cabs.setCheckable(True)
+        self.cabs.setChecked(QSettings("ge150", "editor").value("ai/tone3000_cabs", False,
+                                                                type=bool))
+        self.cabs.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.cabs.toggled.connect(self._cabs_toggled)
         chips = QHBoxLayout()
         chips.setSpacing(6)
         chips.addWidget(self.context)
@@ -148,6 +155,7 @@ class AIPanel(QDockWidget):
         self.ask_button.clicked.connect(self._send_or_stop)
         toolbar.addWidget(self.undo_button)
         toolbar.addWidget(self.options)
+        toolbar.addWidget(self.cabs)
         toolbar.addStretch(1)
         toolbar.addWidget(self.ask_button)
         box.addLayout(toolbar)
@@ -158,6 +166,7 @@ class AIPanel(QDockWidget):
         self.setMinimumWidth(340)
         self.refresh_context()
         self.refresh_guitar()
+        self.refresh_cabs()
         self._welcome()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
@@ -188,6 +197,28 @@ class AIPanel(QDockWidget):
         else:
             self.context.setText(f"Preset actual no incluido: {label}")
             self.context.setToolTip("Clic para incluir el preset actual en tu mensaje.")
+
+    def _cabs_toggled(self, on: bool) -> None:
+        QSettings("ge150", "editor").setValue("ai/tone3000_cabs", on)
+        self.refresh_cabs()
+
+    def refresh_cabs(self) -> None:
+        """The speaker pill: with it on, the AI also looks for a real cabinet IR on TONE3000."""
+        on = self.cabs.isChecked()
+        self.cabs.setIcon(icon("speaker", ACCENT if on else MUTED_ICON, 13))
+        # Rich text, so Qt wraps it (a plain-text tooltip is one long line).
+        if on:
+            self.cabs.setToolTip(
+                "<b>Cabs de TONE3000: activado</b><br>"
+                "En cada sonido nuevo la IA busca un gabinete real en TONE3000,<br>"
+                "lo descarga en una ranura libre (o te pregunta cuál reemplazar)<br>"
+                "y lo pone en el CAB.<br><i>Clic para desactivar.</i>")
+        else:
+            self.cabs.setToolTip(
+                "<b>Cabs de TONE3000: desactivado</b><br>"
+                "La IA usa los CAB de fábrica, o una IR solo si se la pides.<br>"
+                "<i>Clic para que busque gabinetes reales en TONE3000<br>"
+                "(requiere iniciar sesión en TONE3000).</i>")
 
     # --- the guitar in use ----------------------------------------------------------------
 
@@ -272,6 +303,7 @@ class AIPanel(QDockWidget):
             self.agents[key] = tone_agent.AGENTS[key]()
         agent = self.agents[key]
         agent.model, agent.effort = self.options.selection()
+        agent.search_cabs = self.cabs.isChecked()
         return agent
 
     def ask(self, text: str = "") -> None:

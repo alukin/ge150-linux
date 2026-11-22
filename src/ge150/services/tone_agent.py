@@ -26,9 +26,18 @@ TIMEOUT_S = 900  # the user may take a while to confirm a save or to pick an IR
 GUIDE = """You are the tone assistant of the GE150 editor, a Linux editor for the MOOER GE150
 guitar multi-effects pedal. Use the ge150 tools to read the current sound and the catalogue
 and to change the sound live. Prefer one apply_patch with every module you change. Only call
-save_preset or load_tone3000_ir when the user asks to save or to get an IR. Answer in the
+save_preset when the user asks to save. Answer in the
 user's language, briefly: what you changed and why, as a short list. You cannot use any
 other tool, file or command."""
+
+#: Added when the user turns on "Cabs de TONE3000" in the panel.
+CABS_GUIDE = """When the user asks for a new sound (not a small tweak), also look for a real
+cabinet IR on TONE3000 that suits it: one or two precise tone3000_search queries (the cabinet
+and speakers, e.g. "Marshall 1960A V30"), tone3000_get to pick one IR file (mic and position),
+then load_tone3000_ir with slot 0: it reuses the slot that already holds that IR, else a free
+one, else the editor lets the user choose which to overwrite, and it selects the IR in the CAB
+module. Tell the user its author and licence. If TONE3000 is not signed in, nothing suits, or
+the user declines, keep a factory CAB."""
 
 
 @dataclass
@@ -105,6 +114,13 @@ class Agent:
         # The panel's agents act on the open editor only: never a second owner of the USB.
         self.server = server or [*server_command(), "--editor-only"]
         self.session = ""
+        self.search_cabs = False
+
+    @property
+    def guide(self) -> str:
+        if self.search_cabs:
+            return f"{GUIDE}\n\n{CABS_GUIDE}"
+        return f"{GUIDE}\nOnly call load_tone3000_ir when the user asks for an IR."
 
     @classmethod
     def available(cls) -> bool:
@@ -142,7 +158,7 @@ class ClaudeAgent(Agent):
         config = {"mcpServers": {"ge150": {"command": self.server[0], "args": self.server[1:]}}}
         args = [self.command, "-p", "--output-format", "json", "--tools", "",
                 "--strict-mcp-config", "--setting-sources", "", "--mcp-config",
-                json.dumps(config), "--append-system-prompt", GUIDE,
+                json.dumps(config), "--append-system-prompt", self.guide,
                 "--allowedTools", "mcp__ge150__*"]
         if session:
             args += ["--resume", session]
@@ -191,7 +207,7 @@ class CodexAgent(Agent):
         config = [f"mcp_servers.ge150.command={json.dumps(self.server[0])}",
                   f"mcp_servers.ge150.args={json.dumps(self.server[1:])}",
                   'sandbox_mode="read-only"', 'approval_policy="never"',
-                  f"developer_instructions={json.dumps(GUIDE)}"]
+                  f"developer_instructions={json.dumps(self.guide)}"]
         if self.effort:
             config.append(f"model_reasoning_effort={json.dumps(self.effort)}")
         args = [self.command, "exec"]

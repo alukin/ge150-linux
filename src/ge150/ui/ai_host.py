@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import QObject, QThread, Signal
@@ -28,19 +29,20 @@ LABELS = {"get_catalog": "revisa el catálogo", "get_current_patch": "lee el son
           "set_module": "cambia un módulo", "apply_patch": "aplica un sonido",
           "undo": "deshace", "select_preset": "cambia de preset", "save_preset": "guarda",
           "tone3000_search": "busca en TONE3000", "tone3000_get": "lee TONE3000",
-          "load_tone3000_ir": "descarga una IR"}
+          "load_tone3000_ir": "carga una IR de TONE3000"}
 
 
 class AiHost(QObject):
     #: tool name, emitted for every call (on the GUI thread).
     called = Signal(str)
-    _ask = Signal(str, object)
+    _ask = Signal(object, object)  # function to run on the GUI thread, answer box
     _call = Signal(str)
 
     def __init__(self, editor: Editor, runner: TaskRunner, parent: QWidget) -> None:
         super().__init__(parent)
         self.window = parent
-        self.tools = PedalTools(editor, runner.lock, confirm=self.confirm)
+        self.tools = PedalTools(editor, runner.lock, confirm=self.confirm,
+                                pick_ir_slot=self.pick_ir_slot)
         self.server: LocalServer | None = None
         self._ask.connect(self._on_ask)
         self._call.connect(self.called)
@@ -59,18 +61,34 @@ class AiHost(QObject):
             self.server = None
 
     def confirm(self, question: str) -> bool:
-        if QThread.currentThread() is self.thread():
-            return self._question(question)
-        box: dict[str, Any] = {"event": threading.Event(), "answer": False}
-        self._ask.emit(question, box)
-        box["event"].wait(ANSWER_TIMEOUT_S)
-        return bool(box["answer"])
+        return bool(self._on_gui_thread(lambda: self._question(question)))
 
-    def _on_ask(self, question: str, box: dict[str, Any]) -> None:
+    def pick_ir_slot(self, question: str, slots: list[dict[str, Any]]) -> int:
+        return int(self._on_gui_thread(lambda: self._pick(question, slots)) or 0)
+
+    def _on_gui_thread(self, ask: Callable[[], Any]) -> Any:
+        """Ask the user from any thread; the caller waits (no answer in time = no)."""
+        if QThread.currentThread() is self.thread():
+            return ask()
+        box: dict[str, Any] = {"event": threading.Event(), "answer": None}
+        self._ask.emit(ask, box)
+        box["event"].wait(ANSWER_TIMEOUT_S)
+        return box["answer"]
+
+    def _on_ask(self, ask: Callable[[], Any], box: dict[str, Any]) -> None:
         try:
-            box["answer"] = self._question(question)
+            box["answer"] = ask()
         finally:
             box["event"].set()
+
+    def _pick(self, question: str, slots: list[dict[str, Any]]) -> int:
+        from ge150.ui.dialogs import IrSlotPicker
+
+        self.window.raise_()
+        self.window.activateWindow()
+        dialog = IrSlotPicker(question, slots, self.window)
+        dialog.exec()
+        return dialog.chosen()
 
     def _question(self, question: str) -> bool:
         self.window.raise_()

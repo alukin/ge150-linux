@@ -160,7 +160,7 @@ _PARAMS = {"get_catalog": ("module",), "list_presets": ("query",), "get_preset":
            "set_module": ("module", "on", "model", "params"), "apply_patch": ("modules", "name"),
            "select_preset": ("slot", "discard_changes"), "save_preset": ("slot", "name"),
            "tone3000_search": ("query",), "tone3000_get": ("tone_id",),
-           "load_tone3000_ir": ("slot", "tone_id", "model_id", "name")}
+           "load_tone3000_ir": ("slot", "tone_id", "model_id", "name", "use")}
 
 
 def _named(name: str, args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:

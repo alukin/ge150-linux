@@ -24,6 +24,8 @@ _PATHS = {
               '1.2-.8 2.3-1.9 2.8l-.9.4A2 2 0 0 0 12 18a4 4 0 0 1-4 4c-3.3 0-6-2.7-6-6a4 4 0 0 '
               '1 4-4 2 2 0 0 0 1.8-1.2z"/><circle cx="11.5" cy="12.5" r=".5" fill="currentColor"/>',
     "slash": '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
+    "speaker": '<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M12 6h.01"/>'
+               '<circle cx="12" cy="14" r="4"/><path d="M12 14h.01"/>',
 }
 
 

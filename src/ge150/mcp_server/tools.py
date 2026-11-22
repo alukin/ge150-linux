@@ -19,6 +19,8 @@ from ge150.services import tone_ai
 from ge150.services.editor import Editor
 
 Confirm = Callable[[str], bool]
+#: (question, the 10 slots as list_user_irs shows them) -> chosen slot 1..10, or 0 = cancel.
+PickSlot = Callable[[str, list[dict[str, Any]]], int]
 
 T = TypeVar("T")
 
@@ -30,8 +32,9 @@ the user saves it (Save in the GE150 editor, or save_preset if they ask you to).
 to go back. Use only model and parameter names from get_catalog; values outside a range are
 clamped and reported. save_preset and the TONE3000 IR tools write the pedal's memory: they
 only work with the GE150 editor open, which asks the user to confirm each time. TONE3000
-(www.tone3000.com) hosts cabinet IRs made by users: always tell the user the author and
-licence of an IR you load."""
+(www.tone3000.com) hosts cabinet IRs made by users: load_tone3000_ir picks the slot itself
+(slot 0) and selects the IR in the CAB module; always tell the user the author and licence
+of an IR you load."""
 
 
 class ToolError(Exception):
@@ -52,10 +55,12 @@ class PedalTools:
     """Thread-safe facade over an :class:`Editor` (one lock for every pedal access)."""
 
     def __init__(self, editor: Editor, lock: threading.Lock | None = None,
-                 confirm: Confirm | None = None, tone3000: Any = None) -> None:
+                 confirm: Confirm | None = None, tone3000: Any = None,
+                 pick_ir_slot: PickSlot | None = None) -> None:
         self.editor = editor
         self.lock = lock or threading.Lock()
         self.confirm = confirm
+        self.pick_ir_slot = pick_ir_slot
         self.history: list[list[int]] = []
         self._tone3000 = tone3000
 
@@ -152,10 +157,20 @@ class PedalTools:
         names = self.editor.state.user_names
         if names is None:
             return {"ir": [], "nr": []}
-        sources = IrSources().matching(names.ir)
-        return {"ir": [_ir_entry(i, n, sources) for i, n in enumerate(names.ir)],
+        sources, users = IrSources().matching(names.ir), self._ir_users()
+        return {"ir": [_ir_entry(i, n, sources, users) for i, n in enumerate(names.ir)],
                 "nr": [{"slot": i + 1, "model": f"AMP {56 + i}", "name": n}
                        for i, n in enumerate(names.nr)]}
+
+    def _ir_users(self) -> dict[int, list[int]]:
+        """User IR slot (1..10) -> the stored presets whose CAB uses it."""
+        cab = MODULE_TAGS.index("CAB")
+        users: dict[int, list[int]] = {}
+        for number, preset in sorted(self.editor.state.presets.items()):
+            model = self.editor.catalog[cab].model_for_type(preset.module(cab).type)
+            if model is not None and model.user_slot:
+                users.setdefault(model.number - 26, []).append(number)
+        return users
 
     def get_guitar(self) -> dict[str, Any]:
         from dataclasses import asdict
@@ -285,17 +300,18 @@ class PedalTools:
                 "description": tone.description[:500],
                 "files": [{"model_id": m.id, "name": m.name} for m in models]}
 
-    def load_tone3000_ir(self, slot: int, tone_id: int = 0, model_id: int = 0,
-                         name: str = "") -> dict[str, Any]:
+    def load_tone3000_ir(self, slot: int = 0, tone_id: int = 0, model_id: int = 0,
+                         name: str = "", use: bool = True) -> dict[str, Any]:
         """Download a TONE3000 IR (or let the user pick one in the browser when
-        ``tone_id`` is 0) and store it in user IR slot ``slot`` (1..10)."""
+        ``tone_id`` is 0), store it in user IR slot ``slot`` (1..10; 0 = a free one, or the
+        one already holding this IR) and, with ``use``, select it in the CAB module."""
         from ge150.formats import wav_ir
         from ge150.protocol import messages as msg
         from ge150.protocol.opcodes import Op
         from ge150.services.tone3000 import IrSources
 
-        if not 1 <= slot <= 10:
-            raise ToolError("IR slot must be 1..10 (models CAB 27..36)")
+        if not 0 <= slot <= 10:
+            raise ToolError("IR slot must be 1..10 (models CAB 27..36), or 0 for a free one")
         chosen = tone_id or self._t3k(self.tone3000.select_tone)
         download = self._t3k(lambda: self.tone3000.download(chosen, model_id or None))
         tone = download.tone
@@ -305,24 +321,68 @@ class PedalTools:
             raise ToolError(f"cannot use this IR: {exc}") from exc
         label = (name or tone.title)[: msg.USER_NAME_LEN]
         names = self.editor.state.user_names
-        old = names.ir[slot - 1] if names else "?"
-        self._ask(f"¿Guardar la IR de TONE3000 «{tone.title} / {download.model.name}»\n"
-                  f"de {tone.author} (licencia {tone.license}) en la ranura {slot} "
-                  f"(CAB {26 + slot}) como «{label}»?\nReemplaza «{old}».")
+        bank = list(names.ir) if names else [""] * 10
+        sources = IrSources().matching(bank)
+        what = (f"la IR de TONE3000 «{tone.title} / {download.model.name}»\nde {tone.author} "
+                f"(licencia {tone.license})")
+        result = {"slot": 0, "model": "", "name": label, "tone": tone.title,
+                  "file": download.model.name, "author": tone.author,
+                  "license": tone.license, "url": tone.page_url}
+        if not slot and (loaded := _slot_holding(sources, tone.id, download.model.name)):
+            result.update(stored=False, slot=loaded, name=bank[loaded - 1],
+                          note="this IR was already on the pedal")
+        else:
+            if not slot:
+                slot = next((i + 1 for i, n in enumerate(bank) if msg.is_empty_slot_name(n)), 0)
+            if slot:
+                old = bank[slot - 1]
+                replaces = "" if msg.is_empty_slot_name(old) else f"\nReemplaza «{old}»."
+                self._ask(f"¿Guardar {what} en la ranura {slot} (CAB {26 + slot}) como "
+                          f"«{label}»?{replaces}")
+            else:
+                slot = self._pick_slot(f"Las 10 ranuras de IR están ocupadas. ¿Cuál reemplazo "
+                                       f"por «{tone.title} / {download.model.name}» de "
+                                       f"{tone.author} (licencia {tone.license})?",
+                                       [_ir_entry(i, n, sources, self._ir_users())
+                                        for i, n in enumerate(bank)])
 
-        def run() -> None:
-            self.editor.upload_user_slot(Op.USER_IR, slot - 1, label, payload)
+            def store() -> None:
+                self.editor.upload_user_slot(Op.USER_IR, slot - 1, label, payload)
 
-        self._locked(run)
-        IrSources().record(slot, download, label)
-        return {"stored": True, "slot": slot, "model": f"CAB {26 + slot}", "name": label,
-                "tone": tone.title, "file": download.model.name, "author": tone.author,
-                "license": tone.license, "url": tone.page_url,
-                "note": "select the model in the CAB module to hear it"}
+            self._locked(store)
+            IrSources().record(slot, download, label)
+            result.update(stored=True, slot=slot)
+        result["model"] = f"CAB {26 + result['slot']}"
+        if use:
+            self.apply_patch([{"module": "CAB", "on": True, "model": result["model"]}])
+            result["selected"] = True
+            result["note"] = (f"{result.get('note', 'stored')}; selected in the CAB module "
+                              "(live; undo reverts the selection, not the stored IR)")
+        return result
+
+    def _pick_slot(self, question: str, slots: list[dict[str, Any]]) -> int:
+        """Ask the user which user IR slot to overwrite (1..10)."""
+        if self.pick_ir_slot is None:
+            raise ToolError("all 10 user IR slots are in use: show the user list_user_irs, ask "
+                            "which one to overwrite and call again with that slot")
+        picked = self.pick_ir_slot(question, slots)
+        if not picked:
+            raise ToolError("the user declined")
+        return int(picked)
 
 
-def _ir_entry(index: int, name: str, sources: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    entry: dict[str, Any] = {"slot": index + 1, "model": f"CAB {27 + index}", "name": name}
+def _slot_holding(sources: dict[str, dict[str, Any]], tone_id: int, file: str) -> int:
+    """The user IR slot that already holds this TONE3000 file (0 = none)."""
+    for slot, source in sources.items():
+        if source.get("tone_id") == tone_id and source.get("model") == file:
+            return int(slot)
+    return 0
+
+
+def _ir_entry(index: int, name: str, sources: dict[str, dict[str, Any]],
+              users: dict[int, list[int]]) -> dict[str, Any]:
+    entry: dict[str, Any] = {"slot": index + 1, "model": f"CAB {27 + index}", "name": name,
+                             "used_by_presets": users.get(index + 1, [])}
     source = sources.get(str(index + 1))
     if source:
         entry["tone3000"] = {k: source.get(k) for k in

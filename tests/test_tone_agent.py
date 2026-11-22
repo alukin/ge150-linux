@@ -105,3 +105,15 @@ def test_codex_models_come_from_the_cli(monkeypatch: pytest.MonkeyPatch) -> None
     claude = tone_agent.ClaudeAgent.models()
     assert [c.label for c in claude][:3] == ["Predeterminado", "Fable 5.2", "Opus 5.5"]
     assert claude[2].id == "claude-opus-5-5"
+
+
+def test_tone3000_cabs_switch_reaches_both_clis(tmp_path: Path) -> None:
+    claude = tone_agent.ClaudeAgent(server=["x"])
+    prompt = claude.args("")[claude.args("").index("--append-system-prompt") + 1]
+    assert "tone3000_search" not in prompt and "only call load_tone3000_ir" in prompt.lower()
+    claude.search_cabs = True
+    prompt = claude.args("")[claude.args("").index("--append-system-prompt") + 1]
+    assert "tone3000_search" in prompt and "slot 0" in prompt
+    codex = tone_agent.CodexAgent(server=["x"])
+    codex.search_cabs = True
+    assert any("tone3000_search" in a for a in codex.args("", tmp_path / "o.txt"))

@@ -1,8 +1,9 @@
-"""Secondary dialogs: user IR slots and expression-pedal settings."""
+"""Secondary dialogs: user IR slots, choosing one to overwrite and expression-pedal settings."""
 
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from PySide6.QtWidgets import (
     QDialog,
@@ -140,6 +141,58 @@ class IrDialog(QDialog):
             self.status.setText(f"{len(chunks)} IR exportados a {directory}")
 
         self.runner.run(self.editor.read_ir_backup, done, self._failed)
+
+
+class IrSlotPicker(QDialog):
+    """The AI wants to store an IR and every slot is used: the user picks one to overwrite."""
+
+    def __init__(self, question: str, slots: list[dict[str, Any]],
+                 parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("Asistente IA: elegir ranura de IR")
+        self.resize(600, 420)
+        layout = QVBoxLayout(self)
+        label = QLabel(question)
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        self.list = QListWidget()
+        for entry in slots:
+            text = f"IR {entry['slot']:2d}  ({entry['model']})   {entry['name']}"
+            source = entry.get("tone3000")
+            if source:
+                text += f"   · TONE3000: {source['author']} ({source['license']})"
+            users = entry.get("used_by_presets") or []
+            text += f"\n          usada en {len(users)} preset{'s' * (len(users) != 1)}" \
+                if users else "\n          ningún preset la usa"
+            self.list.addItem(text)
+            if users:
+                shown = ", ".join(f"{n:03d}" for n in users[:20])
+                self.list.item(self.list.count() - 1).setToolTip(
+                    f"Presets: {shown}{' …' if len(users) > 20 else ''}")
+        # The least used slot first: overwriting it changes the fewest presets.
+        fewest = min(range(len(slots)), key=lambda i: len(slots[i].get("used_by_presets") or []),
+                     default=0)
+        self.list.setCurrentRow(fewest)
+        self.list.itemDoubleClicked.connect(lambda _: self.accept())
+        layout.addWidget(self.list, 1)
+        note = QLabel("Los presets que usan la ranura elegida sonarán con la nueva IR.")
+        note.setObjectName("note")
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        buttons = QDialogButtonBox()
+        buttons.addButton("Cancelar", QDialogButtonBox.ButtonRole.RejectRole)
+        self.overwrite = buttons.addButton("Reemplazar", QDialogButtonBox.ButtonRole.AcceptRole)
+        self.overwrite.setDefault(True)
+        buttons.accepted.connect(self.accept)
+        buttons.rejected.connect(self.reject)
+        layout.addWidget(buttons)
+        self.slots = slots
+
+    def chosen(self) -> int:
+        """Slot 1..10, or 0 when cancelled."""
+        if self.result() != QDialog.DialogCode.Accepted or self.list.currentRow() < 0:
+            return 0
+        return int(self.slots[self.list.currentRow()]["slot"])
 
 
 class ExpDialog(QDialog):
