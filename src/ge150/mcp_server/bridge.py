@@ -26,9 +26,9 @@ from typing import Any
 from ge150.mcp_server.tools import ToolError
 
 #: Methods a client may call (everything else is refused).
-TOOLS = ("get_catalog", "get_current_patch", "list_presets", "get_preset", "list_user_irs",
-         "get_settings", "set_module", "apply_patch", "undo", "select_preset", "save_preset",
-         "tone3000_search", "tone3000_get", "load_tone3000_ir")
+TOOLS = ("get_catalog", "get_current_patch", "get_guitar", "list_presets", "get_preset",
+         "list_user_irs", "get_settings", "set_module", "apply_patch", "undo", "select_preset",
+         "save_preset", "tone3000_search", "tone3000_get", "load_tone3000_ir")
 #: Long enough for the user to answer a confirmation or pick an IR in the browser.
 CALL_TIMEOUT_S = 330
 

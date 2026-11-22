@@ -85,6 +85,13 @@ def build_server(tools: PedalTools | Any) -> MCPServer:
         return _call(tools.list_user_irs)
 
     @server.tool(annotations=READ)
+    def get_guitar() -> dict[str, Any]:
+        """The guitar the user is playing (brand, model, year, woods, pickups, electronics,
+        strings, tuning), as registered in the GE150 editor. Its pickups and woods shape how
+        much gain, EQ and brightness a patch needs."""
+        return _call(tools.get_guitar)
+
+    @server.tool(annotations=READ)
     def get_settings() -> dict[str, Any]:
         """System settings (input/OTG level, screen, CAB SIM THRU) and the rhythm box."""
         return _call(tools.get_settings)

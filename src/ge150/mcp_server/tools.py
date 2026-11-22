@@ -157,6 +157,17 @@ class PedalTools:
                 "nr": [{"slot": i + 1, "model": f"AMP {56 + i}", "name": n}
                        for i, n in enumerate(names.nr)]}
 
+    def get_guitar(self) -> dict[str, Any]:
+        from dataclasses import asdict
+
+        from ge150.services.guitars import GuitarStore
+
+        guitar = GuitarStore().current
+        if guitar is None:
+            return {"guitar": None, "note": "the user has not chosen a guitar in the editor"}
+        data = {k: v for k, v in asdict(guitar).items() if v and k not in ("id", "serial")}
+        return {"guitar": data}
+
     def get_settings(self) -> dict[str, Any]:
         result: dict[str, Any] = {}
         system, rhythm = self.editor.system_values(), self.editor.rhythm_values()
