@@ -28,6 +28,7 @@ def window(app: QApplication, monkeypatch: pytest.MonkeyPatch,
            tmp_path: "os.PathLike[str]") -> Iterator[MainWindow]:
     monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path))  # the AI bridge discovery file
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))  # guitars, TONE3000 session
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))  # AI conversations, IR sources
     monkeypatch.setattr(QMessageBox, "question",
                         lambda *a, **k: QMessageBox.StandardButton.Yes)
     sim = SimTransport()
