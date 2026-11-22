@@ -97,7 +97,7 @@ class AIPanel(QDockWidget):
         self.undo_button.clicked.connect(self.undo)
         self.ask_button = QPushButton("Enviar")
         self.ask_button.setObjectName("saveButton")
-        self.ask_button.clicked.connect(self.ask)
+        self.ask_button.clicked.connect(self._send_or_stop)
         buttons.addWidget(self.undo_button)
         buttons.addStretch(1)
         buttons.addWidget(self.ask_button)
@@ -130,7 +130,7 @@ class AIPanel(QDockWidget):
 
     def ask(self, text: str = "") -> None:
         request = (text or self.prompt.toPlainText()).strip()
-        if not request or self.busy or not self.ask_button.isEnabled():
+        if not request or self.busy or not self.prompt.isEnabled():
             return
         agent = self._agent()
         self.prompt.clear()
@@ -146,6 +146,13 @@ class AIPanel(QDockWidget):
             self._done.finished.emit(reply, error)
 
         threading.Thread(target=work, name="ge150-agent", daemon=True).start()
+
+    def _send_or_stop(self) -> None:
+        if self.busy:
+            tone_agent.stop_all()
+            self.status.setText("Deteniendo…")
+        else:
+            self.ask()
 
     def undo(self) -> None:
         def work() -> None:
@@ -169,7 +176,9 @@ class AIPanel(QDockWidget):
 
     def _finished(self, reply: object, error: str) -> None:
         self._set_busy(False)
-        if error:
+        if error == "stopped":
+            self._note("Detenido. Lo que alcanzó a cambiar sigue aplicado (Deshacer lo revierte).")
+        elif error:
             self._note(f"<span style='color:{ERROR}'>Error: {html.escape(error)}</span>")
         elif isinstance(reply, str):
             self._bubble(self.provider.currentText(), _markdown(reply), AI)
@@ -180,7 +189,7 @@ class AIPanel(QDockWidget):
 
     def _set_busy(self, busy: bool, text: str = "") -> None:
         self.busy = busy
-        self.ask_button.setEnabled(not busy)
+        self.ask_button.setText("Detener" if busy else "Enviar")
         self.undo_button.setEnabled(not busy)
         self.provider.setEnabled(not busy)
         self.prompt.setReadOnly(busy)
