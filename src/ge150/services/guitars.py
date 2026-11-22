@@ -12,6 +12,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import re
 import shutil
 import urllib.request
 import uuid
@@ -67,7 +68,8 @@ class Guitar:
     @property
     def title(self) -> str:
         name = " ".join(p for p in (self.brand, self.model) if p) or "Guitarra sin nombre"
-        return f"{name} ({self.year})" if self.year else name
+        year = re.search(r"\b(19|20)\d{2}\b", self.year)  # "2025 (diciembre)" -> 2025
+        return f"{name} ({year.group(0)})" if year else name
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Guitar:

@@ -9,8 +9,8 @@ import re
 import threading
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSize, Qt, Signal
-from PySide6.QtGui import QKeyEvent, QPixmap, QResizeEvent, QTransform
+from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QKeyEvent, QPixmap, QResizeEvent, QShowEvent, QTransform
 from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
@@ -61,6 +61,16 @@ class _Field(QPlainTextEdit):
             return
         super().keyPressEvent(event)
 
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        """A new width rewraps the text: measure again once the relayout is done."""
+        super().resizeEvent(event)
+        if event.oldSize().width() != event.size().width():
+            QTimer.singleShot(0, self._fit)
+
+    def showEvent(self, event: QShowEvent) -> None:
+        super().showEvent(event)
+        QTimer.singleShot(0, self._fit)
+
     def _fit(self) -> None:
         """Exactly the height of the wrapped text (1-6 lines). A plain-text document measures
         its height in lines, not pixels."""
@@ -95,6 +105,8 @@ class GuitarDialog(QDialog):
         left_layout = QVBoxLayout(left)
         left_layout.setContentsMargins(0, 0, 0, 0)
         self.list = QListWidget()
+        self.list.setWordWrap(True)  # long names on two lines, no sideways scrolling
+        self.list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.list.currentRowChanged.connect(lambda _: self._show_selected())
         left_layout.addWidget(self.list, 1)
         row = QHBoxLayout()
@@ -195,8 +207,10 @@ class GuitarDialog(QDialog):
         self.list.blockSignals(True)
         self.list.clear()
         for guitar in self.store.guitars:
-            mark = "  ✓ en uso" if guitar.id == self.store.active else ""
-            item = QListWidgetItem(guitar.title + mark)
+            active = guitar.id == self.store.active
+            item = QListWidgetItem(("✓ " if active else "") + guitar.title)
+            item.setToolTip(guitar.title + ("\nEn uso: va con cada pedido a la IA" if active
+                                            else ""))
             item.setData(Qt.ItemDataRole.UserRole, guitar.id)
             self.list.addItem(item)
             if guitar.id == select:
