@@ -21,7 +21,10 @@ from ge150.ui.worker import TaskRunner
 
 log = logging.getLogger(__name__)
 ANSWER_TIMEOUT_S = 300
-LABELS = {"set_module": "cambia un módulo", "apply_patch": "aplica un sonido",
+LABELS = {"get_catalog": "revisa el catálogo", "get_current_patch": "lee el sonido actual",
+          "list_presets": "lee la lista de presets", "get_preset": "lee un preset",
+          "list_user_irs": "lee las IR de usuario", "get_settings": "lee los ajustes",
+          "set_module": "cambia un módulo", "apply_patch": "aplica un sonido",
           "undo": "deshace", "select_preset": "cambia de preset", "save_preset": "guarda",
           "tone3000_search": "busca en TONE3000", "tone3000_get": "lee TONE3000",
           "load_tone3000_ir": "descarga una IR"}
