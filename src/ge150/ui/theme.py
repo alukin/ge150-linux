@@ -43,6 +43,7 @@ QPushButton#aiButton {{
 }}
 QPushButton#aiButton:hover {{ background: #2d2620; }}
 QPushButton#aiButton:checked {{ background: #3a2a1a; }}
+QPushButton#aiButton:disabled {{ color: {MUTED}; border-color: #8a5a2e; }}
 QFrame#composer {{
     background: {PANEL}; border: 1px solid {BORDER}; border-radius: 12px;
 }}
@@ -160,6 +161,9 @@ QLineEdit, QPlainTextEdit#guitarField {{
     background: {RAISED}; border: 1px solid {BORDER}; border-radius: 8px; padding: 6px 10px;
 }}
 QPlainTextEdit#guitarField {{ padding: 2px 6px; }}
+QScrollArea#guitarForm, QWidget#guitarFormBody {{ background: {PANEL}; border-radius: 10px; }}
+QLabel#fieldLabel {{ color: {MUTED}; padding-top: 6px; }}
+QLabel#sectionTitle {{ color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 4px; }}
 QLabel#guitarPicture {{
     background: {PANEL}; border-radius: 12px; color: {MUTED}; padding: 8px;
 }}

@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -32,6 +33,8 @@ from PySide6.QtWidgets import (
 
 from ge150.services import guitars
 from ge150.services.guitars import Guitar, GuitarStore
+from ge150.ui.icons import icon
+from ge150.ui.theme import ACCENT
 
 #: Short values: one line. The rest wraps and grows with its text.
 SHORT = ("brand", "year", "serial", "scale", "tuning")
@@ -128,7 +131,11 @@ class GuitarDialog(QDialog):
         hint.setWordWrap(True)
         right_layout.addWidget(hint)
         form_widget = QWidget()
+        form_widget.setObjectName("guitarFormBody")
         form = QFormLayout(form_widget)
+        form.setContentsMargins(14, 12, 10, 12)
+        form.setHorizontalSpacing(14)
+        form.setVerticalSpacing(8)
         self.inputs: dict[str, QLineEdit | _Field] = {}
         self.tags: dict[str, QLabel] = {}
         for name, label in guitars.FIELDS:
@@ -143,10 +150,15 @@ class GuitarDialog(QDialog):
             row.setSpacing(6)
             row.addWidget(edit, 1)
             row.addWidget(tag, 0, Qt.AlignmentFlag.AlignTop)
-            form.addRow(label, row)
+            name_label = QLabel(label)
+            name_label.setObjectName("fieldLabel")
+            name_label.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+            form.addRow(name_label, row)
             changed = edit.textEdited if isinstance(edit, QLineEdit) else edit.textChanged
             changed.connect(lambda *_, n=name: self._typed(n))
         scroll = QScrollArea()
+        scroll.setObjectName("guitarForm")
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidgetResizable(True)
         scroll.setWidget(form_widget)
         right_layout.addWidget(scroll, 1)
@@ -154,6 +166,9 @@ class GuitarDialog(QDialog):
         self.status.setObjectName("note")
         self.status.setWordWrap(True)
         right_layout.addWidget(self.status)
+        self.report_title = QLabel("Cómo se identificó")
+        self.report_title.setObjectName("sectionTitle")
+        right_layout.addWidget(self.report_title)
         self.report_view = QTextBrowser()  # how the guitar was identified, with its sources
         self.report_view.setObjectName("guitarReport")
         self.report_view.setOpenExternalLinks(True)
@@ -161,6 +176,10 @@ class GuitarDialog(QDialog):
         right_layout.addWidget(self.report_view)
         buttons = QHBoxLayout()
         self.identify_button = QPushButton("Identificar con IA")
+        self.identify_button.setObjectName("aiButton")
+        self.identify_button.setIcon(icon("sparkles", ACCENT, 15))
+        self.identify_button.setToolTip("Completa los campos vacíos buscando la ficha de fábrica "
+                                        "(marca y modelo o número de serie)")
         self.identify_button.clicked.connect(self._identify)
         self.use_button = QPushButton("Usar esta guitarra")
         self.use_button.clicked.connect(self._use)
@@ -286,6 +305,7 @@ class GuitarDialog(QDialog):
 
     def _show_report(self, report: str) -> None:
         self.report_view.setVisible(bool(report))
+        self.report_title.setVisible(bool(report))
         text = html.escape(report)
         text = re.sub(r"(https?://[^\s<]+)", r"<a style='color:#ff8a1f' href='\1'>\1</a>", text)
         self.report_view.setHtml(text.replace("\n", "<br>"))
@@ -356,6 +376,7 @@ class GuitarDialog(QDialog):
                                     "número de serie.")
             return
         self.identify_button.setEnabled(False)
+        self.identify_button.setText("Identificando…")
         self.status.setText("Buscando la ficha de esta guitarra… (puede tardar un minuto)")
         provider, model = self.provider, self.model
 
@@ -371,6 +392,7 @@ class GuitarDialog(QDialog):
 
     def _identify_done(self, result: object, error: str) -> None:
         self.identify_button.setEnabled(True)
+        self.identify_button.setText("Identificar con IA")
         if not isinstance(result, tuple):
             self.status.setText(f"No se pudo identificar: {html.escape(error)}")
             return
