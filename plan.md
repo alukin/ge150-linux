@@ -651,6 +651,12 @@ ge150-linux/
 - [x] Licencia: **MIT** (`LICENSE`; declarada en `pyproject.toml` y en el PKGBUILD).
 - [ ] AUR, AppImage o Flatpak.
 
+### Fase 11 — Asistente de tono con IA (MCP) y TONE3000 (en curso)
+- [x] Modo rápido: `services/tone_ai.py` + `ge150ctl ai` (Claude Code / Codex en modo de una consulta, JSON
+      validado contra el catálogo, aplicado en vivo, con Deshacer). Probado con la pedalera real en `--dry-run`.
+- [ ] 11.1 servidor MCP (stdio) · 11.4 TONE3000 · 11.2/11.3 servidor embebido y panel agente · 11.5 · 11.6.
+      Plan detallado y decisiones: [`docs/plan-ia-tone3000.md`](docs/plan-ia-tone3000.md).
+
 ---
 
 ## 7. Guía para agentes: cómo continuar
