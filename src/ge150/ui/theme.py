@@ -170,6 +170,10 @@ QScrollArea#guitarForm, QWidget#guitarFormBody {{ background: {PANEL}; border-ra
 QLabel#fieldLabel {{ color: {MUTED}; padding-top: 6px; }}
 QLabel#sectionTitle {{ color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 4px; }}
 QFrame#sidePanel {{ background: {PANEL}; border-radius: 12px; }}
+QFrame#previewBar {{
+    background: #2a2119; border: 1px solid #8a5a2e; border-radius: 8px;
+}}
+QLabel#previewLabel {{ color: {TEXT}; font-size: 12px; }}
 QToolButton#iconButton {{
     background: transparent; border: none; border-radius: 6px; padding: 5px;
 }}

@@ -1,8 +1,11 @@
 """«Cambios pendientes»: stored-preset changes (from the AI or the form) waiting for review.
 
 One row per preset with a check box, its changes per module (before → after) and any
-warning underneath. «Aplicar» writes the ticked presets on the runner thread; «Deshacer
-última edición» writes back the versions saved before (the click is the confirmation).
+warning underneath. A new proposal is played at once: the pedal loads that preset with the
+proposed sound (live, not saved), and the bar on top switches between «Antes» and «Después»;
+clicking another preset plays that one. «Aplicar» writes the ticked presets on the runner
+thread; «Deshacer última edición» writes back the versions saved before (the click is the
+confirmation).
 """
 
 from __future__ import annotations
@@ -13,9 +16,12 @@ from collections.abc import Sequence
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QBrush, QColor
 from PySide6.QtWidgets import (
+    QButtonGroup,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
+    QMessageBox,
     QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
@@ -41,6 +47,8 @@ class BulkReview(QWidget):
         self.editor, self.runner = editor, runner
         self.edits: dict[int, PresetEdit] = {}
         self.previous: list[Preset] = []
+        self.playing: int | None = None  # the preset heard on the pedal (live preview)
+        self.playing_after = True
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         head = QHBoxLayout()
@@ -56,6 +64,27 @@ class BulkReview(QWidget):
         self.summary.setObjectName("note")
         self.summary.setWordWrap(True)
         layout.addWidget(self.summary)
+        self.bar = QFrame()
+        self.bar.setObjectName("previewBar")
+        bar = QHBoxLayout(self.bar)
+        bar.setContentsMargins(10, 6, 6, 6)
+        self.playing_label = QLabel()
+        self.playing_label.setObjectName("previewLabel")
+        self.playing_label.setWordWrap(True)
+        bar.addWidget(self.playing_label, 1)
+        self.sides = QButtonGroup(self)
+        for i, (text, tip) in enumerate((("Antes", "Como está guardado en la pedalera"),
+                                         ("Después", "Con los cambios propuestos"))):
+            button = QPushButton(text)
+            button.setObjectName("segment")
+            button.setCheckable(True)
+            button.setToolTip(tip)
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.sides.addButton(button, i)
+            bar.addWidget(button)
+        self.sides.idClicked.connect(lambda i: self.listen(self.playing or 0, bool(i)))
+        self.bar.hide()
+        layout.addWidget(self.bar)
         self.tree = QTreeWidget()
         self.tree.setObjectName("bulkTree")
         self.tree.setColumnCount(3)
@@ -69,6 +98,9 @@ class BulkReview(QWidget):
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.tree.itemChanged.connect(lambda *_: self._count())
+        self.tree.itemClicked.connect(self._clicked)
+        self.tree.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.tree.setToolTip("Toca un preset para escucharlo en la pedalera")
         layout.addWidget(self.tree, 1)
         self.empty = QLabel("<p style='font-size:28px; margin:0'>⇄</p>"
                             "<p><b>Sin cambios pendientes</b></p>"
@@ -106,17 +138,79 @@ class BulkReview(QWidget):
         return {slot: edit.after for slot, edit in self.edits.items() if not edit.blocked}
 
     def add(self, edits: Sequence[PresetEdit], summary: str = "") -> None:
-        for edit in edits:
-            if edit.changed or edit.blocked:
-                self.edits[edit.slot] = edit
+        """Add (or replace) pending changes and play the first one on the pedal."""
+        added = [e for e in edits if e.changed or e.blocked]
+        for edit in added:
+            self.edits[edit.slot] = edit
         if summary:
             self.summary.setText(html.escape(summary))
         self._render()
+        playable = [e for e in added if e.changed and not e.blocked]
+        if playable and not self.listen(playable[0].slot, True, ask=False):
+            self.message.emit("Toca un preset en Cambios pendientes para escucharlo en la "
+                              "pedalera.")
 
     def clear(self) -> None:
+        """«Descartar»: forget the changes; a preset being heard goes back to its saved sound."""
+        playing = self.edits.get(self.playing or 0)
         self.edits.clear()
         self.summary.setText("")
+        self._stop_playing(playing)
         self._render()
+
+    # --- hearing a proposal on the pedal ---------------------------------------------------
+
+    def _clicked(self, item: QTreeWidgetItem) -> None:
+        slot = item.data(0, Qt.ItemDataRole.UserRole)
+        if slot is not None and int(slot) != self.playing:
+            self.listen(int(slot), True)
+
+    def listen(self, slot: int, after: bool = True, ask: bool = True) -> bool:
+        """Load ``slot`` on the pedal with its proposed (``after``) or saved sound. If the
+        loaded preset has unsaved changes of the user's, ask first (or give up, ``ask``
+        False). Returns False when it did not start."""
+        edit = self.edits.get(slot)
+        if edit is None or edit.blocked:  # a busy runner just queues it after the rest
+            return False
+        state = self.editor.state
+        current = state.current_slot or 0
+        if current != slot and state.dirty and not self._only_previewed(current):
+            if not ask:
+                return False
+            loaded = state.presets.get(current)
+            answer = QMessageBox.question(
+                self, "Escuchar en la pedalera",
+                f"El preset cargado ({current:03d} «{loaded.name if loaded else ''}») tiene "
+                f"cambios sin guardar.\n¿Descartarlos para escuchar {slot:03d} «{edit.name}»?")
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
+
+        def done(_: object) -> None:
+            self.playing, self.playing_after = slot, after
+            self._render()
+
+        self.runner.run(lambda: bulk_edit.preview(self.editor, edit, after), done, self._failed)
+        return True
+
+    def _only_previewed(self, slot: int) -> bool:
+        """The loaded preset's changes are just one of our previews."""
+        edit = self.edits.get(slot)
+        return edit is not None and not bulk_edit.own_changes(self.editor, slot, edit.after)
+
+    def _stop_playing(self, edit: PresetEdit | None) -> None:
+        """Back to the saved sound if the pedal still plays our preview."""
+        self.playing = None
+        state = self.editor.state
+        if (edit is None or state.current_slot != edit.slot or state.edit is None
+                or list(state.edit.words) != edit.after):
+            return
+        self.runner.run(lambda: self.editor.select(edit.slot), None, self._failed)
+
+    def preset_changed(self) -> None:
+        """Another preset was loaded (from the list, the pedal…): stop showing the bar."""
+        if self.playing is not None and self.editor.state.current_slot != self.playing:
+            self.playing = None
+            self._render()
 
     def chosen(self) -> list[PresetEdit]:
         result = []
@@ -133,7 +227,8 @@ class BulkReview(QWidget):
         self.tree.clear()
         for slot in sorted(self.edits):
             edit = self.edits[slot]
-            top = QTreeWidgetItem([f"{slot:03d}  {edit.name}"])
+            sounding = "   🔊 sonando" if slot == self.playing else ""
+            top = QTreeWidgetItem([f"{slot:03d}  {edit.name}{sounding}"])
             top.setData(0, Qt.ItemDataRole.UserRole, slot)
             font = top.font(0)
             font.setBold(True)
@@ -164,6 +259,12 @@ class BulkReview(QWidget):
         self.tree.blockSignals(False)
         self.empty.setVisible(not self.edits)
         self.tree.setVisible(bool(self.edits))
+        playing = self.edits.get(self.playing or 0)
+        self.bar.setVisible(playing is not None)
+        if playing is not None:
+            self.playing_label.setText(f"Escuchando en la pedalera: <b>{playing.slot:03d} "
+                                       f"{html.escape(playing.name)}</b>")
+            self.sides.button(1 if self.playing_after else 0).setChecked(True)
         self._count()
 
     def _count(self) -> None:
@@ -180,6 +281,8 @@ class BulkReview(QWidget):
         self.undo_button.setVisible(bool(self.previous))
         self.discard.setEnabled(bool(self.edits) and not busy)
         self.undo_button.setEnabled(bool(self.previous) and not busy)
+        for button in self.sides.buttons():
+            button.setEnabled(not busy)
 
     # --- writing ----------------------------------------------------------------------
 
@@ -193,6 +296,7 @@ class BulkReview(QWidget):
             self.previous = result.previous
             for preset in result.previous:
                 self.edits.pop(preset.slot, None)
+            self.playing = None  # the applied preset was loaded again with its new sound
             skipped = "; ".join(f"{slot:03d}: {why}" for slot, why in result.skipped)
             self.message.emit(f"Listo: {len(result.previous)} presets escritos."
                               + (f" No se escribieron: {skipped}" if skipped else ""))

@@ -29,9 +29,10 @@ T = TypeVar("T")
 INSTRUCTIONS = """Controls a MOOER GE150 guitar multi-effects pedal connected to this computer.
 Signal chain (fixed order): FX -> DS -> AMP -> CAB -> NS -> EQ -> MOD -> DELAY -> REVERB.
 Workflow: read get_current_patch, look up models with get_catalog(module), then change the
-sound with set_module or apply_patch. Changes are LIVE in the edit buffer and are NOT
-saved: the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use
-undo to go back. To change several STORED presets (e.g. "every Av83 preset"), read them with
+sound with set_module or apply_patch: they change the LOADED preset (get_current_patch
+says which), never another one. Changes are LIVE in the edit buffer and are NOT saved:
+the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use undo
+to go back. To change several STORED presets (e.g. "every Av83 preset"), read them with
 get_presets(query) and call propose_preset_edits once with a change per preset (the user
 reviews and applies them in the editor): never loop select_preset + save_preset. Use
 only model and parameter names from get_catalog; values outside a range are clamped and

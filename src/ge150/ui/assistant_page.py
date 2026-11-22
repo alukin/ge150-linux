@@ -37,8 +37,11 @@ from ge150.ui.worker import TaskRunner
 GUIDE = """The user is in the «Asistente» tab of the editor, made to change several STORED
 presets at once; the presets they ticked come before each message. To change stored presets,
 read them (get_presets or get_preset) and call propose_preset_edits once, with the values for
-each preset: it writes nothing, the user reviews a table and applies. Change the live sound
-with apply_patch only when the user asks about the current sound."""
+each preset: it writes nothing, the user reviews a table and applies. The editor loads the
+proposed preset on the pedal at once so the user hears it (live, not saved): NEVER use
+apply_patch or set_module to try out a change of a stored preset, the loaded one may be
+another preset. To offer another option, call propose_preset_edits again: it replaces the
+pending change of that preset."""
 
 EXAMPLES = ("Baja el reverb a 20 en todos los Av83",
             "Apaga el delay en los presets marcados",
@@ -303,6 +306,9 @@ class AssistantPage(QWidget):
         return f"Presets marcados en la lista: {names}{more}"
 
     # --- proposals from the AI ------------------------------------------------------------
+
+    def current_changed(self) -> None:
+        self.review.preset_changed()
 
     def show_proposal(self, edits: list[PresetEdit], summary: str) -> None:
         self.review.add(edits, summary)

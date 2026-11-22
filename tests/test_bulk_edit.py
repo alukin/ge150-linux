@@ -70,10 +70,31 @@ def test_loaded_preset_with_unsaved_changes_is_refused(editor: Editor) -> None:
     block.switch = not block.switch
     editor.write_module(block)
     assert editor.state.dirty
-    spec = [{"slot": 23, "modules": [{"module": "DS", "on": True}]}]
+    ds = editor.state.presets[23].module(1).switch
+    spec = [{"slot": 23, "modules": [{"module": "DS", "on": not ds}]}]
     edit = bulk_edit.plan_edits(editor, spec)[0]
-    assert edit.blocked == bulk_edit.DIRTY
-    assert bulk_edit.apply(editor, [edit]).skipped[0][0] == 23
+    assert bulk_edit.own_changes(editor, 23, edit.after)
+    assert bulk_edit.apply(editor, [edit]).skipped == [(23, bulk_edit.DIRTY)]
+
+
+def test_a_preview_is_not_the_users_own_change(editor: Editor) -> None:
+    editor.select(30)
+    on = editor.state.presets[28].module(REVERB).switch
+    edit = bulk_edit.plan_edits(editor, [{"slot": 28, "modules": [{"module": "REVERB",
+                                                                     "on": not on}]}])[0]
+    bulk_edit.preview(editor, edit)  # the pedal goes to 28 and plays the proposal
+    assert editor.state.current_slot == 28 and editor.state.dirty
+    assert editor.module(REVERB).switch == (not on)
+    assert not bulk_edit.own_changes(editor, 28, edit.after)
+    again = bulk_edit.plan_edits(editor, [{"slot": 28, "modules": [{"module": "DS",
+                                                                      "on": True}]}])[0]
+    assert not again.blocked  # another option for the preset being heard
+    bulk_edit.preview(editor, edit, after=False)  # «Antes»: the stored sound
+    assert not editor.state.dirty
+    bulk_edit.preview(editor, edit)
+    applied = bulk_edit.apply(editor, [edit])
+    assert not applied.skipped and not editor.state.dirty
+    assert editor.state.presets[28].module(REVERB).switch == (not on)
 
 
 def test_loaded_preset_is_selected_again(editor: Editor) -> None:

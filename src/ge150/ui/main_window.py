@@ -238,6 +238,7 @@ class MainWindow(QMainWindow):
             self._refresh_current()
             self.ai_panel.refresh_context()
             self.assistant.chat.refresh_context()
+            self.assistant.current_changed()
         elif kind == ds.KIND_USER_NAMES:
             self.chain.refresh()
             self.module_editor.show_module(self.module_editor.index)

@@ -385,3 +385,50 @@ def test_chat_history_asks_before_dropping_unsaved_changes(window: MainWindow) -
     finally:
         QMessageBox.exec = monkeypatch_exec  # type: ignore[method-assign]
     assert "cambios sin guardar" in asked[0] and "040" in asked[0]
+
+
+def test_a_proposal_is_heard_on_its_own_preset(window: MainWindow) -> None:
+    """Pedal on «Solo» (22), the AI changes «Clean» (28): the pedal must play the Clean."""
+    editor, review = window.editor, window.assistant.review
+    window.presets.activated.emit(22)
+    assert wait(lambda: editor.state.current_slot == 22 and not window.runner.busy)
+    on = editor.state.presets[28].module(8).switch
+    window.ai_host.tools.propose_preset_edits(
+        [{"slot": 28, "modules": [{"module": "REVERB", "on": not on}]}], "Clean")
+    assert wait(lambda: editor.state.current_slot == 28 and review.playing == 28)
+    assert editor.module(8).switch == (not on) and review.bar.isVisibleTo(review)
+    assert "028" in review.playing_label.text()
+    review.sides.button(0).click()  # «Antes»
+    assert wait(lambda: editor.module(8).switch == on and not review.playing_after)
+    review.sides.button(1).click()  # «Después»
+    assert wait(lambda: editor.module(8).switch == (not on))
+    review.clear()  # «Descartar»: back to the saved Clean
+    assert wait(lambda: not editor.state.dirty and editor.module(8).switch == on)
+    assert not review.bar.isVisibleTo(review)
+
+
+def test_hearing_a_proposal_asks_before_dropping_own_changes(window: MainWindow,
+                                                             monkeypatch: pytest.MonkeyPatch
+                                                             ) -> None:
+    editor, review = window.editor, window.assistant.review
+    window.presets.activated.emit(22)
+    assert wait(lambda: editor.state.current_slot == 22 and not window.runner.busy)
+    block = editor.module(1)
+    block.switch = not block.switch
+    editor.write_module(block)  # the user's own unsaved change on 22
+    assert editor.state.dirty
+    on = editor.state.presets[28].module(8).switch
+    window.ai_host.tools.propose_preset_edits(
+        [{"slot": 28, "modules": [{"module": "REVERB", "on": not on}]}])
+    assert wait(lambda: 28 in review.edits)
+    wait(lambda: False, 200)
+    assert editor.state.current_slot == 22 and review.playing is None  # not auto-played
+    asked: list[str] = []
+
+    def no(*args: object, **kwargs: object) -> QMessageBox.StandardButton:
+        asked.append(str(args[2]))
+        return QMessageBox.StandardButton.No
+
+    monkeypatch.setattr(QMessageBox, "question", no)
+    assert not review.listen(28)
+    assert "cambios sin guardar" in asked[0] and editor.state.current_slot == 22

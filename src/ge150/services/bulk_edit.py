@@ -5,7 +5,8 @@ module entries as ``apply_patch``) into before/after words that the user reviews
 :func:`apply` writes the presets the user kept. The preset loaded on the pedal is refused
 while it has unsaved changes (writing it would make them unreachable), and is selected
 again after being rewritten, so the pedal plays the new version. :func:`restore` writes the
-previous versions back.
+previous versions back. :func:`preview` loads a planned preset on the pedal (live, not
+saved) so the user can hear it before applying.
 """
 
 from __future__ import annotations
@@ -62,8 +63,9 @@ def plan_edits(editor: Editor, specs: Sequence[Mapping[str, Any]],
             edits.append(PresetEdit(slot, stored.name, before, start, blocked=str(exc)))
             continue
         after = tone_ai.apply_to_words(start, proposal, editor.catalog)
-        blocked = DIRTY if slot == state.current_slot and state.dirty else ""
-        edits.append(PresetEdit(slot, stored.name, before, after, proposal.warnings, blocked))
+        # The loaded preset's unsaved changes are checked when applying (a preview of a
+        # pending proposal also counts as "unsaved" here).
+        edits.append(PresetEdit(slot, stored.name, before, after, proposal.warnings))
     return edits
 
 
@@ -103,6 +105,23 @@ def describe(editor: Editor, edits: Sequence[PresetEdit]) -> list[dict[str, Any]
             for e in edits]
 
 
+def own_changes(editor: Editor, slot: int, planned: Sequence[int]) -> bool:
+    """The loaded preset has unsaved changes of the user's (not just a preview of
+    ``planned``, the words this edit is heard with)."""
+    state = editor.state
+    if slot != state.current_slot or not state.dirty or state.edit is None:
+        return False
+    return list(state.edit.words) != list(planned)
+
+
+def preview(editor: Editor, edit: PresetEdit, after: bool = True) -> None:
+    """Load the edit's preset on the pedal and play its planned (or stored) version, live:
+    nothing is stored."""
+    if editor.state.current_slot != edit.slot:
+        editor.select(edit.slot)
+    tone_ai.restore_words(editor, edit.after if after else edit.before)
+
+
 @dataclass
 class Applied:
     previous: list[Preset]  # what to write back to undo
@@ -120,7 +139,7 @@ def apply(editor: Editor, edits: Sequence[PresetEdit]) -> Applied:
         if edit.blocked or stored is None or not edit.changed:
             skipped.append((edit.slot, edit.blocked or "sin cambios"))
             continue
-        if edit.slot == state.current_slot and state.dirty:  # changed since the plan
+        if own_changes(editor, edit.slot, edit.after):  # changed since the plan
             skipped.append((edit.slot, DIRTY))
             continue
         if stored.words != edit.before:
