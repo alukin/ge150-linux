@@ -43,7 +43,8 @@ def test_server_lists_and_runs_tools(tools: PedalTools) -> None:
             names = {t.name for t in listed.tools}
             assert names == {"get_catalog", "get_current_patch", "list_presets", "get_preset",
                              "list_user_irs", "get_settings", "set_module", "apply_patch",
-                             "undo", "select_preset"}
+                             "undo", "select_preset", "save_preset", "tone3000_search",
+                             "tone3000_get", "load_tone3000_ir"}
             read_only = {t.name for t in listed.tools if t.annotations
                          and t.annotations.read_only_hint}
             assert "get_current_patch" in read_only and "set_module" not in read_only

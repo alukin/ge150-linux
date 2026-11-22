@@ -1,11 +1,12 @@
 """``ge150-mcp``: MCP server (stdio) that lets Claude Code, Codex or any MCP client drive
 the pedal through :class:`~ge150.mcp_server.tools.PedalTools`.
 
-    ge150-mcp            # the pedal on USB
-    ge150-mcp --sim      # the built-in simulator
+    ge150-mcp            # the GE150 editor if it is open, else the pedal on USB
+    ge150-mcp --sim      # the built-in simulator when the editor is not open
 
-Only one program may own the pedal: close the GE150 editor while this server runs (the
-editor will host the server itself in phase 11.2, docs/plan-ia-tone3000.md).
+Only one program may own the pedal. When the GE150 editor is open this server forwards every
+call to it (``bridge.py``): the GUI shows the AI's changes at once and asks the user before
+anything is stored. Otherwise it opens the pedal itself and storing is refused.
 """
 
 from __future__ import annotations
@@ -27,6 +28,9 @@ from ge150.mcp_server.tools import INSTRUCTIONS, PedalTools, ToolError
 T = TypeVar("T")
 READ = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)
 LIVE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
+STORE = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=False)
+WEB = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=True)
+WEB_STORE = ToolAnnotations(read_only_hint=False, destructive_hint=True, open_world_hint=True)
 
 
 class ParamValue(BaseModel):
@@ -48,7 +52,8 @@ def _call(fn: Callable[[], T]) -> T:
         raise MCPToolError(str(exc)) from exc
 
 
-def build_server(tools: PedalTools) -> MCPServer:
+def build_server(tools: PedalTools | Any) -> MCPServer:
+    """``tools``: a :class:`PedalTools` or a proxy with the same methods (``bridge.py``)."""
     server: MCPServer = MCPServer("ge150", title="MOOER GE150", version=__version__,
                                   instructions=INSTRUCTIONS)
 
@@ -110,6 +115,32 @@ def build_server(tools: PedalTools) -> MCPServer:
         and pass discard_changes=true only if they agree."""
         return _call(lambda: tools.select_preset(slot, discard_changes))
 
+    @server.tool(annotations=STORE)
+    def save_preset(slot: int = 0, name: str = "") -> dict[str, Any]:
+        """Store the current sound in preset ``slot`` (0 = the current one), optionally
+        renamed (up to 14 chars). The GE150 editor asks the user to confirm; only when
+        the user asked to save."""
+        return _call(lambda: tools.save_preset(slot, name))
+
+    @server.tool(annotations=WEB)
+    def tone3000_search(query: str) -> dict[str, Any]:
+        """Search cabinet IRs on TONE3000 (e.g. "Marshall 1960 V30"). Rate-limited: few,
+        precise searches."""
+        return _call(lambda: tools.tone3000_search(query))
+
+    @server.tool(annotations=WEB)
+    def tone3000_get(tone_id: int) -> dict[str, Any]:
+        """A TONE3000 tone: title, author, licence and its IR files."""
+        return _call(lambda: tools.tone3000_get(tone_id))
+
+    @server.tool(annotations=WEB_STORE)
+    def load_tone3000_ir(slot: int, tone_id: int = 0, model_id: int = 0,
+                         name: str = "") -> dict[str, Any]:
+        """Download a TONE3000 IR and store it in user IR slot 1..10 (model CAB 27..36).
+        tone_id 0 opens the TONE3000 catalogue so the user picks one. The GE150 editor
+        asks the user to confirm. Then select that CAB model to hear it."""
+        return _call(lambda: tools.load_tone3000_ir(slot, tone_id, model_id, name))
+
     return server
 
 
@@ -136,11 +167,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sim", action="store_true", help="use the built-in simulator")
     parser.add_argument("--backend", choices=("auto", "hidraw", "usb"), default="auto")
     parser.add_argument("--device", help="hidraw node, e.g. /dev/hidraw4")
+    parser.add_argument("--standalone", action="store_true",
+                        help="open the pedal even if the GE150 editor is running")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args(argv)
     # stdout carries the MCP protocol: every log goes to stderr.
     logging.basicConfig(stream=sys.stderr,
                         level=logging.DEBUG if args.verbose else logging.WARNING)
+    from ge150.mcp_server.bridge import find_editor
+
+    remote = None if args.standalone else find_editor()
+    if remote is not None:
+        logging.info("forwarding to the GE150 editor at %s", remote.url)
+        build_server(remote).run("stdio")
+        return 0
     try:
         session, editor = _open_editor(args)
     except Exception as exc:

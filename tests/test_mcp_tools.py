@@ -61,6 +61,54 @@ def test_select_preset_protects_unsaved_changes(tools: PedalTools) -> None:
         tools.select_preset(500)
 
 
-def test_no_tool_stores_anything() -> None:
+def test_nothing_resets_or_restores() -> None:
     names = {n for n in dir(PedalTools) if not n.startswith("_")}
-    assert not names & {"save", "save_preset", "rename", "factory_reset", "restore", "load_ir"}
+    assert not names & {"rename", "factory_reset", "restore", "restore_backup", "firmware"}
+
+
+def test_saving_needs_the_user(tools: PedalTools) -> None:
+    tools.set_module("DS", False)
+    with pytest.raises(ToolError, match="editor open"):
+        tools.save_preset()
+    asked: list[str] = []
+    tools.confirm = lambda q: asked.append(q) is not None  # declines
+    with pytest.raises(ToolError, match="declined"):
+        tools.save_preset(30, "AI TONE")
+    tools.confirm = lambda q: True
+    assert tools.save_preset(30, "AI TONE") == {"saved": True, "slot": 30, "name": "AI TONE"}
+    assert tools.editor.state.presets[30].name == "AI TONE" and "30" in asked[0]
+
+
+class FakeT3k:
+    class creds:
+        signed_in = True
+
+    def __init__(self, wav: bytes, tmp) -> None:  # type: ignore[no-untyped-def]
+        from ge150.services.tone3000 import Download, Tone, ToneModel
+
+        path = tmp / "ir.wav"
+        path.write_bytes(wav)
+        tone = Tone(42, "Mesa 4x12 V30", "irmaker", "", "", "cc-by", "ir", "cab")
+        self.download_result = Download(tone, ToneModel(7, "SM57", "u"), path)
+        self.picked = False
+
+    def select_tone(self) -> int:
+        self.picked = True
+        return 42
+
+    def download(self, tone_id: int, model_id: int | None) -> object:
+        return self.download_result
+
+
+def test_load_tone3000_ir_with_confirmation(tools: PedalTools, tmp_path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    from ge150.formats import wav_ir
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    fake = FakeT3k(wav_ir.ir_to_wav([4_000_000] + [0] * 511), tmp_path)
+    tools._tone3000 = fake
+    with pytest.raises(ToolError, match="editor open"):
+        tools.load_tone3000_ir(4, 42)
+    tools.confirm = lambda q: "irmaker" in q and "cc-by" in q
+    result = tools.load_tone3000_ir(4)
+    assert fake.picked and result["author"] == "irmaker" and result["model"] == "CAB 30"
+    assert tools.list_user_irs()["ir"][3]["name"] == "Mesa 4x12 V30"

@@ -1,8 +1,10 @@
 """The GE150 as a set of tools for AI clients (transport-agnostic, see ``server.py``).
 
 Rules (docs/plan-ia-tone3000.md §3.2, §10): reads are free; changes go to the edit
-buffer only (live, reversible with ``undo``); the AI never stores presets, never resets,
-restores or flashes the pedal. Every method returns plain JSON-able data.
+buffer only (live, reversible with ``undo``). Writing the pedal's memory (saving a preset,
+storing an IR) needs ``confirm``: the GE150 editor asks the user in a dialog; without the
+editor it is refused. Nothing resets, restores or flashes the pedal. Every method returns
+plain JSON-able data.
 """
 
 from __future__ import annotations
@@ -16,15 +18,20 @@ from ge150.model.preset import EXP_KEYS, EXP_OFFSET, MODULES, PRESET_COUNT
 from ge150.services import tone_ai
 from ge150.services.editor import Editor
 
+Confirm = Callable[[str], bool]
+
 T = TypeVar("T")
 
 INSTRUCTIONS = """Controls a MOOER GE150 guitar multi-effects pedal connected to this computer.
 Signal chain (fixed order): FX -> DS -> AMP -> CAB -> NS -> EQ -> MOD -> DELAY -> REVERB.
 Workflow: read get_current_patch, look up models with get_catalog(module), then change the
 sound with set_module or apply_patch. Changes are LIVE in the edit buffer and are NOT saved:
-tell the user to press Save in the GE150 editor when they like it (you cannot save). Use undo
+the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use undo
 to go back. Use only model and parameter names from get_catalog; values outside a range are
-clamped and reported."""
+clamped and reported. save_preset and the TONE3000 IR tools write the pedal's memory: they
+only work with the GE150 editor open, which asks the user to confirm each time. TONE3000
+(www.tone3000.com) hosts cabinet IRs made by users: always tell the user the author and
+licence of an IR you load."""
 
 
 class ToolError(Exception):
@@ -44,10 +51,21 @@ def _module_index(module: str) -> int:
 class PedalTools:
     """Thread-safe facade over an :class:`Editor` (one lock for every pedal access)."""
 
-    def __init__(self, editor: Editor, lock: threading.Lock | None = None) -> None:
+    def __init__(self, editor: Editor, lock: threading.Lock | None = None,
+                 confirm: Confirm | None = None, tone3000: Any = None) -> None:
         self.editor = editor
         self.lock = lock or threading.Lock()
+        self.confirm = confirm
         self.history: list[list[int]] = []
+        self._tone3000 = tone3000
+
+    def _ask(self, question: str) -> None:
+        """Ask the user (never while holding the pedal lock)."""
+        if self.confirm is None:
+            raise ToolError("writing the pedal's memory needs the GE150 editor open (it asks "
+                            "the user to confirm); ask the user to open it or to do it there")
+        if not self.confirm(question):
+            raise ToolError("the user declined")
 
     def _locked(self, fn: Callable[[], T]) -> T:
         with self.lock:
@@ -164,7 +182,7 @@ class PedalTools:
             tone_ai.apply_proposal(self.editor, proposal)
             return {"applied": proposal.describe(self.editor.catalog),
                     "warnings": proposal.warnings,
-                    "note": "live only: the user saves it from the GE150 editor"}
+                    "note": "live only, not saved yet"}
 
         try:
             return self._locked(run)
@@ -192,6 +210,99 @@ class PedalTools:
             return self._patch()
 
         return self._locked(run)
+
+    # --- writing the pedal's memory (confirmed by the user) ---------------------------------
+
+    def save_preset(self, slot: int = 0, name: str = "") -> dict[str, Any]:
+        state = self.editor.state
+        target = slot or state.current_slot or 0
+        if not 1 <= target <= PRESET_COUNT:
+            raise ToolError(f"slot must be 1..{PRESET_COUNT}")
+        old = state.presets.get(target)
+        label = name or (old.name if old else "")
+        self._ask(f"¿Guardar el sonido actual en el preset {target} «{label}»?\n"
+                  f"Reemplaza «{old.name if old else '?'}».")
+
+        def run() -> dict[str, Any]:
+            try:
+                preset = self.editor.save(target, name or None)
+            except Exception as exc:  # EditorError: invalid name...
+                raise ToolError(str(exc)) from exc
+            self.history.clear()
+            return {"saved": True, "slot": target, "name": preset.name}
+
+        return self._locked(run)
+
+    # --- TONE3000 cabinet IRs ---------------------------------------------------------
+
+    @property
+    def tone3000(self) -> Any:
+        if self._tone3000 is None:
+            from ge150.services.tone3000 import Tone3000Client
+
+            self._tone3000 = Tone3000Client()
+        return self._tone3000
+
+    def _t3k(self, fn: Callable[[], T]) -> T:
+        from ge150.services.tone3000 import Tone3000Error
+
+        if not self.tone3000.creds.signed_in:
+            raise ToolError("not signed in to TONE3000: ask the user to run "
+                            "'ge150ctl t3k-login' (or sign in from the GE150 editor)")
+        try:
+            return fn()
+        except Tone3000Error as exc:
+            raise ToolError(str(exc)) from exc
+
+    def tone3000_search(self, query: str) -> dict[str, Any]:
+        tones = self._t3k(lambda: self.tone3000.search(query))
+        return {"note": "TONE3000 limits searches: search few times, with precise words",
+                "tones": [{"tone_id": t.id, "title": t.title, "author": t.author,
+                           "license": t.license, "gear": t.gear, "url": t.page_url,
+                           "description": t.description[:200]} for t in tones]}
+
+    def tone3000_get(self, tone_id: int) -> dict[str, Any]:
+        tone = self._t3k(lambda: self.tone3000.tone(tone_id))
+        models = self._t3k(lambda: self.tone3000.models(tone_id))
+        return {"tone_id": tone.id, "title": tone.title, "author": tone.author,
+                "license": tone.license, "format": tone.format, "url": tone.page_url,
+                "description": tone.description[:500],
+                "files": [{"model_id": m.id, "name": m.name} for m in models]}
+
+    def load_tone3000_ir(self, slot: int, tone_id: int = 0, model_id: int = 0,
+                         name: str = "") -> dict[str, Any]:
+        """Download a TONE3000 IR (or let the user pick one in the browser when
+        ``tone_id`` is 0) and store it in user IR slot ``slot`` (1..10)."""
+        from ge150.formats import wav_ir
+        from ge150.protocol import messages as msg
+        from ge150.protocol.opcodes import Op
+        from ge150.services.tone3000 import IrSources
+
+        if not 1 <= slot <= 10:
+            raise ToolError("IR slot must be 1..10 (models CAB 27..36)")
+        chosen = tone_id or self._t3k(self.tone3000.select_tone)
+        download = self._t3k(lambda: self.tone3000.download(chosen, model_id or None))
+        tone = download.tone
+        try:
+            payload = wav_ir.load_ir_file(download.path)
+        except ValueError as exc:
+            raise ToolError(f"cannot use this IR: {exc}") from exc
+        label = (name or tone.title)[: msg.USER_NAME_LEN]
+        names = self.editor.state.user_names
+        old = names.ir[slot - 1] if names else "?"
+        self._ask(f"¿Guardar la IR de TONE3000 «{tone.title} / {download.model.name}»\n"
+                  f"de {tone.author} (licencia {tone.license}) en la ranura {slot} "
+                  f"(CAB {26 + slot}) como «{label}»?\nReemplaza «{old}».")
+
+        def run() -> None:
+            self.editor.upload_user_slot(Op.USER_IR, slot - 1, label, payload)
+
+        self._locked(run)
+        IrSources().record(slot, download)
+        return {"stored": True, "slot": slot, "model": f"CAB {26 + slot}", "name": label,
+                "tone": tone.title, "file": download.model.name, "author": tone.author,
+                "license": tone.license, "url": tone.page_url,
+                "note": "select the model in the CAB module to hear it"}
 
 
 def _param_info(param: Any) -> dict[str, Any]:
