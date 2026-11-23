@@ -27,10 +27,14 @@ El informe queda en `~/.local/share/ge150/hw-check/`.
 | 3 | **La pedalera recarga sola el preset que está sonando cuando se escribe**; Aplicar deja sonando y guardada la versión nueva; Deshacer vuelve a la original. |
 | 4 | Escuchar: cambia al preset propuesto con la propuesta; «Antes» y «Después» cargan lo que corresponde; Descartar vuelve a lo guardado y la escucha nunca escribe en la memoria. |
 | 6 | Sesión de TONE3000 iniciada y búsqueda real de IR desde las herramientas de la IA (10 resultados). |
-| 9 | **Pendiente:** en la primera prueba no llegó ningún aviso de TAP ni cambió el TIME (falta confirmar si se pisó TAP durante la prueba). |
+| 9 | Sin tap tempo comprobado: al pisar TAP la pedalera no cambió de tempo ni envió avisos, y el editor oficial no menciona el tap. El LED «TAP» del editor parpadea al TIME del delay guardado en el preset. Se deja así. |
 
-Queda **manual**: escuchar y mirar la pantalla en los pasos 3 y 4 (los datos ya están comprobados), la IA (pasos
-5 y 7), «Conectar cuenta» en el navegador (6), el historial (8) y el TAP (9).
+**Prueba manual 2026-11-22 (usuario): TODO OK.** Con el editor abierto se probaron, entre otros cambios, todos los
+presets Av83: aplicar y escuchar al instante con la pantalla de la pedalera, Antes/Después, Descartar, cambiar de
+preset con el pie durante una escucha, la pregunta ante cambios sin guardar, *Sumar*, el aviso y la carpeta de
+backups automáticos, la IA de la pestaña Asistente (propone sin escribir, «otra opción», no toca el preset que suena,
+chip de presets marcados), «Conectar cuenta» y cabs de TONE3000 desde el chat, el historial (abrir con su preset,
+continuar, renombrar, eliminar) y la cadena de efectos (hover, LED, atenuado).
 
 ## 0. Preparación (obligatoria)
 
