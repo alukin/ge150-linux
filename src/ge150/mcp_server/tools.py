@@ -34,7 +34,8 @@ says which), never another one. Changes are LIVE in the edit buffer and are NOT 
 the user saves it (Save in the GE150 editor, or save_preset if they ask you to). Use undo
 to go back. To change several STORED presets (e.g. "every Av83 preset"), read them with
 get_presets(query) and call propose_preset_edits once with a change per preset (the user
-reviews and applies them in the editor): never loop select_preset + save_preset. Use
+reviews and applies them in the editor): never loop select_preset + save_preset. It also
+renames stored presets (name) and moves or reorders them (copy_from). Use
 only model and parameter names from get_catalog; values outside a range are clamped and
 reported. save_preset and the TONE3000 IR tools write the pedal's memory: they
 only work with the GE150 editor open, which asks the user to confirm each time. TONE3000

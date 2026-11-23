@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from ge150.model.gear import MODULE_TAGS
-from ge150.model.preset import MODULES, Preset
+from ge150.model.preset import MODULES, NAME_LEN, Preset, is_valid_name
 from ge150.services import tone_ai
 from ge150.services.editor import Editor
 
@@ -32,16 +32,31 @@ class PresetEdit:
     after: list[int]
     warnings: list[str] = field(default_factory=list)
     blocked: str = ""  # why it cannot be written
+    new_name: str = ""  # "" keeps ``name``
+    source: int = 0  # the preset whose stored content this one starts from (move/reorder)
+    stacked: bool = False  # planned on top of a pending change of the same preset
+
+    @property
+    def renamed(self) -> bool:
+        return bool(self.new_name) and self.new_name != self.name
+
+    @property
+    def final_name(self) -> str:
+        return self.new_name or self.name
 
     @property
     def changed(self) -> bool:
-        return self.before != self.after
+        return self.before != self.after or self.renamed
 
 
 def plan_edits(editor: Editor, specs: Sequence[Mapping[str, Any]],
                bases: Mapping[int, Sequence[int]] | None = None) -> list[PresetEdit]:
-    """``specs``: ``[{"slot": 22, "modules": [{"module", "on"?, "model"?, "params"}]}]``.
+    """``specs``: ``[{"slot": 22, "name"?, "copy_from"?, "modules": [{"module", "on"?,
+    "model"?, "params"}]}]``.
 
+    ``name`` renames the preset. ``copy_from`` starts from another preset's stored content
+    (and name, unless ``name`` is given): that is how presets are moved or reordered, e.g.
+    two specs with crossed ``copy_from`` swap them (every source is read as stored now).
     ``bases``: words already planned for a slot (a second change adds to the first)."""
     state = editor.state
     edits: list[PresetEdit] = []
@@ -55,18 +70,43 @@ def plan_edits(editor: Editor, specs: Sequence[Mapping[str, Any]],
             edits.append(PresetEdit(slot, "", [], [], blocked=f"no existe el preset {slot}"))
             continue
         before = list(stored.words)
+        stacked = bases is not None and slot in bases
         start = list(bases[slot]) if bases and slot in bases else before
-        base = Preset(slot, stored.name, list(start))
+        new_name = str(spec.get("name") or "").strip()
         try:
-            proposal = tone_ai.parse_proposal({"modules": list(spec.get("modules") or [])},
-                                              editor, base)
-        except tone_ai.ToneAIError as exc:
-            edits.append(PresetEdit(slot, stored.name, before, start, blocked=str(exc)))
-            continue
-        after = tone_ai.apply_to_words(start, proposal, editor.catalog)
+            source = int(spec.get("copy_from") or 0)
+        except (TypeError, ValueError):
+            source = -1
+        blocked = ""
+        if source and source != slot:
+            origin = state.presets.get(source)
+            if origin is None:
+                blocked = f"no existe el preset {spec.get('copy_from')!r} para copiar"
+            else:
+                start = list(origin.words)
+                new_name = new_name or origin.name
+        else:
+            source = 0
+        if new_name and not is_valid_name(new_name):
+            blocked = blocked or (f"nombre no válido {new_name!r}: hasta {NAME_LEN} "
+                                  "caracteres, letras, números, '-' y espacio")
+        edit = PresetEdit(slot, stored.name, before, start, new_name=new_name, source=source,
+                          stacked=stacked, blocked=blocked)
+        modules = list(spec.get("modules") or [])
+        if not modules and not (new_name or source):
+            blocked = blocked or "no hay cambios de efectos, nombre ni contenido"
+        if modules and not blocked:
+            try:
+                proposal = tone_ai.parse_proposal({"modules": modules}, editor,
+                                                  Preset(slot, stored.name, list(start)))
+            except tone_ai.ToneAIError as exc:
+                edit.blocked = str(exc)
+            else:
+                edit.after = tone_ai.apply_to_words(start, proposal, editor.catalog)
+                edit.warnings = proposal.warnings
         # The loaded preset's unsaved changes are checked when applying (a preview of a
         # pending proposal also counts as "unsaved" here).
-        edits.append(PresetEdit(slot, stored.name, before, after, proposal.warnings))
+        edits.append(edit)
     return edits
 
 
@@ -98,12 +138,57 @@ def diff(editor: Editor, before: Sequence[int], after: Sequence[int]
     return rows
 
 
+def rows(editor: Editor, edit: PresetEdit) -> list[tuple[str, str, str]]:
+    """What the review shows for one preset: name, copied content, then :func:`diff`."""
+    result = []
+    if edit.renamed:
+        result.append(("NOMBRE", edit.name, edit.new_name))
+    if edit.source:
+        origin = editor.state.presets.get(edit.source)
+        result.append(("CONTENIDO", "el suyo",
+                       f"el del {edit.source:03d} «{origin.name if origin else '?'}»"))
+    return result + diff(editor, edit.before, edit.after)
+
+
 def describe(editor: Editor, edits: Sequence[PresetEdit]) -> list[dict[str, Any]]:
     """JSON-able summary (what the AI sees after proposing)."""
     return [{"slot": e.slot, "name": e.name,
-             "changes": [f"{m}: {a} -> {b}" for m, a, b in diff(editor, e.before, e.after)],
+             **({"new_name": e.new_name} if e.renamed else {}),
+             **({"copy_from": e.source} if e.source else {}),
+             "changes": [f"{m}: {a} -> {b}" for m, a, b in rows(editor, e)],
              "warnings": e.warnings, **({"blocked": e.blocked} if e.blocked else {})}
             for e in edits]
+
+
+CHANGED = "el preset cambió después de la propuesta"
+
+
+def to_dict(edit: PresetEdit) -> dict[str, Any]:
+    """JSON-able, to keep a pending edit with its conversation."""
+    return {"slot": edit.slot, "name": edit.name, "before": list(edit.before),
+            "after": list(edit.after), "warnings": list(edit.warnings),
+            "blocked": edit.blocked, "new_name": edit.new_name, "source": edit.source}
+
+
+def from_dict(editor: Editor, data: Mapping[str, Any]) -> PresetEdit | None:
+    """A kept edit checked against the pedal now: None if it is already applied (or
+    unreadable), blocked if the preset changed since."""
+    try:
+        edit = PresetEdit(int(data["slot"]), str(data["name"]),
+                          [int(w) for w in data["before"]], [int(w) for w in data["after"]],
+                          [str(w) for w in data.get("warnings") or []],
+                          str(data.get("blocked") or ""), str(data.get("new_name") or ""),
+                          int(data.get("source") or 0))
+    except (KeyError, TypeError, ValueError):
+        return None
+    stored = editor.state.presets.get(edit.slot)
+    if stored is None:
+        edit.blocked = edit.blocked or f"no existe el preset {edit.slot}"
+    elif stored.words == edit.after and stored.name == edit.final_name:
+        return None  # applied after the conversation was saved
+    elif stored.words != edit.before or stored.name != edit.name:
+        edit.blocked = edit.blocked or CHANGED
+    return edit
 
 
 def own_changes(editor: Editor, slot: int, planned: Sequence[int]) -> bool:
@@ -164,11 +249,11 @@ def apply(editor: Editor, edits: Sequence[PresetEdit],
         if own_changes(editor, edit.slot, edit.after):  # changed since the plan
             skipped.append((edit.slot, DIRTY))
             continue
-        if stored.words != edit.before:
-            skipped.append((edit.slot, "el preset cambió después de la propuesta"))
+        if stored.words != edit.before or stored.name != edit.name:
+            skipped.append((edit.slot, CHANGED))
             continue
         previous.append(stored.copy())
-        editor.copy_preset_data(Preset(edit.slot, stored.name, list(edit.after)))
+        editor.copy_preset_data(Preset(edit.slot, edit.final_name, list(edit.after)))
         reload = reload or edit.slot == state.current_slot
     if reload and state.current_slot is not None:
         editor.select(state.current_slot)

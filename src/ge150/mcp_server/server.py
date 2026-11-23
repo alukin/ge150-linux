@@ -54,7 +54,12 @@ class PresetModuleEdit(BaseModel):
 
 class PresetEditSpec(BaseModel):
     slot: int = Field(description="stored preset number 1..200")
-    modules: list[PresetModuleEdit]
+    name: str = Field("", description="new name for the preset (up to 14 chars: letters, "
+                      "digits, '-' and space); empty keeps it")
+    copy_from: int = Field(0, description="start from the stored content of this other "
+                           "preset (its name comes too unless name is given): moves or "
+                           "reorders presets, e.g. crossed copy_from swaps two; 0 = its own")
+    modules: list[PresetModuleEdit] = Field(default_factory=list)
 
 
 def _call(fn: Callable[[], T]) -> T:
@@ -143,9 +148,10 @@ def build_server(tools: PedalTools | Any) -> MCPServer:
     @server.tool(annotations=LIVE)
     def propose_preset_edits(edits: list[PresetEditSpec], summary: str = "") -> dict[str, Any]:
         """Propose changes to several STORED presets at once (values per preset, so
-        relative changes like "-10 %" are computed by you from get_presets). Nothing is
-        written: the GE150 editor shows a review table and the user applies or discards.
-        summary: one line for the user."""
+        relative changes like "-10 %" are computed by you from get_presets): effects,
+        names (name) and order (copy_from moves a preset's content to another slot).
+        Nothing is written: the GE150 editor shows a review table and the user applies or
+        discards. summary: one line for the user."""
         data = [e.model_dump() for e in edits]
         return _call(lambda: tools.propose_preset_edits(data, summary))
 

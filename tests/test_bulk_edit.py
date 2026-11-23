@@ -136,3 +136,72 @@ def test_ai_proposes_but_never_writes(editor: Editor) -> None:
     assert result["proposed"] and result["presets"][0]["changes"]
     assert got[0][1] == "DS on" and got[0][0][0].slot == 22
     assert editor.state.presets[22].words == stored
+
+
+def test_rename_only(editor: Editor) -> None:
+    words = list(editor.state.presets[22].words)
+    edit = bulk_edit.plan_edits(editor, [{"slot": 22, "name": "OPETH CLEAN"}])[0]
+    assert edit.changed and edit.renamed and not edit.blocked
+    assert ("NOMBRE", "Av83 22", "OPETH CLEAN") in bulk_edit.rows(editor, edit)
+    assert editor.state.presets[22].name == "Av83 22"  # nothing written yet
+    applied = bulk_edit.apply(editor, [edit])
+    assert editor.state.presets[22].name == "OPETH CLEAN"
+    assert editor.state.presets[22].words == words
+    bulk_edit.restore(editor, applied.previous)
+    assert editor.state.presets[22].name == "Av83 22"
+
+
+def test_invalid_name_is_blocked(editor: Editor) -> None:
+    edit = bulk_edit.plan_edits(editor, [{"slot": 22, "name": "MASTER'S APPRENTICES"}])[0]
+    assert "nombre no válido" in edit.blocked
+
+
+def test_copy_from_swaps_presets(editor: Editor) -> None:
+    editor.select(30)
+    a, b = editor.state.presets[22].copy(), editor.state.presets[24].copy()
+    edits = bulk_edit.plan_edits(editor, [{"slot": 22, "copy_from": 24},
+                                          {"slot": 24, "copy_from": 22}])
+    assert [e.source for e in edits] == [24, 22] and all(e.changed for e in edits)
+    assert bulk_edit.rows(editor, edits[0])[1][0] == "CONTENIDO"
+    bulk_edit.apply(editor, edits)
+    presets = editor.state.presets
+    assert (presets[22].name, presets[22].words) == (b.name, b.words)
+    assert (presets[24].name, presets[24].words) == (a.name, a.words)
+
+
+def test_copy_from_with_name_and_modules(editor: Editor) -> None:
+    on = editor.state.presets[24].module(REVERB).switch
+    edit = bulk_edit.plan_edits(editor, [{
+        "slot": 22, "copy_from": 24, "name": "OPETH SOLO",
+        "modules": [{"module": "REVERB", "on": not on}]}])[0]
+    after = editor.state.presets[24].copy()
+    after.words = edit.after
+    assert edit.final_name == "OPETH SOLO" and after.module(REVERB).switch == (not on)
+
+
+def test_copy_from_unknown_preset(editor: Editor) -> None:
+    assert bulk_edit.plan_edits(editor, [{"slot": 22, "copy_from": 999}])[0].blocked
+
+
+def test_ai_can_propose_names(editor: Editor) -> None:
+    tools = PedalTools(editor)
+    got: list[list[bulk_edit.PresetEdit]] = []
+    tools.on_proposal = lambda edits, summary: got.append(edits)
+    result = tools.propose_preset_edits([{"slot": 23, "name": "OPETH CRUNCH", "modules": []}])
+    assert result["proposed"] and result["presets"][0]["new_name"] == "OPETH CRUNCH"
+    assert got[0][0].final_name == "OPETH CRUNCH"
+    assert editor.state.presets[23].name == "Av83 23"
+
+
+def test_kept_edits_are_checked_against_the_pedal(editor: Editor) -> None:
+    on = editor.state.presets[22].module(REVERB).switch
+    spec = [{"slot": 22, "name": "OPETH", "modules": [{"module": "REVERB", "on": not on}]},
+            {"slot": 23, "name": "CRUNCH"}, {"slot": 24, "name": "SOLO"}]
+    kept = [bulk_edit.to_dict(e) for e in bulk_edit.plan_edits(editor, spec)]
+    bulk_edit.apply(editor, bulk_edit.plan_edits(editor, spec[1:2]))  # 23 applied since
+    editor.rename(24, "OTRO")  # 24 changed since
+    back = [bulk_edit.from_dict(editor, d) for d in kept]
+    assert back[0] is not None and not back[0].blocked and back[0].final_name == "OPETH"
+    assert back[1] is None
+    assert back[2] is not None and back[2].blocked == bulk_edit.CHANGED
+    assert bulk_edit.from_dict(editor, {"slot": "x"}) is None

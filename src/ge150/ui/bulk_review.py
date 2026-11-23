@@ -141,6 +141,10 @@ class BulkReview(QWidget):
         """Add (or replace) pending changes and play the first one on the pedal."""
         added = [e for e in edits if e.changed or e.blocked]
         for edit in added:
+            old = self.edits.get(edit.slot)
+            if edit.stacked and old is not None:  # built on top of it: keep its name/source
+                edit.new_name = edit.new_name or old.new_name
+                edit.source = edit.source or old.source
             self.edits[edit.slot] = edit
         if summary:
             self.summary.setText(html.escape(summary))
@@ -228,7 +232,8 @@ class BulkReview(QWidget):
         for slot in sorted(self.edits):
             edit = self.edits[slot]
             sounding = "   🔊 sonando" if slot == self.playing else ""
-            top = QTreeWidgetItem([f"{slot:03d}  {edit.name}{sounding}"])
+            name = f"{edit.name} → {edit.new_name}" if edit.renamed else edit.name
+            top = QTreeWidgetItem([f"{slot:03d}  {name}{sounding}"])
             top.setData(0, Qt.ItemDataRole.UserRole, slot)
             font = top.font(0)
             font.setBold(True)
@@ -241,7 +246,7 @@ class BulkReview(QWidget):
                 top.setCheckState(0, Qt.CheckState.Checked)
             self.tree.addTopLevelItem(top)
             top.setFirstColumnSpanned(True)
-            for module, before, after in bulk_edit.diff(self.editor, edit.before, edit.after):
+            for module, before, after in bulk_edit.rows(self.editor, edit):
                 child = QTreeWidgetItem(["    " + module, before, after])
                 child.setForeground(1, QBrush(QColor(MUTED)))
                 self.tree.addTopLevelItem(child)
