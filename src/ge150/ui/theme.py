@@ -41,6 +41,11 @@ QPushButton#saveButton {{
     border-radius: 8px; padding: 8px 18px;
 }}
 QPushButton#saveButton:disabled {{ background: {RAISED}; color: {MUTED}; }}
+QPushButton#discardButton {{
+    background: {RAISED}; color: {TEXT}; font-weight: 700; border: 1px solid {BORDER};
+    border-radius: 8px; padding: 8px 14px;
+}}
+QPushButton#discardButton:hover {{ border-color: #8a5a2e; }}
 
 QPushButton#aiButton {{
     background: {RAISED}; color: {TEXT}; font-weight: 700; border: 1px solid {ACCENT};

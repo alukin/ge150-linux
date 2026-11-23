@@ -97,6 +97,20 @@ def test_load_and_save_preset(window: MainWindow) -> None:
     assert sim.device.presets[42].words == window.state.edit.words  # type: ignore[union-attr]
 
 
+def test_discard_button_restores_the_saved_preset(window: MainWindow) -> None:
+    assert window.discard_button.isHidden()
+    saved = list(window.state.presets[1].words)
+    window.chain.select(8)  # REVERB
+    window.module_editor.params[1].setValue(7)
+    assert wait(lambda: window.state.dirty)
+    assert not window.discard_button.isHidden()
+    window.discard_button.click()
+    assert wait(lambda: not window.state.dirty and window.discard_button.isHidden())
+    sim = window.sim  # type: ignore[attr-defined]
+    assert window.state.edit.words == saved  # type: ignore[union-attr]
+    assert sim.device.edit_buffer.words == saved
+
+
 def test_pedal_notification_updates_list(window: MainWindow) -> None:
     sim = window.sim  # type: ignore[attr-defined]
     window.presets.select_slot(10)

@@ -38,9 +38,11 @@ from ge150.ui.assistant_page import AssistantPage
 from ge150.ui.bridge import StateBridge
 from ge150.ui.chain_view import ChainView
 from ge150.ui.dialogs import ExpDialog, IrDialog
+from ge150.ui.icons import icon
 from ge150.ui.module_editor import ModuleEditor
 from ge150.ui.preset_list import PresetList
 from ge150.ui.settings_dialog import SettingsDialog
+from ge150.ui.theme import TEXT
 from ge150.ui.tone3000_page import Tone3000Page
 from ge150.ui.worker import TaskRunner
 
@@ -69,6 +71,12 @@ class MainWindow(QMainWindow):
         self.dirty_badge = QLabel("MODIFICADO")
         self.dirty_badge.setObjectName("dirtyBadge")
         self.dirty_badge.hide()
+        self.discard_button = QPushButton("Descartar")
+        self.discard_button.setObjectName("discardButton")
+        self.discard_button.setIcon(icon("undo", TEXT, 15))
+        self.discard_button.setToolTip("Descartar los cambios y volver al preset guardado")
+        self.discard_button.clicked.connect(self.discard)
+        self.discard_button.hide()
         self.save_button = QPushButton("Guardar")
         self.save_button.setObjectName("saveButton")
         self.save_button.setToolTip("Guardar el preset en su ranura (Ctrl+S)")
@@ -95,6 +103,7 @@ class MainWindow(QMainWindow):
         self.ai_button.setCheckable(True)
         self.ai_button.setToolTip("Asistente de tono con IA (Ctrl+K)")
         header_layout.addWidget(self.ai_button)
+        header_layout.addWidget(self.discard_button)
         header_layout.addWidget(self.save_button)
 
         self.chain = ChainView(editor)
@@ -266,6 +275,7 @@ class MainWindow(QMainWindow):
         self.number.setText(f"{slot:03d}" if slot else "-")
         self.name.setText(name.strip() or "-")
         self.dirty_badge.setVisible(self.state.dirty)
+        self.discard_button.setVisible(self.state.dirty)
 
     def _on_disconnect(self, reason: str) -> None:
         self.central.setEnabled(False)
