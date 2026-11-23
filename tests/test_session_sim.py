@@ -123,3 +123,19 @@ def test_disconnect_is_reported(sim: SimTransport) -> None:
     with pytest.raises(SessionError):
         session.send(msg.identify())
     session.close()
+
+
+def test_describe_words_names_user_irs() -> None:
+    from ge150.model.preset import Preset
+
+    preset = Preset(1)
+    block = preset.module(3)  # CAB
+    block.words[1] = 33  # CAB 34 = user IR slot 8
+    preset.set_module(block)
+    irs = ["EMPTY"] * 7 + ["1960A V30 57+906", "EMPTY", "EMPTY"]
+    names = msg.UserNames(nr=["EMPTY"] * 10, ir=irs)
+    cab = reader.describe_words(preset.words, names)[3]
+    assert cab["model"] == "34:1960A V30 57+906"
+    assert reader.describe_words(preset.words)[3]["model"] != cab["model"]
+    empty = msg.UserNames(nr=["EMPTY"] * 10, ir=["EMPTY"] * 10)
+    assert reader.describe_words(preset.words, empty)[3]["model"].startswith("34:")

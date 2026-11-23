@@ -98,8 +98,9 @@ def cmd_presets(args: argparse.Namespace) -> int:
 def cmd_current(args: argparse.Namespace) -> int:
     with _session(args) as session:
         current = reader.read_current(session)
+        names = reader.read_user_names(session)
     print(f"slot {current.slot}  page {current.page}")
-    for m in reader.describe_words(current.words):
+    for m in reader.describe_words(current.words, names):
         params = ", ".join(f"{p['name']}={p['value']}" for p in m["params"])
         extra = f"  (other words {m['unused_words']})" if args.all_words else ""
         print(f"  {m['module']:8} {'ON ' if m['on'] else 'off'} {m['model']:18} {params}{extra}")

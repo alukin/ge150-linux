@@ -69,8 +69,9 @@ def read_all_presets(
     return {p.slot: p for p in presets}, system
 
 
-def describe_words(words: list[int]) -> list[dict[str, Any]]:
-    """Decode the 66 module words with the catalogue."""
+def describe_words(words: list[int], names: msg.UserNames | None = None) -> list[dict[str, Any]]:
+    """Decode the 66 module words with the catalogue. With ``names``, a user IR slot shows
+    the IR loaded on the pedal ("34:1960A V30 57+906") instead of its catalogue name."""
     catalog = load_catalog()
     preset = Preset(0, "", list(words))
     out = []
@@ -88,11 +89,21 @@ def describe_words(words: list[int]) -> list[dict[str, Any]]:
             "module": layout.name,
             "on": block.switch,
             "type": block.type,
-            "model": model.label if model else f"?{block.type}",
+            "model": _model_label(model, layout.name, names) if model else f"?{block.type}",
             "params": params,
             "unused_words": extra,
         })
     return out
+
+
+def _model_label(model: Any, module: str, names: msg.UserNames | None) -> str:
+    if not model.user_slot or names is None:
+        return str(model.label)
+    first, bank = (27, names.ir) if module == "CAB" else (56, names.nr)
+    slot = model.number - first
+    if 0 <= slot < len(bank) and not msg.is_empty_slot_name(bank[slot]):
+        return f"{model.number:02d}:{bank[slot]}"
+    return str(model.label)
 
 
 def snapshot(session: DeviceSession) -> dict[str, Any]:
