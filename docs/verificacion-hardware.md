@@ -6,6 +6,32 @@ falla, anota qué hiciste, qué esperabas y qué pasó (y la pantalla de la peda
 
 Fecha: ____________ · Firmware: ____________ · Versión del editor (`git log -1 --oneline`): ____________
 
+## Verificación automática (`ge150ctl hw-check`)
+
+Con el editor **cerrado** (la pedalera admite un solo programa) y tres presets que se puedan escribir:
+
+```
+ge150ctl hw-check --slots 198,199,200          # pasos 1-4: escribe, le pregunta a la pedalera y compara
+ge150ctl hw-check --slots 198,199,200 --only-tap --tap 45   # paso 9: pisa TAP mientras corre
+```
+
+Hace un backup completo antes, deja los tres presets y el preset cargado byte a byte como estaban y lo comprueba.
+El informe queda en `~/.local/share/ge150/hw-check/`.
+
+**Resultado 2026-11-22, MOOER_GE150 V1.3.8, presets 198-200: TODO OK.**
+
+| Paso | Comprobado en la pedalera real |
+|---|---|
+| 1 | Backup automático completo (200 presets, 10 IR) en **3,4 s**, coincide con la pedalera. |
+| 2 | Escribir dos presets que no están cargados: guardados con el valor nuevo, los otros 198 intactos, la pedalera no cambia de preset; Deshacer los devuelve. |
+| 3 | **La pedalera recarga sola el preset que está sonando cuando se escribe**; Aplicar deja sonando y guardada la versión nueva; Deshacer vuelve a la original. |
+| 4 | Escuchar: cambia al preset propuesto con la propuesta; «Antes» y «Después» cargan lo que corresponde; Descartar vuelve a lo guardado y la escucha nunca escribe en la memoria. |
+| 6 | Sesión de TONE3000 iniciada y búsqueda real de IR desde las herramientas de la IA (10 resultados). |
+| 9 | **Pendiente:** en la primera prueba no llegó ningún aviso de TAP ni cambió el TIME (falta confirmar si se pisó TAP durante la prueba). |
+
+Queda **manual**: escuchar y mirar la pantalla en los pasos 3 y 4 (los datos ya están comprobados), la IA (pasos
+5 y 7), «Conectar cuenta» en el navegador (6), el historial (8) y el TAP (9).
+
 ## 0. Preparación (obligatoria)
 
 - [ ] **Backup manual completo**: *Archivo → Backup completo (.mbf)…*, guardarlo fuera de la carpeta del editor.

@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ge150.cli_ai import AI_COMMANDS
 from ge150.cli_edit import EDIT_COMMANDS
+from ge150.cli_hw import HW_COMMANDS
 from ge150.cli_settings import SETTINGS_COMMANDS
 from ge150.cli_t3k import T3K_COMMANDS
 from ge150.model.settings import RhythmValues, SystemValues
@@ -206,7 +207,8 @@ COMMANDS: dict[str, tuple[Callable[[argparse.Namespace], int], str]] = {
 }
 
 
-EXTRA_COMMANDS = EDIT_COMMANDS | SETTINGS_COMMANDS | AI_COMMANDS | T3K_COMMANDS
+EXTRA_COMMANDS = (EDIT_COMMANDS | SETTINGS_COMMANDS | AI_COMMANDS | T3K_COMMANDS
+                  | HW_COMMANDS)
 
 
 def build_parser() -> argparse.ArgumentParser:
