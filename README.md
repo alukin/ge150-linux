@@ -145,7 +145,7 @@ conversación y la pedalera carga el preset de esa conversación.
 En *Herramientas → Mis guitarras…* registras las guitarras que tienes: escribes marca, modelo y número de serie y
 **Identificar con IA** completa la ficha de fábrica (año, país, maderas, mástil, escala, pastillas, controles,
 puente, cuerdas) y busca su foto. Cada dato indica qué tan seguro es (**oficial**, **verificado**, **probable** o
-**deducido**), y abajo se explica cómo se identificó; revísalo y corrígelo antes de guardar.
+**deducido**); revisa los datos y corrígelos antes de guardar.
 
 Con **Usar esta guitarra** (o el selector de guitarra en el chat) la IA sabe con qué estás tocando: no es lo mismo
 pedir "un crunch bluesero" con una semihueca de humbuckers que con una Strat de single coils, así que ajusta la
