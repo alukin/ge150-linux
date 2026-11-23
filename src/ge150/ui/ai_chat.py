@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import html
 import importlib.util
+import re
 import threading
 import time
 from collections.abc import Callable, Sequence
@@ -495,7 +496,7 @@ class AiChat(QWidget):
         self.chat_id, self.chat_title = chat.entry.id, chat.entry.title
         self.chat_created = chat.entry.created
         self.compare.clear()
-        self.blocks = list(chat.blocks)
+        self.blocks = upgrade_blocks(chat.blocks)
         self.chat.setHtml("".join(self.blocks))
         bar = self.chat.verticalScrollBar()
         bar.setValue(bar.maximum())
@@ -634,6 +635,45 @@ class AiChat(QWidget):
         self._add(f"<p style='margin-top:12px'><b style='color:{colour}'>{html.escape(who)}</b>"
                   f"</p><div>{body}</div>")
 
+
+
+_OLD_TOOL = re.compile(rf"^<div style='color:{MUTED}'>· (.*)</div>$")
+_OLD_REPLY = re.compile(rf"^(<p style='margin-top:12px'><b style='color:{AI}'>.*?</b></p>)"
+                        r"<div>(.*)</div>$", re.S)
+
+
+def upgrade_blocks(blocks: Sequence[str]) -> list[str]:
+    """Conversations saved before the Markdown renderer: replies back to Markdown and
+    rendered again (tables, headings), and runs of the same step grouped (x9). Nested
+    list indentation was not kept by the old renderer, so those items come out flat."""
+    out: list[str] = []
+    run: tuple[str, int] | None = None
+    for block in blocks:
+        tool = _OLD_TOOL.match(block)
+        if tool:
+            label = html.unescape(tool.group(1))
+            if run is not None and run[0] == label:
+                run = (label, run[1] + 1)
+                out[-1] = _tool_line(label, run[1], done=True)
+            else:
+                run = (label, 1)
+                out.append(_tool_line(label, 1, done=True))
+            continue
+        run = None
+        reply = _OLD_REPLY.match(block)
+        if reply and "<p>" not in reply.group(2):
+            out.append(reply.group(1) + f"<div>{markdown.to_html(_old_to_markdown(reply.group(2)))}"
+                       "</div>")
+        else:
+            out.append(block)
+    return out
+
+
+def _old_to_markdown(body: str) -> str:
+    text = (body.replace("<ul>", "\n").replace("</ul>", "\n\n").replace("<li>", "- ")
+            .replace("</li>", "\n").replace("<br>", "\n").replace("<b>", "**")
+            .replace("</b>", "**").replace("<code>", "`").replace("</code>", "`"))
+    return html.unescape(text)
 
 
 def _tool_line(label: str, calls: int, done: bool) -> str:

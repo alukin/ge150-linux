@@ -37,3 +37,22 @@ def test_headings_code_and_links() -> None:
 def test_raw_html_is_shown_as_text() -> None:
     out = to_html("<img src=x onerror=alert(1)> **ok**")
     assert "<img" not in out and "&lt;img" in out and "<strong>ok</strong>" in out
+
+
+def test_old_conversations_are_rendered_again() -> None:
+    from ge150.ui.ai_chat import upgrade_blocks
+
+    tool = "<div style='color:#8b95a3'>· revisa el catálogo</div>"
+    old_reply = (
+        "<p style='margin-top:12px'><b style='color:#7fd3ff'>Claude</b></p><div>"
+        "Quedan ordenadas:<br>| Slot | Nombre |<br>|---|---|<br>| 18 | <b>OPETH CLEAN</b> |<br>"
+        "<b>Los cambios:</b><br><ul><li><b>18 Clean:</b> 65 US TW &amp; chorus.</li>"
+        "<li>un EQ.</li></ul>Tu Ibanez es semihueca.<br></div>")
+    user = "<p style='margin-top:12px'><b style='color:#ff8a1f'>Tú</b></p><div>hola</div>"
+    out = upgrade_blocks([user, tool, tool, tool, old_reply])
+    assert out[0] == user and len(out) == 3
+    assert "revisa el catálogo \u00d73" in out[1] and "\u2713" in out[1]
+    assert "<table" in out[2] and "<strong>OPETH CLEAN</strong>" in out[2] and "|" not in out[2]
+    assert "<li><strong>18 Clean:</strong> 65 US TW &amp; chorus.</li>" in out[2]
+    assert "<p>Tu Ibanez es semihueca.</p>" in out[2]
+    assert upgrade_blocks(out) == out  # new blocks are left alone
