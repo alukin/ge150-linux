@@ -27,6 +27,32 @@ def test_identify(session: DeviceSession) -> None:
     assert info.name == "MOOER_GE150" and info.firmware == "V1.3.8"
 
 
+def test_handshake_sends_the_flush_report(sim: SimTransport, session: DeviceSession) -> None:
+    assert reader.handshake(session).name == "MOOER_GE150"
+    assert sim.written_reports[0] == reader.FLUSH_REPORT
+
+
+def test_handshake_retries_an_ignored_identify(sim: SimTransport,
+                                               session: DeviceSession) -> None:
+    handle, ignored = sim.device.handle, []
+
+    def deaf_once(frame: Frame) -> list[Frame]:
+        if frame.opcode == Op.IDENTIFY and not ignored:
+            ignored.append(frame)
+            return []
+        return handle(frame)
+
+    sim.device.handle = deaf_once  # type: ignore[method-assign]
+    assert reader.handshake(session, timeout=0.2).name == "MOOER_GE150"
+    assert ignored
+
+
+def test_handshake_gives_up(sim: SimTransport, session: DeviceSession) -> None:
+    sim.device.handle = lambda frame: []  # type: ignore[method-assign]
+    with pytest.raises(ResponseTimeout):
+        reader.handshake(session, attempts=2, timeout=0.1)
+
+
 def test_read_all_presets(session: DeviceSession) -> None:
     presets, system = reader.read_all_presets(session)
     assert sorted(presets) == list(range(1, 201))

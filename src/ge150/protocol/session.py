@@ -55,6 +55,12 @@ class _Outgoing:
 
 
 @dataclass
+class _RawReport:
+    report: bytes
+    delay: float
+
+
+@dataclass
 class _Flush:
     done: threading.Event
 
@@ -71,7 +77,7 @@ class DeviceSession:
         self.frame_delay = frame_delay
         self.multipart_delay = multipart_delay
         self.decoder = FrameDecoder()
-        self._out: queue.Queue[_Outgoing | _Flush | None] = queue.Queue()
+        self._out: queue.Queue[_Outgoing | _RawReport | _Flush | None] = queue.Queue()
         self._waiters: list[_Waiter] = []
         self._lock = threading.Lock()
         self._listeners: list[Listener] = []
@@ -172,6 +178,12 @@ class DeviceSession:
             raise SessionError("session is not running") from self._error
         self._out.put(_Outgoing(frame, self.frame_delay if delay is None else delay))
 
+    def send_report(self, report: bytes, delay: float | None = None) -> None:
+        """Queue one raw 64-byte report that is not a frame (the launcher's flush)."""
+        if not self.connected:
+            raise SessionError("session is not running") from self._error
+        self._out.put(_RawReport(bytes(report), self.frame_delay if delay is None else delay))
+
     def send_multipart(self, frames: Iterable[Frame]) -> None:
         for frame in frames:
             self.send(frame, self.multipart_delay)
@@ -267,15 +279,17 @@ class DeviceSession:
             if isinstance(item, _Flush):
                 item.done.set()
                 continue
+            reports = ([item.report] if isinstance(item, _RawReport)
+                       else split_reports(item.frame.encode()))
             try:
-                for report in split_reports(item.frame.encode()):
+                for report in reports:
                     self.transport.write_report(report)
                     for raw in self._raw_listeners:
                         raw("out", report)
             except TransportError as exc:
                 self._fail(exc)
                 return
-            log.debug("-> %r", item.frame)
+            log.debug("-> %r", item.report.hex(" ") if isinstance(item, _RawReport) else item.frame)
             if item.delay:
                 time.sleep(item.delay)
 

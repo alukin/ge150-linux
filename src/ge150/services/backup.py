@@ -102,7 +102,7 @@ def wait_for_pedal(session: DeviceSession, settle: float = 3.0, timeout: float =
     while True:
         try:
             session.reconnect(timeout=max(1.0, deadline - time.monotonic()), settle=settle)
-            reader.identify(session, timeout=2.0)
+            reader.handshake(session, attempts=1)
             return
         except (TransportError, SessionError):
             if time.monotonic() > deadline:

@@ -59,12 +59,7 @@ def cmd_devices(args: argparse.Namespace) -> int:
 
 def cmd_probe(args: argparse.Namespace) -> int:
     with _session(args) as session:
-        if not args.no_flush:
-            # The vendor launcher sends 8 zero bytes before identifying (FUN_00408a30).
-            report = bytes([len(reader.FLUSH_REPORT_DATA)]) + reader.FLUSH_REPORT_DATA
-            session.transport.write_report(report.ljust(64, b"\x00"))
-            time.sleep(0.05)
-        info = reader.identify(session)
+        info = reader.handshake(session, flush=not args.no_flush)
     print(f"device:   {info.name}")
     print(f"firmware: {info.firmware}")
     print(f"other:    {info.field_a!r} {info.field_c!r} {info.field_d!r}  rev {info.revision!r}")

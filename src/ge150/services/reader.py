@@ -10,13 +10,31 @@ from ge150.model.preset import MODULES, PRESET_COUNT, Preset
 from ge150.protocol import messages as msg
 from ge150.protocol.framing import Frame
 from ge150.protocol.opcodes import Op
-from ge150.protocol.session import DeviceSession
+from ge150.protocol.session import DeviceSession, ResponseTimeout
 
 FLUSH_REPORT_DATA = bytes(8)
+#: 64-byte report carrying the 8 zero bytes: ``report[0]`` = useful length.
+FLUSH_REPORT = (bytes([len(FLUSH_REPORT_DATA)]) + FLUSH_REPORT_DATA).ljust(64, b"\x00")
 
 
 def identify(session: DeviceSession, timeout: float = 2.0) -> msg.DeviceInfo:
     return msg.parse_identify(session.request(msg.identify(), timeout=timeout))
+
+
+def handshake(session: DeviceSession, attempts: int = 3, timeout: float = 2.0,
+              flush: bool = True) -> msg.DeviceInfo:
+    """First contact, like the vendor launcher (FUN_00408a30): 8 zero bytes, then
+    identify. Retried because the pedal can ignore the first identification right after
+    the node is opened (seen on hardware: timeout on the first start, fine on the next)."""
+    for attempt in range(1, attempts + 1):
+        if flush:
+            session.send_report(FLUSH_REPORT, delay=0.05)
+        try:
+            return identify(session, timeout=timeout)
+        except ResponseTimeout:
+            if attempt == attempts:
+                raise
+    raise AssertionError("unreachable")
 
 
 def read_rhythm(session: DeviceSession) -> bytes:

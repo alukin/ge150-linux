@@ -55,7 +55,7 @@ class Editor:
         steps = ("identify", "presets", "user names", "rhythm", "current preset")
         report = progress or (lambda *_: None)
         report(steps[0], 0, len(steps))
-        reader.identify(self.session)
+        reader.handshake(self.session)
         report(steps[1], 1, len(steps))
         reader.read_all_presets(self.session)
         report(steps[2], 2, len(steps))
