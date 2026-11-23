@@ -5,7 +5,6 @@ user reviews them before saving)."""
 from __future__ import annotations
 
 import html
-import re
 import threading
 from pathlib import Path
 
@@ -26,7 +25,6 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
-    QTextBrowser,
     QVBoxLayout,
     QWidget,
 )
@@ -166,14 +164,6 @@ class GuitarDialog(QDialog):
         self.status.setObjectName("note")
         self.status.setWordWrap(True)
         right_layout.addWidget(self.status)
-        self.report_title = QLabel("Cómo se identificó")
-        self.report_title.setObjectName("sectionTitle")
-        right_layout.addWidget(self.report_title)
-        self.report_view = QTextBrowser()  # how the guitar was identified, with its sources
-        self.report_view.setObjectName("guitarReport")
-        self.report_view.setOpenExternalLinks(True)
-        self.report_view.setMaximumHeight(130)
-        right_layout.addWidget(self.report_view)
         buttons = QHBoxLayout()
         self.identify_button = QPushButton("Identificar con IA")
         self.identify_button.setObjectName("aiButton")
@@ -258,7 +248,6 @@ class GuitarDialog(QDialog):
         self._loading = False
         self._show_tags()
         self.status.setText("")
-        self._show_report(guitar.report)
 
     # --- picture -----------------------------------------------------------------------
 
@@ -302,13 +291,6 @@ class GuitarDialog(QDialog):
             return
         self._set_picture(guitar.image)
         self.status.setText("Foto cambiada: aprieta <b>Guardar</b>.")
-
-    def _show_report(self, report: str) -> None:
-        self.report_view.setVisible(bool(report))
-        self.report_title.setVisible(bool(report))
-        text = html.escape(report)
-        text = re.sub(r"(https?://[^\s<]+)", r"<a style='color:#ff8a1f' href='\1'>\1</a>", text)
-        self.report_view.setHtml(text.replace("\n", "<br>"))
 
     def _show_tags(self) -> None:
         for name, tag in self.tags.items():
@@ -411,6 +393,5 @@ class GuitarDialog(QDialog):
         if guitar.image and not self.image:
             self._set_picture(guitar.image)
         self._show_tags()
-        self._show_report(why)
         self.status.setText(f"<b>Confianza {html.escape(confidence)}.</b> "
                             "Revisa los datos y aprieta <b>Guardar</b>.")

@@ -260,10 +260,6 @@ QTreeWidget#bulkTree QHeaderView::section {{
 QLabel#guitarPicture {{
     background: {PANEL}; border-radius: 12px; color: {MUTED}; padding: 8px;
 }}
-QTextBrowser#guitarReport {{
-    background: {PANEL}; border: 1px solid {BORDER}; border-radius: 8px; padding: 4px;
-    color: {MUTED}; font-size: 12px;
-}}
 QLabel#evidenceTag {{ font-size: 11px; font-weight: 700; border-radius: 9px; padding: 3px 0; }}
 QLabel#evidenceTag[level="oficial"] {{ background: #173d26; color: #6fdc95; }}
 QLabel#evidenceTag[level="verificado"] {{ background: #16324a; color: #7fc4ff; }}
