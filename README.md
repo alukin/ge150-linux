@@ -26,7 +26,8 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Seguir los cambios hechos en la propia pedalera (footswitch, knobs).
 - Asistente de tono con IA (Claude Code o Codex, con tu suscripción) y edición masiva de presets con la pestaña
   **Asistente**: escuchas cada propuesta en la pedalera antes de aplicarla y se hace un backup automático.
-- Historial de conversaciones con la IA, cabinas de TONE3000 y una ficha de tus guitarras.
+- Ficha de tus guitarras (la IA la completa y la usa para ajustar el tono a tu guitarra), historial de
+  conversaciones con la IA y cabinas de TONE3000.
 - Verificación automática con la pedalera real: `ge150ctl hw-check`.
 
 ## Instalación en Arch Linux
@@ -138,6 +139,19 @@ backup falla, no se escribe nada.
 
 Los dos chats guardan sus conversaciones: el botón del reloj abre el historial y, al abrir una, la IA retoma la
 conversación y la pedalera carga el preset de esa conversación.
+
+### Tus guitarras
+
+En *Herramientas → Mis guitarras…* registras las guitarras que tienes: escribes marca, modelo y número de serie y
+**Identificar con IA** completa la ficha de fábrica (año, país, maderas, mástil, escala, pastillas, controles,
+puente, cuerdas) y busca su foto. Cada dato indica qué tan seguro es (**oficial**, **verificado**, **probable** o
+**deducido**), y abajo se explica cómo se identificó; revísalo y corrígelo antes de guardar.
+
+Con **Usar esta guitarra** (o el selector de guitarra en el chat) la IA sabe con qué estás tocando: no es lo mismo
+pedir "un crunch bluesero" con una semihueca de humbuckers que con una Strat de single coils, así que ajusta la
+ganancia, la ecualización y el resto del preset a tus pastillas y tu guitarra.
+
+<p align="center"><img src="docs/img/guitarras.png" alt="Ventana Mis guitarras con una ficha identificada por la IA" width="900"></p>
 
 ### La pedalera como servidor MCP
 
