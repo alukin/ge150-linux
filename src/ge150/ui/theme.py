@@ -196,6 +196,9 @@ QLabel#agentBadge {{
 }}
 QLabel#agentBadge[agent="codex"] {{ background: {TEXT}; }}
 QLabel#cardTitle {{ font-size: 14px; font-weight: 800; }}
+QLabel#permGroup {{ color: {MUTED}; font-size: 10px; font-weight: 800; letter-spacing: 1px; }}
+QFrame#permRow {{ background: {PANEL}; border: 1px solid {BORDER}; border-radius: 8px; }}
+QLabel#permLabel {{ font-weight: 700; }}
 QLabel#aboutTitle {{ font-size: 22px; font-weight: 800; }}
 QLabel#stepTitle {{
     color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 8px; letter-spacing: 0.5px;

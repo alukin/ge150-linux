@@ -23,7 +23,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from ge150 import __version__
-from ge150.mcp_server.tools import INSTRUCTIONS, PedalTools, ToolError
+from ge150.mcp_server.tools import INSTRUCTIONS, GuardedTools, PedalTools, ToolError
 
 T = TypeVar("T")
 READ = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)
@@ -235,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ge150-mcp: cannot open the pedal: {exc}", file=sys.stderr)
         return 1
     try:
-        build_server(PedalTools(editor)).run("stdio")
+        build_server(GuardedTools(PedalTools(editor))).run("stdio")
     finally:
         session.close()
     return 0

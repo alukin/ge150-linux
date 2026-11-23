@@ -16,7 +16,7 @@ from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QMessageBox, QWidget
 
 from ge150.mcp_server.bridge import LocalServer
-from ge150.mcp_server.tools import PedalTools
+from ge150.mcp_server.tools import GuardedTools, PedalTools
 from ge150.services.editor import Editor
 from ge150.ui.worker import TaskRunner
 
@@ -55,7 +55,7 @@ class AiHost(QObject):
         if self.server is not None:
             return
         try:
-            self.server = LocalServer(self.tools, self._call.emit).start()
+            self.server = LocalServer(GuardedTools(self.tools), self._call.emit).start()
         except OSError as exc:  # the editor still works without it
             log.warning("cannot share the pedal with AI clients: %s", exc)
 

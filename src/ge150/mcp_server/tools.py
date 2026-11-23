@@ -15,7 +15,7 @@ from typing import Any, TypeVar
 
 from ge150.model.gear import MODULE_TAGS, describe, gear_for
 from ge150.model.preset import EXP_KEYS, EXP_OFFSET, MODULES, PRESET_COUNT
-from ge150.services import tone_ai
+from ge150.services import ai_permissions, tone_ai
 from ge150.services.editor import Editor
 
 Confirm = Callable[[str], bool]
@@ -441,3 +441,56 @@ def _param_info(param: Any) -> dict[str, Any]:
             info["unit"] = param.unit
         return info
     return {"name": param.name}
+
+
+#: Permissions (``services/ai_permissions.py``) each tool needs; reading needs none.
+TOOL_PERMISSIONS: dict[str, tuple[str, ...]] = {
+    "set_module": ("live",), "apply_patch": ("live",), "undo": ("live",),
+    "select_preset": ("live",), "save_preset": ("save",),
+    "tone3000_search": ("tone3000",), "tone3000_get": ("tone3000",),
+    "load_tone3000_ir": ("tone3000", "load_ir")}
+
+
+def required_permissions(tool: str, edits: Any = None) -> list[str]:
+    """What a call needs; ``propose_preset_edits`` depends on what its ``edits`` change."""
+    keys = list(TOOL_PERMISSIONS.get(tool, ()))
+    if tool == "propose_preset_edits":
+        for edit in edits if isinstance(edits, list) else []:
+            if not isinstance(edit, Mapping):
+                continue
+            for field, key in (("modules", "edit_presets"), ("name", "rename"),
+                               ("copy_from", "move")):
+                if edit.get(field) and key not in keys:
+                    keys.append(key)
+    return keys
+
+
+class GuardedTools:
+    """The tools as the AI sees them: every call first checks the user's permissions
+    (read again each time, so a change applies at once). The GUI's own buttons use the
+    plain :class:`PedalTools`."""
+
+    def __init__(self, tools: Any,
+                 permissions: Callable[[], ai_permissions.Permissions] = ai_permissions.load
+                 ) -> None:
+        self.tools = tools
+        self.permissions = permissions
+
+    def check(self, tool: str, edits: Any = None) -> None:
+        denied = self.permissions().missing(required_permissions(tool, edits))
+        if denied:
+            names = ", ".join(f"«{d}»" for d in denied)
+            raise ToolError(f"the user turned off {names} in the assistant's permissions "
+                            "(gear button of the chat): do not try it again; tell the user "
+                            "it is off and that they can turn it on there")
+
+    def __getattr__(self, name: str) -> Any:
+        target = getattr(self.tools, name)
+        if name.startswith("_") or not callable(target):
+            return target
+
+        def call(*args: Any, **kwargs: Any) -> Any:
+            self.check(name, kwargs.get("edits", args[0] if args else None))
+            return target(*args, **kwargs)
+
+        return call

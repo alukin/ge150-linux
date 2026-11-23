@@ -32,12 +32,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ge150.services import guitars, tone_agent, tone_ai
+from ge150.services import ai_permissions, guitars, tone_agent, tone_ai
 from ge150.services.chat_history import Chat, ChatEntry, ChatStore, new_id, title_for
 from ge150.services.guitars import GuitarStore
 from ge150.ui.ab_compare import SoundCompare
 from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.ai_options import AgentOptions
+from ge150.ui.ai_permissions_dialog import AiPermissionsDialog
 from ge150.ui.chat_history import ChatHistory
 from ge150.ui.icons import icon
 from ge150.ui.theme import ACCENT
@@ -109,7 +110,14 @@ class AiChat(QWidget):
         self.history_button.setCheckable(True)
         self.history_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.history_button.toggled.connect(self._toggle_history)
+        self.permissions_button = QToolButton()
+        self.permissions_button.setObjectName("iconButton")
+        self.permissions_button.setIcon(icon("settings", MUTED_ICON, 16))
+        self.permissions_button.setToolTip("Permisos del asistente")
+        self.permissions_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.permissions_button.clicked.connect(self.edit_permissions)
         top.addWidget(self.provider, 1)
+        top.addWidget(self.permissions_button)
         top.addWidget(self.history_button)
         top.addWidget(self.new_button)
         layout.addLayout(top)
@@ -302,7 +310,15 @@ class AiChat(QWidget):
         self.guitars.load()
         self.refresh_guitar()
 
+    def edit_permissions(self) -> None:
+        AiPermissionsDialog(self).exec()
+
     def _with_context(self, request: str) -> str:
+        denied = ai_permissions.load().missing(p.key for p in ai_permissions.PERMISSIONS)
+        if denied:
+            request = (f"[Permisos que el usuario desactivó: {', '.join(denied)}. No intentes "
+                       "esas operaciones; si hacen falta, dile que puede activarlas con el "
+                       "botón de engranaje del chat.]\n\n" + request)
         if self.context_hook is not None and (extra := self.context_hook()):
             request = f"[{extra}]\n\n{request}"
         guitar = self.guitars.current
