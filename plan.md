@@ -192,7 +192,7 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | Opcode | Datos | Función | Evidencia |
 |---|---|---|---|
 | `0x00` | `00` | **Identificar** (lanzador). Antes se envían 8 bytes a cero. | [V] `GE150.exe FUN_00408a30` |
-| `0x31` | `01` | Lo envía el editor al arrancar. **En hardware no tiene respuesta [V]**; quizá "editor conectado" [?] | [V] `FUN_00416190` |
+| `0x31` | `01` | Lo envía el editor al arrancar, justo antes del volcado `0xA0` (`FUN_004031d0`) [V]. **En hardware no tiene respuesta ni efecto observable [V]**: nuestro editor nunca la envía y el volcado y el `0x32` llegan igual. No hace falta | [V] `FUN_00416190` |
 | `0xA0` | `01` | Leer los **200 presets** → 200 × `0x20` | [V] `FUN_00416110` |
 | `0xB0` | `01` | Leer el preset/buffer de edición actual → `0x30` | [V] `FUN_00416150` |
 | `0xC1` | `01` | Leer los nombres de IR/NR de usuario → `0x41` | [V] `FUN_004161d0` |
@@ -233,7 +233,7 @@ Valores multibyte dentro de los DATOS: **uint16 little-endian [V]**, salvo el CR
 | `0x32` | 10 B (= bloques 0x24..0x27 concatenados) | Todos los ajustes de sistema. **Llega sola justo después del preset 200 del volcado `0xA0`** | [V] hardware |
 | `0x33` | 3 × u16 | EXP bloque B | [V] |
 | `0x34` | `page` (u16) | Página actual de la pantalla. Tras escribir un módulo: `6 + índice` (MOD `0x0C`, REVERB `0x0E`); tras `0x96`: `5` | [V] hardware |
-| `0x41` | 10 nombres × 16 B + 10 nombres × 16 B (offset +0xA0) | Nombres de IR y NR de usuario (los bytes ≥ 0x80 se convierten en espacio) **[?]** cuál lista es cuál | [V] |
+| `0x41` | 10 nombres × 16 B + 10 nombres × 16 B (offset +0xA0) | Nombres de usuario (los bytes ≥ 0x80 se convierten en espacio): **primera lista = NR, segunda = IR [V]** (la segunda coincide con los IR del backup y con el CAB de usuario del preset; `messages.UserNames`) | [V] |
 | `0x43` | `slot` | **Ack de `0xC3`** (escritura de preset); el dato es el slot escrito | [V] hardware |
 | `0x44` | `idx`, … | Trozo de backup. `idx=0`: `data[1]` = total de trozos. `idx>0`: `data[1]` = ?, y 0x610 B de datos. Termina cuando `idx == total`. | [V] |
 | `0xB5` / `0xB7` | `part` | Ack de cada parte de una subida de IR (`B5 00..04`) o NR (`B7 00..05`) | [V] hardware |
@@ -280,7 +280,7 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
 - **Codificación de valores [V]** (confirmada en la pantalla de la pedalera: PITCH `raw 65` = −5,5):
   `raw = round((valor − min(mín, 0)) / paso)`. Los rangos
   negativos se desplazan (EQ, PITCH, DETUNE) y los positivos se guardan tal cual (TIME 40..2500 se guarda en ms;
-  el mínimo observado es 40). Enumerados = índice de la opción (SUB-D=1 → "1/4" [?] por confirmar en pantalla).
+  el mínimo observado es 40). Enumerados = índice de la opción: SUB-D = OFF, 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D, confirmado en la pantalla [V 2026-11-23].
 - El orden EXP `MODULE_CTRL, PARA_CTRL, FUN_SWITCH, VOL_SWITCH, VOL_MIN, VOL_MAX` es el del escritor
   `.mo` (`FUN_00422e00`, palabras 66..71) **[V]**. Su reparto entre 0x98 y 0xB3 es **[I]**.
 
@@ -328,7 +328,7 @@ Los nombres de preset vienen rellenados con **espacios** (0x20), no con NUL.
   AA 55 3F 00 01 | "MOOER_GE150"[32] | "V1.0.0"[7] | "V1.3.8"[7] | "V1.3.1"[7] | "A"[2] | "V1.1.0"[7] | CRC 8F D9
   ```
   `V1.3.8` = firmware (el campo que el lanzador compara con `AppVersion`). `V1.0.0`, `V1.3.1`, `A` y
-  `V1.1.0` están sin identificar [?] (¿bootloader, DSP, revisión de hardware?). Los offsets del lanzador
+  `V1.1.0` son constantes del firmware MCU (aparecen en ese orden junto a `MOOER_GE150` y `V1.3.8` dentro de `MOOER_GE150.mr`) [V]; ni el lanzador ni el editor los usan, así que su significado no importa. El campo de 1 letra: el lanzador abre el editor con `A` (tras comparar el firmware con `AppVersion`) y muestra el actualizador con `B` (`FUN_0040cc70`, `FUN_00408d80`): **`A` = modo normal, `B` = modo actualización** [I]. Los offsets del lanzador
   (`frame+6`, `+0x2D`…) son relativos al **reporte**, que incluye el byte de longitud, por eso están desplazados en 1.
 - El lanzador **solo abre el editor si la versión del firmware coincide** con `AppVersion`. Nuestra app
   solo avisará (no bloqueará) y mostrará la versión.
@@ -351,14 +351,14 @@ Lectura: el sistema llega en `0x32` tras el volcado `0xA0`; el ritmo, con `0x8C 
 | Bloque | Campo | Codificación | Visto en hardware |
 |---|---|---|---|
 | `0xA4` | INPUT LEVEL | u16 = índice en `- dB, -60, -45, -35, -30, -25, -20, -10, -5, 0, 0.5 … 6.0 dB` (22 valores, `FUN_004318d0`) | 9 = 0 dB, 10 = 0.5 dB |
-| `0xA5` | SCREEN | u16 = valor en pantalla | 18, 19, 20 (mín. [?]) |
+| `0xA5` | SCREEN | u16 = brillo en pantalla, **1..20** [V 2026-11-23] | 1, 18, 19, 20 |
 | `0xA6` | CAB SIM THRU | u16 CAB-L + u16 CAB-R; 0 = THRU, 1 = ON (no existe OFF) | `01 00 00 00` = L ON, R THRU |
 | `0xA7` | OTG LEVEL | la misma lista que INPUT LEVEL | 9 = 0 dB, 8 = -5 dB |
 
 Rhythm (6 B): `on u8 | mode u8 (0 RHYTHM, 1 METRONOME) | style u8 (0 = el primero: 8BEAT1 / METRO) | vol u8 | bpm u16 LE`.
 Ejemplos: `00 00 00 0a 04 01` = apagado, RHYTHM, 8BEAT1, VOL 10, 260 BPM; `01 01 00 05 79 00` = encendido, METRONOME,
-estilo 1, VOL 5, 121 BPM. El byte `on` pasa a 1 al pulsar RHYTHM. BPM 40..260 [V usuario]; rangos aún sin confirmar [?]:
-VOL 0..10, SCREEN 0..20; estilos: 40 ritmos y 10 de metrónomo (manual). Código: `model/settings.py`,
+estilo 1, VOL 5, 121 BPM. El byte `on` pasa a 1 al pulsar RHYTHM. BPM 40..260 [V usuario]; **VOL 0..20** y SCREEN 1..20 [V pantalla, 2026-11-23]; estilos: 40 ritmos y 10 de
+metrónomo (manual). Los nombres de los estilos no están en el manual ni en el editor oficial (solo el ejemplo «8BEAT5»). Código: `model/settings.py`,
 CLI `system`, `rhythm`, `system-set`, `rhythm-set`; GUI
 `ui/settings_dialog.py` (Herramientas → Sistema y caja de ritmos).
 
@@ -389,7 +389,7 @@ Formato del XML: `<chain name="..."> <MOD name="NN:NOMBRE" paraPos="P" [import="
 |---|---|
 | FX/COMP | 8: CRY WAH, 535 WAH, AUTO WAH, TALK WAH AH/OH, TOUCH WAH, YELLOW COMP, BLUE COMP |
 | DS/OD | 20 (TUBE DR … GOLD CLON). Parámetros VOLUME, TONE, GAIN |
-| AMP | 55 de fábrica (GAIN, BASS, MID, TREBLE, PRES, MST) + 56..65 NR de usuario (comentados en el XML: la versión 1.3.8 podría no exponerlos en la UI **[?]**) |
+| AMP | 55 de fábrica (GAIN, BASS, MID, TREBLE, PRES, MST) + 56..65 NR de usuario (comentados en el XML de la app oficial, pero **el firmware V1.3.8 los procesa [V hardware 2026-11-23]**; el editor los oculta porque no hay `.amp` para la GE150) |
 | CAB | 26 de fábrica (TUBE, MIC, CENTER, DISTANCE) + 27..36 IR de usuario (`import="1"`, solo TUBE) |
 | NS GATE | 3: NOISE KILLER, INTEL REDUCER, NOISE GATE |
 | EQ | 4: MOOER G, MOOER HM, MOOER G-6, CUSTOM EQ |
@@ -531,7 +531,7 @@ ge150-linux/
 - [x] Lecturas `0xA0`, `0xB0`, `0xC1`, `0x8C` OK; `0x31` sin respuesta; `0x32` tras `0xA0` (ver 2.9).
       Snapshot de la pedalera del usuario en `reference/captures/` (no versionado).
 - [x] `TYPE` en base 0, y mapeo de palabras y codificación de valores deducidos de los 200 presets (ver 2.7).
-- [x] Preset 19 "Burden Clean" confirmado en la pantalla por el usuario. Falta [?] ver el valor de SUB-D del DELAY.
+- [x] Preset 19 "Burden Clean" confirmado en la pantalla por el usuario. SUB-D confirmado en la pantalla (2026-11-23).
 - [x] `ge150ctl sniff`: notificaciones de knobs y footswitch verificadas. Los cambios en SYSTEM/RHYTHM hechos a mano
       **no** se notifican por USB (§2.11).
 - [ ] Captura de referencia de la app oficial: Windows en una VM (QEMU/VirtualBox) con USB passthrough y
@@ -598,7 +598,8 @@ ge150-linux/
 - [x] Bloques de sistema `0x24..0x27` y Rhythm `0x0C` identificados en hardware (§2.11); escritura verificada
       (SCREEN 18 → 19 y restauración de los valores originales). `model/settings.py`, CLI `system-set`/`rhythm-set`.
 - [x] BPM 40..260 confirmado en la pedalera.
-- [ ] Confirmar los rangos de VOL y SCREEN, y los nombres de los estilos de ritmo.
+- [x] Rangos confirmados en la pantalla (2026-11-23): VOL 0..20 (el editor limitaba a 10), SCREEN 1..20. Los nombres
+      de los estilos de ritmo no están publicados: el editor muestra el número.
 - [x] Diálogo de sistema y ritmo en la GUI (`ui/settings_dialog.py`); envía cada cambio al instante.
 - [x] Reset de fábrica (`0x8B 01`): `services/backup.factory_reset` (espera el reinicio y relee todo), CLI
       `factory-reset` (exige `--backup FILE` o `--no-backup` y escribir «BORRAR TODO») y GUI (Herramientas, dos

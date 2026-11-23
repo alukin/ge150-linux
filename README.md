@@ -19,10 +19,9 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Editar en vivo: encender/apagar módulos, cambiar el modelo y mover parámetros.
 - Guardar, renombrar y copiar presets.
 - Ver y cambiar los ajustes de sistema (INPUT LEVEL, SCREEN, CAB SIM THRU, OTG LEVEL) y la caja de ritmos.
-- Importar y exportar presets `.mo`, compatibles con la app oficial.
+- Importar y exportar presets `.mo`, con el formato de la app oficial.
 - Cargar IR desde WAV a las ranuras de usuario (CAB 27-36), borrarlas y exportarlas a WAV.
-- Cargar capturas NR (`.amp`) a las ranuras de amplificador de usuario (AMP 56-65).
-- Backup completo y restauración en formato `.mbf`, compatible con la app oficial.
+- Backup completo y restauración en formato `.mbf`, el de la app oficial.
 - Seguir los cambios hechos en la propia pedalera (footswitch, knobs).
 - Asistente de tono con IA (Claude Code o Codex, con tu suscripción) y edición masiva de presets con la pestaña
   **Asistente**: escuchas cada propuesta en la pedalera antes de aplicarla y se hace un backup automático.
@@ -100,7 +99,7 @@ ge150ctl import mi.mo 150
 ge150ctl ir-export carpeta/            # IR de usuario → WAV
 ge150ctl ir-upload 8 cab.wav           # WAV → ranura IR 8 (CAB 34)
 ge150ctl ir-delete 8
-ge150ctl nr-upload 1 captura.amp       # .amp → ranura NR 1 (AMP 56)
+ge150ctl nr-upload 1 captura.amp       # experimental: la GE150 procesa NR (AMP 56-65), pero no hay .amp para ella
 ge150ctl backup GE150.mbf              # backup completo (solo lectura)
 ge150ctl restore GE150.mbf             # SOBRESCRIBE toda la pedalera
 ge150ctl factory-reset --backup antes.mbf  # BORRA TODO: valores de fábrica (pide «BORRAR TODO»)

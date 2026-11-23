@@ -20,12 +20,13 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
   aplicaron después desaparecen y los de presets que cambiaron quedan bloqueados.
 - Mientras la IA trabaja (en el panel lateral y en el Asistente): un indicador animado con el paso en curso y el
   tiempo, y los pasos repetidos se agrupan («revisa el catálogo ×9»).
-
 - En la galería de modelos de CAB, un separador distingue los modelos de la pedalera de las ranuras de usuario
   (IR de TONE3000 u otras). Al pasar el mouse sobre una IR de usuario, el tooltip lista los presets que la usan.
 
 ### Cambiado
 
+- Las conversaciones guardadas antes de esta versión también se ven con Markdown y con los pasos agrupados al
+  abrirlas (las sub-listas quedan al mismo nivel: el formato anterior no guardaba la sangría).
 - Las respuestas de la IA se muestran con Markdown completo (tablas, listas anidadas, títulos, código) usando
   `markdown-it-py`, nueva dependencia de la interfaz gráfica (`python-markdown-it-py` en Arch).
 
@@ -36,6 +37,9 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ### Corregido
 
+- El volumen de la caja de ritmos se puede subir hasta 20, como en la pedalera (el editor lo limitaba a 10), y el
+  brillo de la pantalla empieza en 1 (comprobado en la pantalla de la pedalera).
+- `ge150ctl current` muestra el nombre de la IR de usuario cargada en el CAB (antes decía «34:EMPTY»).
 - El editor a veces no arrancaba al primer intento (`timeout waiting for 0x01 DEVICE_INFO`). Ahora el primer
   contacto hace lo mismo que el lanzador oficial: envía los 8 bytes a cero antes de identificar y reintenta la
   identificación hasta 3 veces.
