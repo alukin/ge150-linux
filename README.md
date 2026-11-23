@@ -142,7 +142,7 @@ conversación y la pedalera carga el preset de esa conversación.
 
 ### Tus guitarras
 
-En *Herramientas → Mis guitarras…* registras las guitarras que tienes: escribes marca, modelo y número de serie y
+En *Herramientas → Mis guitarras…* registras las guitarras que tienes: escribes marca, modelo y número de serie e
 **Identificar con IA** completa la ficha de fábrica (año, país, maderas, mástil, escala, pastillas, controles,
 puente, cuerdas) y busca su foto. Cada dato indica qué tan seguro es (**oficial**, **verificado**, **probable** o
 **deducido**); revisa los datos y corrígelos antes de guardar.
