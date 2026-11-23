@@ -41,6 +41,8 @@ WARN, BLOCKED, MUTED = "#f0c860", "#ff8a80", "#8b95a3"
 class BulkReview(QWidget):
     #: a message for the user (status line of the tab)
     message = Signal(str)
+    #: the pending edits (or their summary) changed: worth keeping with the conversation
+    edits_changed = Signal()
 
     def __init__(self, editor: Editor, runner: TaskRunner, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -49,6 +51,7 @@ class BulkReview(QWidget):
         self.previous: list[Preset] = []
         self.playing: int | None = None  # the preset heard on the pedal (live preview)
         self.playing_after = True
+        self.summary_text = ""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         head = QHBoxLayout()
@@ -147,8 +150,10 @@ class BulkReview(QWidget):
                 edit.source = edit.source or old.source
             self.edits[edit.slot] = edit
         if summary:
+            self.summary_text = summary
             self.summary.setText(html.escape(summary))
         self._render()
+        self.edits_changed.emit()
         playable = [e for e in added if e.changed and not e.blocked]
         if playable and not self.listen(playable[0].slot, True, ask=False):
             self.message.emit("Toca un preset en Cambios pendientes para escucharlo en la "
@@ -158,7 +163,18 @@ class BulkReview(QWidget):
         """«Descartar»: forget the changes; a preset being heard goes back to its saved sound."""
         playing = self.edits.get(self.playing or 0)
         self.edits.clear()
+        self.summary_text = ""
         self.summary.setText("")
+        self._stop_playing(playing)
+        self._render()
+        self.edits_changed.emit()
+
+    def restore(self, edits: Sequence[PresetEdit], summary: str) -> None:
+        """Show the edits kept with a conversation (nothing is played on the pedal)."""
+        playing = self.edits.get(self.playing or 0)
+        self.edits = {e.slot: e for e in edits}
+        self.summary_text = summary
+        self.summary.setText(html.escape(summary))
         self._stop_playing(playing)
         self._render()
 
@@ -309,6 +325,7 @@ class BulkReview(QWidget):
             self.message.emit(f"Listo: {len(result.previous)} presets escritos.{saved}"
                               + (f" No se escribieron: {skipped}" if skipped else ""))
             self._render()
+            self.edits_changed.emit()
 
         self.runner.run(lambda: bulk_edit.apply(self.editor, chosen, self._backup("aplicar")),
                         done, self._failed)

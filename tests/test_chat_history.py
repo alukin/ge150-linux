@@ -34,3 +34,14 @@ def test_hostile_ids_and_old_entries_are_ignored(tmp_path: Path) -> None:
 def test_title_is_the_first_request_on_one_line() -> None:
     assert title_for("  tono de\nSlash  ") == "tono de Slash"
     assert len(title_for("x" * 200)) == 70
+
+
+def test_page_state_is_kept_without_reordering(tmp_path: Path) -> None:
+    store = ChatStore(tmp_path)
+    store.save(Chat(ChatEntry("old", "asistente", "Opeth", "claude", 1.0, 0.0)))
+    store.save(Chat(ChatEntry("new", "asistente", "Av83", "claude", 2.0, 0.0)))
+    assert not store.save_state("missing", {"ticked": [1]})
+    assert store.save_state("old", {"ticked": [18, 19]})
+    loaded = store.load("old")
+    assert loaded is not None and loaded.state == {"ticked": [18, 19]}
+    assert [e.id for e in store.entries()] == ["new", "old"]  # its place stays

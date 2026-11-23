@@ -5,6 +5,7 @@ is its own conversation, separate from the side panel's."""
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QBrush, QColor
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ge150.services import bulk_edit
 from ge150.services.bulk_edit import PresetEdit
 from ge150.services.editor import Editor
 from ge150.ui.ai_chat import AiChat
@@ -111,8 +113,10 @@ class AssistantPage(QWidget):
         # Centre: how (the AI or the manual form).
         self.review = BulkReview(editor, runner)
         self.form = BulkForm(editor, self.ticked, self.review.bases)
+        self._restoring = False
         self.chat = AiChat(host, extra_guide=GUIDE, context_hook=self._context,
-                           examples=EXAMPLES, welcome=WELCOME, scope="asistente")
+                           examples=EXAMPLES, welcome=WELCOME, scope="asistente",
+                           state_hook=self.page_state, restore_hook=self.restore_state)
         # Chip in the chat: the ticked presets go with each message (click to leave them out).
         self.ticks_chip = QPushButton()
         self.ticks_chip.setObjectName("contextChip")
@@ -178,6 +182,7 @@ class AssistantPage(QWidget):
         self.form.planned.connect(self.review.add)
         self.form.message.connect(self.status.setText)
         self.review.message.connect(self.status.setText)
+        self.review.edits_changed.connect(self._state_changed)
         self.reload_presets()
 
     # --- presets ----------------------------------------------------------------------
@@ -215,13 +220,16 @@ class AssistantPage(QWidget):
                 for i in range(self.list.count())
                 if self.list.item(i).checkState() == Qt.CheckState.Checked]
 
-    def tick(self, slots: Sequence[int]) -> None:
+    def tick(self, slots: Sequence[int], only: bool = False) -> None:
+        """Tick ``slots`` (``only``: and untick the rest)."""
         wanted = set(slots)
         self.list.blockSignals(True)
         for i in range(self.list.count()):
             item = self.list.item(i)
             if int(item.data(Qt.ItemDataRole.UserRole)) in wanted:
                 item.setCheckState(Qt.CheckState.Checked)
+            elif only:
+                item.setCheckState(Qt.CheckState.Unchecked)
         self.list.blockSignals(False)
         self._ticks_changed()
 
@@ -269,6 +277,7 @@ class AssistantPage(QWidget):
         self.count.style().polish(self.count)
         self.form.refresh()
         self._refresh_ticks_chip()
+        self._state_changed()
 
     def _refresh_ticks_chip(self) -> None:
         chip = self.ticks_chip
@@ -306,6 +315,38 @@ class AssistantPage(QWidget):
         names = ", ".join(f"{s} «{presets[s].name}»" for s in slots[:40] if s in presets)
         more = f" y {len(slots) - 40} más" if len(slots) > 40 else ""
         return f"Presets marcados en la lista: {names}{more}"
+
+    # --- kept with each conversation -------------------------------------------------------
+
+    def page_state(self) -> dict[str, Any]:
+        """The ticked presets and the pending edits, saved with the conversation."""
+        return {"ticked": self.ticked(), "summary": self.review.summary_text,
+                "pending": [bulk_edit.to_dict(e) for e in self.review.edits.values()]}
+
+    def restore_state(self, state: dict[str, Any]) -> None:
+        """A reopened conversation: tick its presets and show its pending edits again, each
+        checked against the pedal (applied ones are dropped, changed ones blocked)."""
+        self._restoring = True
+        try:
+            slots = [int(s) for s in state.get("ticked") or [] if isinstance(s, int)]
+            self.tick(slots, only=True)
+            kept = [bulk_edit.from_dict(self.editor, d) for d in state.get("pending") or []
+                    if isinstance(d, dict)]
+            edits = [e for e in kept if e is not None]
+            self.review.restore(edits, str(state.get("summary") or "") if edits else "")
+        finally:
+            self._restoring = False
+        self.chat.save_state()
+        blocked = sum(1 for e in edits if e.blocked)
+        if edits:
+            note = (f" {blocked} ya no se pueden aplicar porque el preset cambió después."
+                    if blocked else "")
+            self.status.setText(f"Recuperé {len(edits)} cambios pendientes de esta "
+                                f"conversación.{note}")
+
+    def _state_changed(self) -> None:
+        if not self._restoring:
+            self.chat.save_state()
 
     # --- proposals from the AI ------------------------------------------------------------
 

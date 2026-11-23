@@ -13,6 +13,7 @@ import importlib.util
 import threading
 import time
 from collections.abc import Callable, Sequence
+from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, Signal
 from PySide6.QtGui import QKeyEvent
@@ -72,18 +73,23 @@ class _Done(QObject):
 
 class AiChat(QWidget):
     """``extra_guide``: more instructions for the agent; ``context_hook``: text put before
-    each message (e.g. the presets ticked in the «Asistente» tab)."""
+    each message (e.g. the presets ticked in the «Asistente» tab); ``state_hook`` /
+    ``restore_hook``: what the page keeps with each conversation and gets back when it is
+    reopened (call :meth:`save_state` when it changes)."""
 
     def __init__(self, host: AiHost, parent: QWidget | None = None, *, extra_guide: str = "",
                  context_hook: Callable[[], str] | None = None,
                  examples: Sequence[str] = EXAMPLES, welcome: str = "",
-                 scope: str = "panel") -> None:
+                 scope: str = "panel",
+                 state_hook: Callable[[], dict[str, Any]] | None = None,
+                 restore_hook: Callable[[dict[str, Any]], None] | None = None) -> None:
         super().__init__(parent)
         self.host = host
         self.scope = scope  # whose history: the side panel's or the «Asistente» tab's
         self.store = ChatStore()
         self.chat_id, self.chat_title, self.chat_created = "", "", 0.0
         self.extra_guide, self.context_hook = extra_guide, context_hook
+        self.state_hook, self.restore_hook = state_hook, restore_hook
         self.examples, self.welcome = examples, welcome
         self.agents: dict[str, tone_agent.Agent] = {}
         self.blocks: list[str] = []
@@ -444,8 +450,18 @@ class AiChat(QWidget):
                           str(self.provider.currentData() or ""), self.chat_created, 0.0,
                           slot, preset.name if preset else "")
         sessions = {key: agent.session for key, agent in self.agents.items() if agent.session}
+        page = self.state_hook() if self.state_hook is not None else {}
         try:
-            self.store.save(Chat(entry, list(self.blocks), sessions))
+            self.store.save(Chat(entry, list(self.blocks), sessions, page))
+        except (OSError, ValueError) as exc:
+            self.status.setText(f"No pude guardar la conversación: {exc}")
+
+    def save_state(self) -> None:
+        """The page's state changed: keep it with the open conversation (if saved)."""
+        if not self.chat_id or self.state_hook is None:
+            return
+        try:
+            self.store.save_state(self.chat_id, self.state_hook())
         except (OSError, ValueError) as exc:
             self.status.setText(f"No pude guardar la conversación: {exc}")
 
@@ -479,6 +495,8 @@ class AiChat(QWidget):
         bar.setValue(bar.maximum())
         self.history_button.setChecked(False)
         self.status.setText("")
+        if self.restore_hook is not None and chat.state:
+            self.restore_hook(chat.state)
         if switch:
             self._select_preset(chat.entry.slot, chat.entry.preset)
 

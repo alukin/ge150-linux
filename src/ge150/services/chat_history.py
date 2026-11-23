@@ -37,6 +37,8 @@ class Chat:
     entry: ChatEntry
     blocks: list[str] = field(default_factory=list)  # the chat's HTML, block by block
     sessions: dict[str, str] = field(default_factory=dict)  # provider -> CLI session id
+    #: what the chat's page keeps with it (the «Asistente» tab: ticked presets, pending edits)
+    state: dict[str, Any] = field(default_factory=dict)
 
 
 def new_id() -> str:
@@ -70,7 +72,8 @@ class ChatStore:
             return Chat(entry)
         blocks = [str(b) for b in data.get("blocks") or []]
         sessions = {str(k): str(v) for k, v in (data.get("sessions") or {}).items() if v}
-        return Chat(entry, blocks, sessions)
+        state = data.get("state")
+        return Chat(entry, blocks, sessions, state if isinstance(state, dict) else {})
 
     # --- writing ----------------------------------------------------------------------
 
@@ -79,9 +82,25 @@ class ChatStore:
             raise ValueError(f"invalid chat id {chat.entry.id!r}")
         chat.entry.updated = time.time()
         self._write(self._path(chat.entry.id),
-                    {"blocks": chat.blocks, "sessions": chat.sessions})
+                    {"blocks": chat.blocks, "sessions": chat.sessions, "state": chat.state})
         entries = [e for e in self._index() if e.id != chat.entry.id]
         self._write_index([chat.entry, *entries])
+
+    def save_state(self, chat_id: str, state: dict[str, Any]) -> bool:
+        """Update only the page state of a saved chat (its place in the history stays).
+        False if the chat has not been saved yet."""
+        if not _ID.match(chat_id):
+            return False
+        path = self._path(chat_id)
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return False
+        if not isinstance(data, dict):
+            return False
+        data["state"] = state
+        self._write(path, data)
+        return True
 
     def rename(self, chat_id: str, title: str) -> None:
         entries = self._index()
