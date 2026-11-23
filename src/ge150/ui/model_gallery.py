@@ -8,14 +8,25 @@ models only, the section headers (:meth:`add_section`) are not part of them.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QModelIndex, QPersistentModelIndex, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap, QResizeEvent
+from collections.abc import Callable
+
+from PySide6.QtCore import (
+    QEvent,
+    QModelIndex,
+    QPersistentModelIndex,
+    QSize,
+    Qt,
+    QTimer,
+    Signal,
+)
+from PySide6.QtGui import QColor, QFont, QHelpEvent, QIcon, QPainter, QPen, QPixmap, QResizeEvent
 from PySide6.QtWidgets import (
     QListView,
     QListWidget,
     QListWidgetItem,
     QStyledItemDelegate,
     QStyleOptionViewItem,
+    QToolTip,
     QWidget,
 )
 
@@ -87,6 +98,8 @@ class ModelGallery(QListWidget):
         self.currentRowChanged.connect(self._row_changed)
         self._silent = False
         self._rows: list[int] = []  # model index -> row (headers have rows too; -1 = hidden)
+        #: model index -> text added to its tooltip when hovered (worked out at that moment)
+        self.tooltip_extra: Callable[[int], str] | None = None
 
     def add_model(self, label: str, gear: Gear, title: str, knobs: list[KnobState],
                   tooltip: str = "") -> None:
@@ -164,6 +177,17 @@ class ModelGallery(QListWidget):
             if item.data(SECTION_ROLE) and item.sizeHint() != size:
                 item.setSizeHint(size)
         QTimer.singleShot(0, lambda: self._scroll_to(self.currentRow()))
+
+    def viewportEvent(self, event: QEvent) -> bool:
+        if isinstance(event, QHelpEvent) and self.tooltip_extra is not None:
+            item = self.itemAt(event.pos())
+            row = self.row(item) if item is not None else -1
+            if item is not None and row in self._rows:
+                extra = self.tooltip_extra(self._rows.index(row))
+                text = item.toolTip() + (f"\n\n{extra}" if extra else "")
+                QToolTip.showText(event.globalPos(), text, self.viewport())
+                return True
+        return super().viewportEvent(event)
 
     def currentText(self) -> str:
         item = self.currentItem()

@@ -97,6 +97,21 @@ def test_user_slots_have_their_own_section(window: MainWindow) -> None:
     assert gallery.currentIndex() == -1
 
 
+def test_user_ir_tooltip_lists_the_presets_using_it(window: MainWindow) -> None:
+    editor, page = window.editor, window.module_editor
+    cab = 3
+    preset = editor.state.presets[7].copy()
+    block = preset.module(cab)
+    block.words[1] = 27  # CAB 28: user IR slot 2
+    preset.set_module(block)
+    editor.copy_preset_data(preset)
+    window.chain.select(cab)
+    text = page._model_users(27)
+    assert text.startswith("Usada en:") and "007" in text
+    assert page._model_users(28) == "No la usa ningún preset."
+    assert page._model_users(0) == ""  # a factory cabinet: no list
+
+
 def test_power_button_switches_module(window: MainWindow) -> None:
     tile = window.chain.tiles[1]
     before = tile.power.isChecked()

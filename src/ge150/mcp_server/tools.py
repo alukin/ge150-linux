@@ -182,10 +182,9 @@ class PedalTools:
         """User IR slot (1..10) -> the stored presets whose CAB uses it."""
         cab = MODULE_TAGS.index("CAB")
         users: dict[int, list[int]] = {}
-        for number, preset in sorted(self.editor.state.presets.items()):
-            model = self.editor.catalog[cab].model_for_type(preset.module(cab).type)
-            if model is not None and model.user_slot:
-                users.setdefault(model.number - 26, []).append(number)
+        for model in self.editor.catalog[cab].models:
+            if model.user_slot and (slots := self.editor.presets_using(cab, model.number - 1)):
+                users[model.number - 26] = slots
         return users
 
     def get_guitar(self) -> dict[str, Any]:

@@ -22,7 +22,7 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
   tiempo, y los pasos repetidos se agrupan («revisa el catálogo ×9»).
 
 - En la galería de modelos de CAB, un separador distingue los modelos de la pedalera de las ranuras de usuario
-  (IR de TONE3000 u otras).
+  (IR de TONE3000 u otras). Al pasar el mouse sobre una IR de usuario, el tooltip lista los presets que la usan.
 
 ### Cambiado
 

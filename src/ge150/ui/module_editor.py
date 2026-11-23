@@ -29,6 +29,7 @@ from ge150.ui.model_gallery import ModelGallery
 
 DEBOUNCE_MS = 40
 USER_SLOT_GEAR = ("c_user", "user_nr")
+MAX_USERS_SHOWN = 15
 #: Header of the user slots in the model gallery (the AMP NR slots are hidden: no
 #: ``.amp`` captures exist for the GE150, plan.md §7).
 USER_SECTIONS = {"CAB": "Tus IR · ranuras de usuario (TONE3000 y otras)"}
@@ -70,6 +71,7 @@ class ModuleEditor(QFrame):
         self.switch.setFixedWidth(78)
         self.switch.toggled.connect(self._on_switch)
         self.model = ModelGallery()
+        self.model.tooltip_extra = self._model_users
         self.model.currentIndexChanged.connect(self._on_model)
         header = QHBoxLayout()
         header.addWidget(self.title)
@@ -141,6 +143,20 @@ class ModuleEditor(QFrame):
         finally:
             self._loading = False
         self.refresh()
+
+    def _model_users(self, type_index: int) -> str:
+        """For a user IR slot: the stored presets that use it (hover tooltip)."""
+        model = self.info.model_for_type(type_index)
+        if model is None or not model.user_slot:
+            return ""
+        slots = self.editor.presets_using(self.index, type_index)
+        if not slots:
+            return "No la usa ningún preset."
+        presets = self.editor.state.presets
+        shown = [f"  {s:03d}  {presets[s].name}" for s in slots[:MAX_USERS_SHOWN]]
+        more = len(slots) - MAX_USERS_SHOWN
+        return ("Usada en:\n" + "\n".join(shown)
+                + (f"\n  … y {more} más" if more > 0 else ""))
 
     def refresh(self) -> None:
         """Re-read the module from the edit buffer (after a notification)."""

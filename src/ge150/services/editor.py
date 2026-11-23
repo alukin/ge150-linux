@@ -91,6 +91,11 @@ class Editor:
         names = ", ".join(p.name for p in self.model_params(index))
         raise EditorError(f"{MODULES[index].name} has no parameter {name!r} (have: {names})")
 
+    def presets_using(self, index: int, type_index: int) -> list[int]:
+        """Stored presets whose module ``index`` uses model ``type_index``."""
+        return [slot for slot, preset in sorted(self.state.presets.items())
+                if preset.module(index).type == type_index]
+
     def model_display(self, index: int, type_index: int) -> str:
         """The model's name, or for a user IR/NR slot the name loaded on the pedal
         ("CAB 32 (user IR: VOX AC30 BLUE 2)")."""
