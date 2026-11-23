@@ -6,6 +6,40 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Añadido
+
+- Botón **Descartar** junto a «Guardar»: aparece cuando el preset tiene cambios sin guardar y lo devuelve a su
+  versión guardada (antes solo estaba en el menú Preset → Descartar cambios).
+- El asistente ahora puede **renombrar y reordenar presets** dentro de una propuesta: `propose_preset_edits`
+  acepta `name` y `copy_from` (copiar el contenido de otro preset; dos cruzados los intercambian). Los cambios de
+  nombre y de contenido se ven en Cambios pendientes antes de aplicar.
+- **Permisos del asistente** (botón de engranaje en el chat): un interruptor por tipo de operación (sonido en
+  vivo, cambios de efectos, renombrar, mover, guardar, buscar en TONE3000, cargar IR). Se guardan en
+  `~/.config/ge150/ai_permissions.json` y también los respeta `ge150-mcp`. Leer siempre está permitido.
+- Al reabrir una conversación del Asistente vuelven los **presets marcados** y los **cambios pendientes**; los que se
+  aplicaron después desaparecen y los de presets que cambiaron quedan bloqueados.
+- Mientras la IA trabaja (en el panel lateral y en el Asistente): un indicador animado con el paso en curso y el
+  tiempo, y los pasos repetidos se agrupan («revisa el catálogo ×9»).
+
+- En la galería de modelos de CAB, un separador distingue los modelos de la pedalera de las ranuras de usuario
+  (IR de TONE3000 u otras).
+
+### Cambiado
+
+- Las respuestas de la IA se muestran con Markdown completo (tablas, listas anidadas, títulos, código) usando
+  `markdown-it-py`, nueva dependencia de la interfaz gráfica (`python-markdown-it-py` en Arch).
+
+### Quitado
+
+- Las ranuras de captura NR del AMP (56-65) ya no aparecen en la galería ni en lo que ve la IA, como en el editor
+  oficial: la GE150 las procesa, pero no hay archivos `.amp` para ella. `ge150ctl nr-upload` sigue disponible.
+
+### Corregido
+
+- El editor a veces no arrancaba al primer intento (`timeout waiting for 0x01 DEVICE_INFO`). Ahora el primer
+  contacto hace lo mismo que el lanzador oficial: envía los 8 bytes a cero antes de identificar y reintenta la
+  identificación hasta 3 veces.
+
 ## [0.1.0] - 2026-11-22
 
 Primera versión de ge150-linux. Las pruebas con una **MOOER GE150 real, firmware V1.3.8**, están documentadas en
