@@ -98,7 +98,7 @@ def build_server(tools: PedalTools | Any) -> MCPServer:
 
     @server.tool(annotations=READ)
     def list_user_irs() -> dict[str, Any]:
-        """Names of the user cabinet IR slots (CAB 27-36) and NR amp captures (AMP 56-65)."""
+        """Names of the user cabinet IR slots (CAB 27-36)."""
         return _call(tools.list_user_irs)
 
     @server.tool(annotations=READ)

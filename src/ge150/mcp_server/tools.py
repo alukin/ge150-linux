@@ -173,11 +173,10 @@ class PedalTools:
 
         names = self.editor.state.user_names
         if names is None:
-            return {"ir": [], "nr": []}
+            return {"ir": []}
+        # The NR (AMP 56-65) slots are left out: hidden like in the official editor.
         sources, users = IrSources().matching(names.ir), self._ir_users()
-        return {"ir": [_ir_entry(i, n, sources, users) for i, n in enumerate(names.ir)],
-                "nr": [{"slot": i + 1, "model": f"AMP {56 + i}", "name": n}
-                       for i, n in enumerate(names.nr)]}
+        return {"ir": [_ir_entry(i, n, sources, users) for i, n in enumerate(names.ir)]}
 
     def _ir_users(self) -> dict[int, list[int]]:
         """User IR slot (1..10) -> the stored presets whose CAB uses it."""

@@ -29,6 +29,9 @@ from ge150.ui.model_gallery import ModelGallery
 
 DEBOUNCE_MS = 40
 USER_SLOT_GEAR = ("c_user", "user_nr")
+#: Header of the user slots in the model gallery (the AMP NR slots are hidden: no
+#: ``.amp`` captures exist for the GE150, plan.md §7).
+USER_SECTIONS = {"CAB": "Tus IR · ranuras de usuario (TONE3000 y otras)"}
 COLUMNS = 4
 
 
@@ -112,7 +115,19 @@ class ModuleEditor(QFrame):
         self._loading = True
         try:
             self.model.clear()
+            # Separate the pedal's own models from the user slots (TONE3000 IRs, NR captures).
+            user_section = USER_SECTIONS.get(MODULE_TAGS[index], "")
+            pending = bool(user_section) and any(m.user_slot and not m.hidden
+                                                 for m in self.info.models)
+            if pending:
+                self.model.add_section("Modelos de la pedalera")
             for i, m in enumerate(self.info.models):
+                if m.hidden:  # e.g. AMP 56-65: NR slots the official editor hides too
+                    self.model.skip_model()
+                    continue
+                if m.user_slot and pending:
+                    self.model.add_section(user_section)
+                    pending = False
                 label = self.editor.model_label(index, i)
                 gear = gear_for(index, m.number)
                 if m.user_slot and MODULE_TAGS[index] == "CAB":

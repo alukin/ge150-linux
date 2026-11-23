@@ -76,6 +76,27 @@ def test_changing_the_model_rebuilds_parameters(window: MainWindow) -> None:
     assert [w.param.name for w in window.module_editor.params][-2:] == ["TIME B", "SUB B"]
 
 
+def test_user_slots_have_their_own_section(window: MainWindow) -> None:
+    gallery = window.module_editor.model
+    window.chain.select(3)  # CAB: 36 models, 27-36 are user IR slots
+    assert gallery.count() == 36 and gallery.count_rows() == 38
+    assert gallery.sections() == ["Modelos de la pedalera",
+                                  "Tus IR · ranuras de usuario (TONE3000 y otras)"]
+    first_user = gallery.model_item(26)
+    assert first_user is not None and first_user.text().startswith("27:")
+    gallery.setCurrentIndex(30)
+    assert gallery.currentIndex() == 30
+    sim = window.sim  # type: ignore[attr-defined]
+    assert wait(lambda: sim.device.edit_buffer.module(3).type == 30)
+    window.chain.select(8)  # REVERB: no user slots, no headers
+    assert gallery.sections() == [] and gallery.count() == gallery.count_rows()
+    window.chain.select(2)  # AMP: the NR slots 56-65 are hidden, indexes stay
+    assert gallery.sections() == [] and gallery.count() == 65 and gallery.count_rows() == 55
+    assert gallery.model_item(54) is not None and gallery.model_item(55) is None
+    gallery.setCurrentIndex(60)
+    assert gallery.currentIndex() == -1
+
+
 def test_power_button_switches_module(window: MainWindow) -> None:
     tile = window.chain.tiles[1]
     before = tile.power.isChecked()

@@ -618,7 +618,10 @@ ge150-linux/
 - [x] `formats/amp_nr.py`: `.amp` = 512 int32 LE + int32 de suma + `"2.0"` al final (`FUN_0041f700`) [V];
       subida `0xB7` en 4 planos de bytes, del MSB al LSB (`FUN_004153b0`) [V]. CLI `nr-upload`/`nr-delete`.
 - [x] **NR verificado en hardware** (ranura 10): aparece en la lista NR de `0x41` y se borra correctamente.
-      Falta confirmar que la pedalera muestra o usa los AMP 56-65 (en la app oficial están comentados).
+      **AMP 56-65 confirmados en hardware (2026-11-23)**: en vivo, AMP 56 con la ranura NR 1 vacía → la pantalla
+      muestra «56 / NR / EMPTY» y el sonido se corta. El firmware V1.3.8 sí procesa capturas NR (la app oficial
+      solo las oculta). Falta un `.amp` real: los `.GNR` (MNRS) de MOOER son otro formato (cabecera `mooerge`,
+      bloque `data` de 2560 float32) y no se pueden convertir sin conocer el modelo.
 
 ### Fase 8 — Archivos: `.mo` y `.mbf` (`.mo` ✅)
 - [x] `.mo` (`formats/mo_json.py`): mismo JSON que la app oficial (claves ordenadas, sangría de 4),
