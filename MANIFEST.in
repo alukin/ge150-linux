@@ -1,0 +1,3 @@
+include CHANGELOG.md PUBLISH.md plan.md
+include packaging/PKGBUILD
+recursive-include docs *.md *.png

@@ -6,9 +6,11 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 (`ge150ctl`). El protocolo USB se obtuvo por ingeniería inversa del software oficial *Mooer Studio for GE150*
 (Windows). El protocolo, la arquitectura y la hoja de ruta están en [`plan.md`](plan.md).
 
-> **Estado:** todo lo de abajo está verificado con una pedalera real (lectura, edición en vivo, guardar,
-> renombrar, IR, NR, backup y restore). Aun así, haz un `ge150ctl backup` antes de cambios grandes.
-> Tras un restore la pedalera se reinicia sola; el editor espera a que vuelva.
+> **Estado:** verificado con una MOOER GE150 real, firmware V1.3.8 (ver
+> [`docs/verificacion-hardware.md`](docs/verificacion-hardware.md)). Aun así, haz un backup antes de cambios grandes.
+> Novedades en [`CHANGELOG.md`](CHANGELOG.md); cómo publicar una versión en [`PUBLISH.md`](PUBLISH.md).
+
+<p align="center"><img src="docs/img/efectos.png" alt="Pestaña Efectos con el panel de IA" width="900"></p>
 
 ## Qué puede hacer
 
@@ -22,6 +24,10 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Cargar capturas NR (`.amp`) a las ranuras de amplificador de usuario (AMP 56-65).
 - Backup completo y restauración en formato `.mbf`, compatible con la app oficial.
 - Seguir los cambios hechos en la propia pedalera (footswitch, knobs).
+- Asistente de tono con IA (Claude Code o Codex, con tu suscripción) y edición masiva de presets con la pestaña
+  **Asistente**: escuchas cada propuesta en la pedalera antes de aplicarla y se hace un backup automático.
+- Historial de conversaciones con la IA, cabinas de TONE3000 y una ficha de tus guitarras.
+- Verificación automática con la pedalera real: `ge150ctl hw-check`.
 
 ## Instalación en Arch Linux
 
@@ -50,8 +56,8 @@ ge150            # con la pedalera conectada
 ge150 --sim      # con el simulador, sin hardware
 ```
 
-- Abajo, siempre visible, la cadena de efectos: cada módulo con la imagen de su equipo, el modelo y su
-  botón de encendido. Un clic abre su página.
+- Abajo, siempre visible, la **cadena de efectos** (de IN a OUT): cada módulo con la imagen de su equipo, el
+  modelo y su LED de encendido. Un clic abre su página.
 - Un clic en la lista de la izquierda carga el preset (si hay cambios sin guardar, pregunta antes).
 - La página del módulo muestra el equipo original en grande (foto o dibujo), una galería con todos los
   modelos para elegir y perillas: se giran arrastrando, con la rueda o con las flechas, y con doble clic se
@@ -63,6 +69,8 @@ ge150 --sim      # con el simulador, sin hardware
   elegir una IR aparece su ficha (imagen, autor, licencia, descripción y archivos) con la ranura de destino y
   **Agregar a la pedalera**. Necesita `qt6-webengine`; sin él, el catálogo se abre en el navegador.
 - Botón **✦ IA** (Ctrl+K): panel lateral para pedir sonidos a Claude o Codex (ver más abajo).
+- **Ayuda → Acerca de**: versión, autor, licencia, información de tu sistema (para reportar problemas), dónde se
+  guardan tus datos y créditos.
 
 ## Línea de comandos
 
@@ -99,6 +107,8 @@ ge150ctl factory-reset --backup antes.mbf  # BORRA TODO: valores de fábrica (pi
 ge150ctl ai "tono de Slash en Sweet Child O' Mine"   # asistente IA: aplica el tono en vivo (sin guardar)
 ge150ctl ai --dry-run --provider codex "clean con chorus de los 80"
 
+ge150ctl hw-check --slots 198,199,200  # verifica en la pedalera real (editor cerrado); deja todo como estaba
+
 ge150ctl --sim <comando>               # cualquier comando contra el simulador
 ge150ctl --raw <comando>               # muestra cada reporte USB de 64 bytes
 ```
@@ -123,6 +133,11 @@ sumado), y los cambios quedan en **Cambios pendientes** (antes → después por 
 se toca. Antes de escribir se hace solo un **backup completo** (`.mbf`, el mismo de *Archivo → Backup completo*) en
 `~/.local/share/ge150/backups/` (se guardan los últimos 20; *Archivo → Abrir carpeta de backups automáticos*); si el
 backup falla, no se escribe nada.
+
+<p align="center"><img src="docs/img/asistente.png" alt="Pestaña Asistente con cambios pendientes" width="900"></p>
+
+Los dos chats guardan sus conversaciones: el botón del reloj abre el historial y, al abrir una, la IA retoma la
+conversación y la pedalera carga el preset de esa conversación.
 
 ### La pedalera como servidor MCP
 
