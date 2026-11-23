@@ -63,8 +63,10 @@ ge150 --sim      # con el simulador, sin hardware
   modelos para elegir y perillas: se giran arrastrando, con la rueda o con las flechas, y con doble clic se
   escribe el valor.
 - En las cabinas, el micrófono se arrastra frente al parlante para cambiar CENTER y DISTANCE.
-- Fotos propias: pon `<id>.jpg` o `.png` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en
-  `src/ge150/data/gear.json`). Tienen prioridad sobre las incluidas; si no hay foto, se dibuja el equipo.
+- Solo se incluyen fotos con licencia libre (Wikimedia Commons, en WebP; ver
+  [`CREDITS.md`](src/ge150/data/photos/CREDITS.md)); los demás equipos se dibujan. Fotos propias: pon `<id>.jpg`,
+  `.png` o `.webp` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en `src/ge150/data/gear.json`).
+  Tienen prioridad sobre las incluidas.
 - Pestaña **TONE3000**: el catálogo de IR de cabinas de [TONE3000](https://www.tone3000.com) dentro de la app. Al
   elegir una IR aparece su ficha (imagen, autor, licencia, descripción y archivos) con la ranura de destino y
   **Agregar a la pedalera**. Necesita `qt6-webengine`; sin él, el catálogo se abre en el navegador.

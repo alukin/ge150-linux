@@ -15,6 +15,9 @@ from importlib import resources
 from pathlib import Path
 
 PHOTO_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
+#: Gear whose shipped photo is another one's (the same Wikimedia photo shows both).
+PHOTO_ALIASES = {"c_ac30": "ac30", "c_orange412": "ad30", "c_bassman": "bassman",
+                 "c_1960": "jcm900", "c_supersonic": "supersonic"}
 #: module index (preset layout order) -> tag used by gear.json / effects.json
 MODULE_TAGS = ("FX", "DS", "AMP", "CAB", "NS", "EQ", "MOD", "DELAY", "REVERB")
 
@@ -85,8 +88,10 @@ def photo_path(gid: str, extra_dirs: tuple[Path, ...] = ()) -> Path | None:
     """First existing photo for ``gid``: extra dirs, the user folder, then the package."""
     shipped = Path(str(resources.files("ge150.data").joinpath("photos")))
     for folder in (*extra_dirs, user_photo_dir(), shipped):
-        for suffix in PHOTO_SUFFIXES:
-            candidate = folder / f"{gid}{suffix}"
-            if candidate.is_file():
-                return candidate
+        names = (gid, PHOTO_ALIASES[gid]) if folder == shipped and gid in PHOTO_ALIASES else (gid,)
+        for name in names:
+            for suffix in PHOTO_SUFFIXES:
+                candidate = folder / f"{name}{suffix}"
+                if candidate.is_file():
+                    return candidate
     return None

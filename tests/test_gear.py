@@ -35,9 +35,15 @@ def test_every_shipped_photo_is_credited() -> None:
     photos = Path(gear.__file__).resolve().parents[1] / "data" / "photos"
     credits = (photos / "CREDITS.md").read_text()
     known = gear.all_gear()
-    for photo in photos.glob("*.jpg"):
+    shipped = list(photos.glob("*.webp"))
+    assert shipped and not list(photos.glob("*.jpg"))  # all converted to WebP
+    for photo in shipped:
         assert photo.stem in known, photo.name
         assert f"| `{photo.stem}` |" in credits, photo.name
+    assert "©" not in credits  # only freely licensed photos are shipped
+    for alias, target in gear.PHOTO_ALIASES.items():
+        assert f"| `{alias}` (= `{target}`) |" in credits
+        assert gear.photo_path(alias) == photos / f"{target}.webp"
 
 
 def test_captions() -> None:

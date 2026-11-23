@@ -6,6 +6,12 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Cambiado
+
+- Solo se incluyen fotos de equipos con licencia libre (Wikimedia Commons): las 31 fotos de producto de fabricantes
+  y tiendas ya no se distribuyen, y esos equipos se dibujan (o usan tu foto en `~/.local/share/ge150/photos/`). Las
+  fotos pasaron a WebP: de 3,3 MB a 0,9 MB. En Arch, el paquete ahora depende de `qt6-imageformats` (lee WebP).
+
 ## [0.2.0] - 2026-11-23
 
 ### Añadido
