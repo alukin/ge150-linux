@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
 from ge150.services import ai_permissions, guitars, tone_agent, tone_ai
 from ge150.services.chat_history import Chat, ChatEntry, ChatStore, new_id, title_for
 from ge150.services.guitars import GuitarStore
+from ge150.ui import markdown
 from ge150.ui.ab_compare import SoundCompare
 from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.ai_options import AgentOptions
@@ -44,6 +45,7 @@ from ge150.ui.chat_history import ChatHistory
 from ge150.ui.icons import icon
 from ge150.ui.theme import ACCENT
 from ge150.ui.theme import MUTED as MUTED_ICON
+from ge150.ui.working import WorkingIndicator
 
 EXAMPLES = ("Tono de Slash en el solo de Sweet Child O' Mine",
             "Clean brillante con chorus estilo The Police",
@@ -93,6 +95,7 @@ class AiChat(QWidget):
         self.examples, self.welcome = examples, welcome
         self.agents: dict[str, tone_agent.Agent] = {}
         self.blocks: list[str] = []
+        self._tool_run: tuple[int, str, int] | None = None  # block index, tool, calls
         self._before: list[int] | None = None
         self.busy = False
         self._done = _Done(self)
@@ -144,7 +147,10 @@ class AiChat(QWidget):
         self.chat = QTextBrowser()
         self.chat.setObjectName("aiChat")
         self.chat.setOpenExternalLinks(True)
+        self.chat.document().setDefaultStyleSheet(markdown.STYLE)
         page.addWidget(self.chat, 1)
+        self.working = WorkingIndicator()
+        page.addWidget(self.working)
         self.status = QLabel()
         self.status.setObjectName("note")
         self.status.setWordWrap(True)
@@ -405,7 +411,7 @@ class AiChat(QWidget):
     def _send_or_stop(self) -> None:
         if self.busy:
             tone_agent.stop_all()
-            self.status.setText("Deteniendo…")
+            self.working.set_text("Deteniendo")
         else:
             self.ask()
 
@@ -550,6 +556,7 @@ class AiChat(QWidget):
     # --- results ----------------------------------------------------------------------
 
     def _finished(self, reply: object, error: str) -> None:
+        self._end_tool_run()
         self._set_busy(False)
         state = self.host.tools.editor.state
         if self._before is not None and state.edit is not None:
@@ -560,12 +567,31 @@ class AiChat(QWidget):
         elif error:
             self._note(f"<span style='color:{ERROR}'>Error: {html.escape(error)}</span>")
         elif isinstance(reply, str):
-            self._bubble(self.provider.currentText(), _markdown(reply), AI)
+            self._bubble(self.provider.currentText(), markdown.to_html(reply), AI)
         self._save()
 
     def _tool_called(self, tool: str) -> None:
-        if self.busy:
-            self._add(f"<div style='color:{MUTED}'>· {LABELS.get(tool, tool)}</div>")
+        """One line per step; the same tool called again in a row counts up (x3)."""
+        if not self.busy:
+            return
+        label = LABELS.get(tool, tool)
+        self.working.set_step(label)
+        run = self._tool_run
+        if run is not None and run[1] == tool and run[0] == len(self.blocks) - 1:
+            self._tool_run = (run[0], tool, run[2] + 1)
+            self.blocks[run[0]] = _tool_line(label, run[2] + 1, done=False)
+            self._render_blocks()
+            return
+        self._end_tool_run()
+        self._tool_run = (len(self.blocks), tool, 1)
+        self._add(_tool_line(label, 1, done=False))
+
+    def _end_tool_run(self) -> None:
+        """The step before is over: tick it."""
+        run, self._tool_run = self._tool_run, None
+        if run is not None and run[0] < len(self.blocks):
+            self.blocks[run[0]] = _tool_line(LABELS.get(run[1], run[1]), run[2], done=True)
+            self._render_blocks()
 
     def _set_busy(self, busy: bool, text: str = "") -> None:
         self.busy = busy
@@ -581,15 +607,22 @@ class AiChat(QWidget):
         self.provider.setEnabled(not busy)
         self.options.setEnabled(not busy)
         self.prompt.setReadOnly(busy)
-        self.status.setText(text)
+        if busy:
+            self.status.setText("")
+            self.working.start(text)
+        else:
+            self.working.stop()
 
     def _ready(self, ok: bool) -> None:
         for widget in (self.ask_button, self.undo_button, self.prompt, self.provider):
             widget.setEnabled(ok)
 
     def _add(self, block: str) -> None:
-        """Whole-document render: ``append`` would continue an open list."""
         self.blocks.append(block)
+        self._render_blocks()
+
+    def _render_blocks(self) -> None:
+        """Whole-document render: ``append`` would continue an open list."""
         self.chat.setHtml("".join(self.blocks))
         bar = self.chat.verticalScrollBar()
         bar.setValue(bar.maximum())
@@ -602,24 +635,8 @@ class AiChat(QWidget):
                   f"</p><div>{body}</div>")
 
 
-def _markdown(text: str) -> str:
-    """The little Markdown agents use (lists, **bold**) as HTML."""
-    import re
 
-    out: list[str] = []
-    in_list = False
-    for line in text.splitlines():
-        item = re.match(r"\s*[-*•]\s+(.*)", line)
-        if item and not in_list:
-            out.append("<ul>")
-            in_list = True
-        elif not item and in_list:
-            out.append("</ul>")
-            in_list = False
-        content = html.escape(item.group(1) if item else line)
-        content = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", content)
-        content = re.sub(r"`(.+?)`", r"<code>\1</code>", content)
-        out.append(f"<li>{content}</li>" if item else (f"{content}<br>" if content else ""))
-    if in_list:
-        out.append("</ul>")
-    return "".join(out)
+def _tool_line(label: str, calls: int, done: bool) -> str:
+    mark = "✓" if done else "\u203a"  # single right angle quote
+    count = f" \u00d7{calls}" if calls > 1 else ""  # multiplication sign
+    return f"<div style='color:{MUTED}'>{mark} {html.escape(label)}{count}</div>"

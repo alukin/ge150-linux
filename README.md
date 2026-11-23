@@ -40,7 +40,7 @@ cd packaging && makepkg -si     # instala ge150, ge150ctl, la regla udev, el .de
 
 ```bash
 python3 -m venv --system-site-packages .venv   # reutiliza PySide6 y pyusb del sistema
-.venv/bin/pip install -e '.[dev]'              # '.[gui]' instala PySide6 si no lo tienes
+.venv/bin/pip install -e '.[gui,dev]'          # PySide6 solo se instala si el sistema no lo tiene
 ```
 
 Acceso a la pedalera sin root (una sola vez):

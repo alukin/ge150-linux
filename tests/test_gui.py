@@ -313,6 +313,37 @@ def test_ai_proposal_opens_the_assistant_tab(window: MainWindow) -> None:
     assert 30 in window.assistant.review.edits and 30 in window.assistant.ticked()
 
 
+def test_reopened_conversation_brings_back_ticks_and_pending(window: MainWindow) -> None:
+    page, tools = window.assistant, window.ai_host.tools
+    chat = page.chat
+    chat.chat_id, chat.chat_title = "opeth-1", "Opeth"
+    page.tick([18, 19, 20, 21], only=True)
+    tools.propose_preset_edits([{"slot": 18, "name": "OPETH CLEAN"}], "Opeth")
+    assert wait(lambda: 18 in page.review.edits)
+    chat._save()
+    chat.new_conversation()  # what changes now is not kept with «opeth-1»
+    page.review.clear()
+    page.tick([5], only=True)
+    chat.open_chat("opeth-1")
+    assert page.ticked() == [18, 19, 20, 21]
+    assert page.review.edits[18].final_name == "OPETH CLEAN"
+    assert page.review.summary_text == "Opeth"
+
+
+def test_agent_steps_and_working_indicator(window: MainWindow) -> None:
+    chat = window.assistant.chat
+    chat._set_busy(True, "Claude está trabajando…")
+    assert chat.working.isVisibleTo(chat) and chat.working.running
+    for tool in ("get_catalog", "get_catalog", "get_catalog", "get_presets"):
+        chat._tool_called(tool)
+    assert "revisa el catálogo \u00d73" in chat.blocks[-2] and "\u2713" in chat.blocks[-2]
+    assert "lee varios presets" in chat.blocks[-1] and "\u2713" not in chat.blocks[-1]
+    assert "lee varios presets" in chat.working.label.text()
+    chat._finished("| A | B |\n|---|---|\n| 1 | **2** |", "")
+    assert not chat.working.running and "\u2713" in chat.blocks[-2]
+    assert "<table" in chat.blocks[-1] and "<strong>2</strong>" in chat.blocks[-1]
+
+
 def test_assistant_preset_rows_tick_on_click(window: MainWindow) -> None:
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
