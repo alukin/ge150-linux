@@ -67,3 +67,16 @@ def test_cli_settings_commands(capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["--sim", "rhythm-set", "bpm", "121"]) == 0
     assert "BPM          121" in capsys.readouterr().out
     assert main(["--sim", "rhythm-set", "bpm", "9"]) == 2
+
+
+def test_ranges_seen_on_the_pedal_screen() -> None:
+    from dataclasses import replace
+
+    RhythmValues(volume=20).validate()  # rhythm VOL goes up to 20, not 10
+    with pytest.raises(ValueError):
+        RhythmValues(volume=21).validate()
+    system = SystemValues.from_blocks({0xA4: b"\x09\x00", 0xA5: b"\x01\x00",
+                                       0xA6: b"\x01\x00\x01\x00", 0xA7: b"\x09\x00"})
+    system.validate()  # brightness 1 is the minimum
+    with pytest.raises(ValueError):
+        replace(system, screen=0).validate()

@@ -20,9 +20,9 @@ LEVELS: tuple[str, ...] = (
 CAB_THRU = ("THRU", "ON")  # CAB SIM THRU, per output: 0 = THRU, 1 = ON [V]
 RHYTHM_MODES = ("RHYTHM", "METRONOME")  # [V]
 
-SCREEN_RANGE = (0, 20)  # [V] 19 and 20 seen; lower bound [?]
+SCREEN_RANGE = (1, 20)  # [V] pedal screen: brightness 001..020 (2026-11-23)
 BPM_RANGE = (40, 260)  # [V] confirmed on the pedal
-VOLUME_RANGE = (0, 10)  # [V] 5 and 10 seen; bounds [?]
+VOLUME_RANGE = (0, 20)  # [V] pedal screen: 00..20 (2026-11-23)
 STYLE_COUNT = {0: 40, 1: 10}  # manual: 40 drum rhythms and 10 metronome options
 
 

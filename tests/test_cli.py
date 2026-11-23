@@ -91,3 +91,18 @@ def test_factory_reset_needs_backup_choice_and_confirmation(tmp_path: Path) -> N
     backup = tmp_path / "before.mbf"
     assert main(["--sim", "factory-reset", "--backup", str(backup), "-y"]) == 0
     assert backup.stat().st_size > 0x400
+
+
+def test_rhythm_set_keeps_the_other_fields(capsys: pytest.CaptureFixture[str]) -> None:
+    """A field changed alone must not reset the others to defaults."""
+    from ge150.sim import sim_transport
+
+    device = sim_transport.FakeGE150()
+    device.rhythm = bytes([0, 0, 3, 10, 4, 1])  # off, RHYTHM, style 4, VOL 10, 260 BPM
+    original = sim_transport.FakeGE150
+    sim_transport.FakeGE150 = lambda: device  # type: ignore[assignment,misc]
+    try:
+        assert run(capsys, "rhythm-set", "vol", "20")[0] == 0
+    finally:
+        sim_transport.FakeGE150 = original  # type: ignore[misc]
+    assert device.rhythm == bytes([0, 0, 3, 20, 4, 1])

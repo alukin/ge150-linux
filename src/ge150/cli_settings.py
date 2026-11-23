@@ -104,7 +104,7 @@ def cmd_rhythm_set(args: argparse.Namespace) -> int:
 
 def _setup_system(p: argparse.ArgumentParser) -> None:
     p.add_argument("field", choices=SYSTEM_FIELDS)
-    p.add_argument("value", help="input/otg: 0, 0.5, -5, - (mute); screen: 0-20; cab: on/thru")
+    p.add_argument("value", help="input/otg: 0, 0.5, -5, - (mute); screen: 1-20; cab: on/thru")
 
 
 def _setup_rhythm(p: argparse.ArgumentParser) -> None:
