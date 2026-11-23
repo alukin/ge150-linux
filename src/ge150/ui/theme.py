@@ -191,6 +191,7 @@ QLabel#agentBadge {{
 }}
 QLabel#agentBadge[agent="codex"] {{ background: {TEXT}; }}
 QLabel#cardTitle {{ font-size: 14px; font-weight: 800; }}
+QLabel#aboutTitle {{ font-size: 22px; font-weight: 800; }}
 QLabel#stepTitle {{
     color: {MUTED}; font-size: 11px; font-weight: 700; padding-top: 8px; letter-spacing: 0.5px;
 }}

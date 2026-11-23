@@ -25,7 +25,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ge150 import __version__
 from ge150.formats import mbf, mo_json
 from ge150.model import device_state as ds
 from ge150.model.preset import NAME_LEN, is_valid_name
@@ -513,9 +512,10 @@ class MainWindow(QMainWindow):
         SettingsDialog(self.editor, self).exec()
 
     def about(self) -> None:
-        QMessageBox.about(self, "GE150 Editor",
-                          f"GE150 Editor {__version__}\nEditor libre para la Mooer GE150 en "
-                          "Linux.\nhttps://github.com/wh01s17/ge150-linux")
+        from ge150.ui.about_dialog import AboutDialog
+
+        connection = self.session.transport.description if self.state.info else ""
+        AboutDialog(self.state, connection, self).exec()
 
     def closeEvent(self, event: QCloseEvent) -> None:
         from ge150.services import tone_agent

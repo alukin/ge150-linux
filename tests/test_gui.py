@@ -465,3 +465,18 @@ def test_chain_hover_lights_the_cables_of_that_pedal(window: MainWindow) -> None
     assert wait(lambda: tile.view.zoom > 1.0) and chain.wires[1].lit == 0.0
     QApplication.sendEvent(tile, QEvent(QEvent.Type.Leave))
     assert wait(lambda: chain.wires[2].lit < 0.01 and tile.view.zoom == 1.0)
+
+
+def test_about_dialog_shows_the_project_and_the_system(window: MainWindow) -> None:
+    from ge150 import __version__
+    from ge150.ui.about_dialog import REPO, AboutDialog, folders
+
+    dialog = AboutDialog(window.state, "simulator", window)
+    info = dict(dialog.system_info())
+    assert info["Editor"] == __version__ and "V1.3.8" in info["Pedalera"]
+    assert info["Conexión"] == "simulator"
+    text = dialog.report_text()
+    assert __version__ in text and "Qt / PySide6" in text
+    assert {name for name, _, _ in folders()} >= {"Backups automáticos", "Conversaciones con la IA"}
+    assert "github.com/wh01s17/ge150-linux" in REPO
+    dialog.deleteLater()
