@@ -136,7 +136,18 @@ Notas:
 
 Notas:
 
-## 9. Cierre
+## 9. Cadena de efectos: LED TAP
+
+Con el delay encendido en el preset cargado:
+
+- [ ] El punto rojo «TAP» del DLY parpadea al mismo ritmo que el LED de tap de la pedalera.
+- [ ] Marcar un tempo nuevo **con el pie** (tap): el LED del editor sigue el tempo nuevo sin apretar F5
+      (si no cambia hasta F5, la pedalera no avisa el TIME al marcar el tap: anotarlo).
+- [ ] Apagar el delay: el LED deja de parpadear.
+
+Notas:
+
+## 10. Cierre
 
 - [ ] Restaurar el **backup manual** del paso 0 si los presets de prueba quedaron distintos a como estaban.
 - [ ] Copiar aquí los problemas encontrados (o abrir un issue por cada uno):

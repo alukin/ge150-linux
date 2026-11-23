@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from pathlib import Path
 
-from PySide6.QtCore import QRectF, QSize, Qt
+from PySide6.QtCore import Property, QRectF, QSize, Qt
 from PySide6.QtGui import QColor, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QSizePolicy, QWidget
 
@@ -79,6 +79,7 @@ class GearView(QWidget):
         self.knobs: list[KnobState] = []
         self.on = True
         self.prefer_photo = True
+        self._zoom = 1.0  # > 1 while the chain's tile is hovered (animated)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, compact)
 
@@ -93,10 +94,24 @@ class GearView(QWidget):
     def photo(self) -> QPixmap | None:
         return load_photo(self.gear.gid) if self.prefer_photo else None
 
+    def _get_zoom(self) -> float:
+        return self._zoom
+
+    def _set_zoom(self, value: float) -> None:
+        self._zoom = value
+        self.update()
+
+    zoom = Property(float, _get_zoom, _set_zoom)
+
     def paintEvent(self, event: object) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        if self._zoom != 1.0:
+            centre = QRectF(self.rect()).center()
+            p.translate(centre)
+            p.scale(self._zoom, self._zoom)
+            p.translate(-centre)
         area = QRectF(self.rect()).adjusted(4, 4, -4, -4)
         photo = self.photo
         if photo is None:

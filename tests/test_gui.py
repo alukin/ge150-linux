@@ -435,3 +435,33 @@ def test_hearing_a_proposal_asks_before_dropping_own_changes(window: MainWindow,
     monkeypatch.setattr(QMessageBox, "question", no)
     assert not review.listen(28)
     assert "cambios sin guardar" in asked[0] and editor.state.current_slot == 22
+
+
+def test_chain_tap_led_follows_the_delay_time(window: MainWindow) -> None:
+    from ge150.model.gear import MODULE_TAGS
+
+    delay = MODULE_TAGS.index("DELAY")
+    editor, chain = window.editor, window.chain
+    tap = chain.tiles[delay].tap
+    assert tap is not None
+    if not editor.module(delay).switch:
+        chain.tiles[delay].power.click()
+        assert wait(lambda: editor.module(delay).switch)
+    window.ai_host.tools.set_module("DELAY", True, "DIGITAL", {"TIME": "500"})
+    assert wait(lambda: tap.period == 500)
+    assert "120 BPM" in tap.toolTip()
+    chain.tiles[delay].power.click()  # delay off: no blinking
+    assert wait(lambda: tap.period == 0)
+
+
+def test_chain_hover_lights_the_cables_of_that_pedal(window: MainWindow) -> None:
+    from PySide6.QtCore import QEvent, QPointF
+    from PySide6.QtGui import QEnterEvent
+
+    chain = window.chain
+    tile = chain.tiles[2]
+    QApplication.sendEvent(tile, QEnterEvent(QPointF(5, 5), QPointF(5, 5), QPointF(5, 5)))
+    assert wait(lambda: chain.wires[2].lit > 0.9 and chain.wires[3].lit > 0.9)
+    assert wait(lambda: tile.view.zoom > 1.0) and chain.wires[1].lit == 0.0
+    QApplication.sendEvent(tile, QEvent(QEvent.Type.Leave))
+    assert wait(lambda: chain.wires[2].lit < 0.01 and tile.view.zoom == 1.0)

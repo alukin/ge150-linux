@@ -147,13 +147,15 @@ QComboBox QAbstractItemView {{
 }}
 
 QFrame#chainBar {{ background: {PANEL}; border-top: 1px solid {BORDER}; }}
+QFrame#chainBar QLabel#note {{ padding-top: 2px; }}
 QFrame#moduleTile {{
     background: {RAISED}; border: 2px solid transparent; border-radius: 12px;
 }}
-QFrame#moduleTile:hover {{ border-color: {BORDER}; }}
+QFrame#moduleTile[hover="true"] {{ border-color: #8a5a2e; background: #2b2722; }}
 QFrame#moduleTile[selected="true"] {{ border-color: {ACCENT}; background: #2d2620; }}
 QLabel#tileName {{ font-weight: 800; color: {MUTED}; font-size: 11px; letter-spacing: 1px; }}
 QFrame#moduleTile[on="true"] QLabel#tileName {{ color: {TEXT}; }}
+QLabel#jackLabel {{ color: {MUTED}; font-size: 10px; font-weight: 800; letter-spacing: 1px; }}
 QLabel#modelLabel {{ font-size: 11px; }}
 QLabel#modelLabel:disabled {{ color: {MUTED}; }}
 QPushButton#power {{
