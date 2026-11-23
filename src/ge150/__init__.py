@@ -3,4 +3,4 @@
 See ``plan.md`` at the repository root for the reverse-engineered protocol.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
