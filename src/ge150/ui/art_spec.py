@@ -220,7 +220,7 @@ def _knob(p: QPainter, f: _Frame, spec: dict[str, Any], values: dict[str, Any], 
     label = spec.get("label", "")
     if detail and label:
         colour = QColor(spec.get("label_colour", "#f2f2f2"))
-        size = max(radius * 0.3, 5.0)
+        size = min(max(radius * 0.3, 5.0), 11.0)
         above = spec.get("label_at") == "above"
         y = centre.y() - radius * 1.25 - size if above else centre.y() + radius * 1.12
         box = QRectF(centre.x() - radius * 2.4, y, radius * 4.8, size * 1.3)

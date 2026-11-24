@@ -145,7 +145,7 @@ def _knob(p: QPainter, centre: QPointF, radius: float, colour: QColor, fraction:
     if detail and label:
         box = QRectF(centre.x() - radius * 2.2, centre.y() + radius * 1.12, radius * 4.4,
                      radius * 0.9)
-        _text(p, box, label, label_colour, radius * 0.62, bold=True)
+        _text(p, box, label, label_colour, min(radius * 0.62, 11.0), bold=True)
 
 
 def _knob_row(p: QPainter, r: QRectF, y: float, knobs: list[KnobState], colour: QColor,
@@ -369,7 +369,7 @@ def _micro(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], 
     knob = _knob_colour(g.knob, _c(g.panel) if g.panel else colour)
     if detail:
         _text(p, QRectF(body.left(), body.top() + h * 0.015, bw, h * 0.04), "DC IN", label,
-              bw * 0.07)
+              min(bw * 0.07, 10.0))
     ordered = _main_first(knobs) or [KnobState("", 0.5)] * 3
     big, small = ordered[0], ordered[1:3]
     for i, state in enumerate(small):

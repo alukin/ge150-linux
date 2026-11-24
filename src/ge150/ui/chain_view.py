@@ -237,7 +237,7 @@ class ModuleTile(QFrame):
         top.addStretch(1)
         top.addWidget(self.power)
         self.view = GearView(compact=True)
-        self.view.setMinimumHeight(70)
+        self.view.setMinimumHeight(56)
         self._fade = QGraphicsOpacityEffect(self.view)
         self._fade.setOpacity(1.0)
         self.view.setGraphicsEffect(self._fade)
@@ -419,7 +419,7 @@ class ChainView(QFrame):
         outer.addLayout(row, 1)
 
         self.tiles[0].set_selected(True)
-        self.setMinimumHeight(170)
+        self.setMinimumHeight(148)  # fits 1366 x 768 screens; grows up to 214
         self.setMaximumHeight(214)
 
     def select(self, index: int) -> None:

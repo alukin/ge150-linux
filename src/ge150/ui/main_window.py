@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import QSize, Qt
-from PySide6.QtGui import QAction, QCloseEvent, QIcon, QKeySequence
+from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
+    QApplication,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -32,6 +33,7 @@ from ge150.protocol.session import DeviceSession
 from ge150.services import backup as backup_service
 from ge150.services import reader
 from ge150.services.editor import Editor
+from ge150.ui import scale
 from ge150.ui.ai_host import LABELS, AiHost
 from ge150.ui.ai_panel import AIPanel
 from ge150.ui.assistant_page import AssistantPage
@@ -205,7 +207,34 @@ class MainWindow(QMainWindow):
         self._action("&Herramientas", "Mis guitarras…", lambda: self.ai_panel.manage_guitars())
         self._action("&Herramientas", "Restaurar valores de fábrica…", self.factory_reset)
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
+        self._build_size_menu()
         self._action("Ay&uda", "Acerca de", self.about)
+
+    def _build_size_menu(self) -> None:
+        """Ver → Tamaño de la interfaz: automatic (from the screen) or a fixed scale."""
+        menu = self._menus.get("&Ver") or self.menuBar().addMenu("&Ver")
+        self._menus["&Ver"] = menu
+        sizes = menu.addMenu("Tamaño de la interfaz")
+        group = QActionGroup(self)
+        current = scale.preference()
+        for value in scale.CHOICES:
+            label = ("Automático (según la pantalla)" if value == scale.AUTO
+                     else f"{float(value) * 100:.0f} %")
+            action = QAction(label, self, checkable=True)
+            action.setChecked(value == current)
+            action.triggered.connect(lambda _=False, v=value: self.set_interface_size(v))
+            group.addAction(action)
+            sizes.addAction(action)
+
+    def set_interface_size(self, value: str) -> None:
+        if value == scale.preference():
+            return
+        scale.set_preference(value)
+        answer = QMessageBox.question(
+            self, "Tamaño de la interfaz",
+            "El nuevo tamaño se aplica al reiniciar el editor. ¿Reiniciarlo ahora?")
+        if answer == QMessageBox.StandardButton.Yes and self.close():
+            QApplication.exit(scale.RESTART)
 
     def _proposed(self, edits: object, summary: str) -> None:
         """The AI proposes changes to stored presets: review them in «Asistente»."""

@@ -94,7 +94,7 @@ class ModelGallery(QListWidget):
         self.setItemDelegate(_Delegate(self))
         self.setWordWrap(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.setMinimumHeight(CELL.height() * 2 + 16)
+        self.setMinimumHeight(CELL.height() + 16)  # one row; more when there is room
         self.currentRowChanged.connect(self._row_changed)
         self._silent = False
         self._rows: list[int] = []  # model index -> row (headers have rows too; -1 = hidden)

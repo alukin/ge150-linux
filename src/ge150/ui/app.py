@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from ge150.protocol.session import DeviceSession
 from ge150.services.editor import Editor
+from ge150.ui import scale
 from ge150.ui.main_window import MainWindow
 from ge150.ui.theme import apply_theme
 from ge150.usb import open_transport
@@ -53,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     # Qt WebEngine (TONE3000 tab) needs this before the QApplication exists.
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv[:1])
+    scale.apply(app)  # may restart the process with a bigger interface (4K, 1440p)
     apply_theme(app)
     icon = resources.files("ge150.data").joinpath("ge150.svg")
     app.setWindowIcon(QIcon(str(icon)))
@@ -67,9 +69,12 @@ def main(argv: list[str] | None = None) -> int:
     window.show()
     window.start_sync()
     try:
-        return app.exec()
+        code = app.exec()
     finally:
         session.close()
+    if code == scale.RESTART:  # the user changed the interface size
+        scale.restart()
+    return code
 
 
 if __name__ == "__main__":

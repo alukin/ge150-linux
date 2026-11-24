@@ -54,7 +54,7 @@ class ModuleEditor(QFrame):
         self.setObjectName("modulePage")
 
         self.view = GearView()
-        self.view.setMinimumSize(260, 260)
+        self.view.setMinimumSize(220, 200)
         self.based_on = QLabel()
         self.based_on.setObjectName("basedOn")
         self.based_on.setAlignment(Qt.AlignmentFlag.AlignCenter)
