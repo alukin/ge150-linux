@@ -294,6 +294,8 @@ Una vez: copia la clave publicable (*Publishable Key*, `t3k_pub_…`) de los aju
 No hace falta registrar redirects: TONE3000 siempre acepta `http://127.0.0.1`. La *Secret Key* no se usa; no la
 compartas.
 
+<p align="center"><img src="docs/img/tone3000.png" alt="Pestaña TONE3000 con el catálogo y la ficha de una IR" width="900"></p>
+
 ```bash
 ge150ctl t3k-key t3k_pub_…               # guarda tu clave publicable
 ge150ctl t3k-login                    # inicia sesión en el navegador
