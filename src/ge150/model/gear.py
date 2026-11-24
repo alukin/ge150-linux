@@ -1,7 +1,8 @@
 """The real gear behind every model (``data/gear.json``) and where its photo is.
 
-A photo is looked up first in the user folder (``$XDG_DATA_HOME/ge150/photos`` or
-``~/.local/share/ge150/photos``), then among the photos shipped in ``ge150/data/photos``.
+No photos are shipped: the GUI draws every unit (``ui/gear_art.py``, ``ui/amp_art.py``). A photo
+of the user's own in ``$XDG_DATA_HOME/ge150/photos`` (``~/.local/share/ge150/photos``) is shown
+instead of the drawing.
 File name: ``<gear id>.jpg`` / ``.png`` / ``.webp``. Without a photo the GUI draws the gear.
 """
 
@@ -15,9 +16,6 @@ from importlib import resources
 from pathlib import Path
 
 PHOTO_SUFFIXES = (".jpg", ".jpeg", ".png", ".webp")
-#: Gear whose shipped photo is another one's (the same Wikimedia photo shows both).
-PHOTO_ALIASES = {"c_ac30": "ac30", "c_orange412": "ad30", "c_bassman": "bassman",
-                 "c_1960": "jcm900", "c_supersonic": "supersonic"}
 #: module index (preset layout order) -> tag used by gear.json / effects.json
 MODULE_TAGS = ("FX", "DS", "AMP", "CAB", "NS", "EQ", "MOD", "DELAY", "REVERB")
 
@@ -38,6 +36,21 @@ class Gear:
     stripes: bool = False
     reference: str = ""  # classic unit shown in the photo when the model has no real origin
     generic: bool = False  # Mooer algorithm not based on a named unit
+    # How the drawing looks when there is no photo (ui/gear_art.py, ui/amp_art.py):
+    logo_text: str = ""  # brand on amps and cabinets ("Marshall", "ENGL", ...)
+    logo: str = ""  # block, script, oval, rounded, lower, badge, z
+    logo_colour: str = ""  # a colour, "chrome" or "gold"
+    logo_pos: str = ""  # topleft, top, center, bottomright
+    grille_style: str = ""  # cloth, basket, mesh, bars, sparkle, wicker
+    piping: str = ""  # welt around the grille: a colour, "chrome" or "gold"
+    knob_style: str = ""  # amps: skirt, chrome, gold, chicken; pedals: chrome
+    corners: str = ""  # "chrome" metal corners (default: black)
+    big_knob: str = ""  # Mooer micro: colour of the big centre knob
+    accent: str = ""  # pedals: colour of the band behind the name
+    shape: str = ""  # stomp: "slope" (Marshall-style slanted top)
+    panel_side: str = ""  # combos: "right" (Tone King Falcon); heads: "top" (Mesa Mark V)
+    eq_sliders: int = 0  # graphic EQ sliders on the panel (Mesa Mark)
+    art: dict[str, object] = field(default_factory=dict)  # per-unit recipe (ui/art_spec.py)
     extra: dict[str, object] = field(default_factory=dict)
 
 
@@ -85,13 +98,10 @@ def all_gear() -> dict[str, Gear]:
 
 
 def photo_path(gid: str, extra_dirs: tuple[Path, ...] = ()) -> Path | None:
-    """First existing photo for ``gid``: extra dirs, the user folder, then the package."""
-    shipped = Path(str(resources.files("ge150.data").joinpath("photos")))
-    for folder in (*extra_dirs, user_photo_dir(), shipped):
-        names = (gid, PHOTO_ALIASES[gid]) if folder == shipped and gid in PHOTO_ALIASES else (gid,)
-        for name in names:
-            for suffix in PHOTO_SUFFIXES:
-                candidate = folder / f"{name}{suffix}"
-                if candidate.is_file():
-                    return candidate
+    """The user's own photo for ``gid`` (extra dirs first, then the user folder), if any."""
+    for folder in (*extra_dirs, user_photo_dir()):
+        for suffix in PHOTO_SUFFIXES:
+            candidate = folder / f"{gid}{suffix}"
+            if candidate.is_file():
+                return candidate
     return None

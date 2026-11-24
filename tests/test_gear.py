@@ -31,19 +31,11 @@ def test_user_photo_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     assert gear.photo_path("does-not-exist") is None
 
 
-def test_every_shipped_photo_is_credited() -> None:
-    photos = Path(gear.__file__).resolve().parents[1] / "data" / "photos"
-    credits = (photos / "CREDITS.md").read_text()
-    known = gear.all_gear()
-    shipped = list(photos.glob("*.webp"))
-    assert shipped and not list(photos.glob("*.jpg"))  # all converted to WebP
-    for photo in shipped:
-        assert photo.stem in known, photo.name
-        assert f"| `{photo.stem}` |" in credits, photo.name
-    assert "©" not in credits  # only freely licensed photos are shipped
-    for alias, target in gear.PHOTO_ALIASES.items():
-        assert f"| `{alias}` (= `{target}`) |" in credits
-        assert gear.photo_path(alias) == photos / f"{target}.webp"
+def test_no_photos_are_shipped() -> None:
+    """Every unit is drawn: photos come only from the user's folder."""
+    data = Path(gear.__file__).resolve().parents[1] / "data"
+    assert not (data / "photos").exists()
+    assert all(gear.photo_path(gid) is None for gid in gear.all_gear())
 
 
 def test_captions() -> None:

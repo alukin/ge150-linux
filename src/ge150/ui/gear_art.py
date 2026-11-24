@@ -8,6 +8,7 @@ parameter values of the preset.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPointF, QRectF, QSize, Qt
@@ -24,6 +25,7 @@ from PySide6.QtGui import (
 )
 
 from ge150.model.gear import Gear
+from ge150.ui import amp_art
 
 
 @dataclass(frozen=True)
@@ -34,12 +36,14 @@ class KnobState:
 
 
 SPEAKER_ASPECT = {"1x10": 1.05, "1x12": 1.12, "2x12": 1.5, "4x10": 1.0, "4x12": 1.0}
-KIND_ASPECT = {"stomp": 0.62, "boss": 0.58, "round": 0.86, "bigbox": 0.8, "micro": 0.5,
-               "wah": 0.46, "eq": 0.62, "head": 2.1, "acoustic": 0.72}
+KIND_ASPECT = {"stomp": 0.6, "boss": 0.58, "round": 0.86, "bigbox": 0.8, "micro": 0.5,
+               "wah": 0.62, "eq": 0.5, "head": 2.2, "acoustic": 0.72}
 
 
 def preferred_aspect(gear: Gear) -> float:
     """Width / height of the drawing."""
+    if gear.art.get("aspect"):
+        return float(gear.art["aspect"])  # type: ignore[arg-type]
     if gear.kind in ("combo", "cab"):
         base = SPEAKER_ASPECT.get(gear.speakers, 1.2)
         return base * (0.92 if gear.kind == "combo" else 1.0)
@@ -70,8 +74,12 @@ def paint_gear(p: QPainter, area: QRectF, gear: Gear, title: str, knobs: list[Kn
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     r = fit(area.adjusted(2, 2, -2, -2), preferred_aspect(gear))
     detail = r.width() >= 150 and r.height() >= 120
-    painter = _PAINTERS.get(gear.kind, _stomp)
-    painter(p, r, gear, title, knobs, on, detail)
+    if gear.art:  # a recipe laid out like the original unit
+        from ge150.ui.art_spec import paint_spec
+
+        paint_spec(p, r, gear, title, knobs, on, detail)
+    else:
+        _PAINTERS.get(gear.kind, _stomp)(p, r, gear, title, knobs, on, detail)
     if not on:
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QColor(10, 12, 16, 120))
@@ -177,42 +185,6 @@ def _footswitch(p: QPainter, centre: QPointF, radius: float) -> None:
     p.drawEllipse(centre, radius * 0.62, radius * 0.62)
 
 
-def _speaker(p: QPainter, centre: QPointF, radius: float, grille: QColor) -> None:
-    dark = grille.lightness() < 80
-    ring = grille.lighter(190) if dark else grille.darker(125)
-    p.setBrush(QColor(0, 0, 0, 45) if dark else Qt.BrushStyle.NoBrush)
-    p.setPen(QPen(ring, max(1.0, radius * 0.05)))
-    p.drawEllipse(centre, radius, radius)
-    p.setPen(QPen(grille.lighter(160) if dark else grille.darker(112), max(1.0, radius * 0.03)))
-    p.drawEllipse(centre, radius * 0.45, radius * 0.45)
-
-
-def _cloth(p: QPainter, r: QRectF, grille: QColor) -> None:
-    p.setPen(Qt.PenStyle.NoPen)
-    grad = QLinearGradient(r.topLeft(), r.bottomRight())
-    grad.setColorAt(0, grille.lighter(112))
-    grad.setColorAt(1, grille.darker(118))
-    p.setBrush(QBrush(grad))
-    p.drawRect(r)
-    p.setPen(QPen(QColor(0, 0, 0, 28), 1))
-    step = max(3.0, r.width() / 90)
-    x = r.left() - r.height()
-    while x < r.right():
-        p.drawLine(QPointF(x, r.bottom()), QPointF(x + r.height(), r.top()))
-        x += step
-
-
-def _speakers(p: QPainter, r: QRectF, layout: str, grille: QColor) -> None:
-    rows, cols = {"1x10": (1, 1), "1x12": (1, 1), "2x12": (1, 2), "4x10": (2, 2),
-                  "4x12": (2, 2)}.get(layout, (1, 1))
-    cw, ch = r.width() / cols, r.height() / rows
-    radius = min(cw, ch) * 0.4
-    for row in range(rows):
-        for col in range(cols):
-            _speaker(p, QPointF(r.left() + cw * (col + 0.5), r.top() + ch * (row + 0.5)),
-                     radius, grille)
-
-
 def _knob_colour(knob: str, body: QColor) -> QColor:
     """The gear's knob colour, or silver when it would vanish against the body."""
     colour = _c(knob, "#151515")
@@ -228,20 +200,6 @@ def _contrast(colour: QColor) -> QColor:
 # --- silhouettes ----------------------------------------------------------------------
 
 
-def _stomp(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-           detail: bool) -> None:
-    body, text = _c(g.body), _c(g.text)
-    knob = _knob_colour(g.knob, body)
-    _gradient_body(p, r, body, r.width() * 0.07)
-    w, h = r.width(), r.height()
-    inner = r.adjusted(w * 0.08, 0, -w * 0.08, 0)
-    shown = knobs[:4]
-    _knob_row(p, inner, r.top() + h * 0.17, shown, knob, text, detail, w * 0.12)
-    _led(p, QPointF(r.center().x(), r.top() + h * 0.4), w * 0.035, on)
-    _text(p, QRectF(r.left(), r.top() + h * 0.46, w, h * 0.16), title, text, w * 0.13)
-    _footswitch(p, QPointF(r.center().x(), r.top() + h * 0.79), w * 0.12)
-
-
 def _bigbox(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
             detail: bool) -> None:
     body, text = _c(g.body), _c(g.text)
@@ -250,32 +208,39 @@ def _bigbox(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState],
     w, h = r.width(), r.height()
     _knob_row(p, r.adjusted(w * 0.1, 0, -w * 0.1, 0), r.top() + h * 0.18, knobs[:3], knob,
               _contrast(body), detail, w * 0.08, 3)
-    _text(p, QRectF(r.left(), r.top() + h * 0.36, w, h * 0.2), title, text, h * 0.14)
+    _text(p, QRectF(r.left(), r.top() + h * 0.36, w, h * 0.2), g.logo_text or title, text, h * 0.14)
     _led(p, QPointF(r.left() + w * 0.82, r.top() + h * 0.62), w * 0.025, on)
     _footswitch(p, QPointF(r.center().x(), r.top() + h * 0.78), w * 0.08)
 
 
 def _boss(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
           detail: bool) -> None:
+    """BOSS compact: knobs and check LED on top, the name, then the big pedal plate with
+    the BOSS logo at its foot."""
     body, text = _c(g.body), _c(g.text)
     knob = _knob_colour(g.knob, body)
-    _gradient_body(p, r, body, r.width() * 0.05)
     w, h = r.width(), r.height()
-    _knob_row(p, r.adjusted(w * 0.06, 0, -w * 0.06, 0), r.top() + h * 0.13, knobs[:4], knob,
-              _contrast(body), detail, w * 0.1)
-    _led(p, QPointF(r.left() + w * 0.12, r.top() + h * 0.31), w * 0.03, on)
-    plate = QRectF(r.left() + w * 0.05, r.top() + h * 0.36, w * 0.9, h * 0.47)
-    _gradient_body(p, plate, body.darker(115), w * 0.04)
-    p.setPen(QPen(body.darker(160), max(1.0, w * 0.006)))
-    for i in range(1, 8):
-        y = plate.top() + plate.height() * i / 8
-        p.drawLine(QPointF(plate.left() + w * 0.06, y), QPointF(plate.right() - w * 0.06, y))
-    strip = QRectF(r.left() + w * 0.05, r.top() + h * 0.86, w * 0.9, h * 0.1)
+    _jacks(p, r, r.top() + h * 0.5, w * 0.12)
+    _gradient_body(p, r, body, w * 0.05)
+    top = QRectF(r.left() + w * 0.04, r.top() + h * 0.03, w * 0.92, h * 0.3)
     p.setPen(Qt.PenStyle.NoPen)
-    p.setBrush(QColor("#111"))
-    p.drawRect(strip)
-    _text(p, strip, title, text, strip.height() * 0.7)
-
+    p.setBrush(QColor("#0e0e0e"))
+    p.drawRoundedRect(top, w * 0.03, w * 0.03)
+    _knob_row(p, top.adjusted(w * 0.02, 0, -w * 0.02, 0), r.top() + h * 0.14, knobs[:4], knob,
+              QColor("#e8e8e8"), detail, w * 0.1)
+    _led(p, QPointF(r.center().x(), r.top() + h * 0.045), w * 0.025, on)
+    _name(p, QRectF(r.left() + w * 0.12, r.top() + h * 0.35, w * 0.76, h * 0.09),
+          g.logo_text or title, text)
+    plate = QRectF(r.left() + w * 0.05, r.top() + h * 0.47, w * 0.9, h * 0.5)
+    _gradient_body(p, plate, body.darker(112), w * 0.04)
+    p.setPen(QPen(body.darker(160), max(1.0, w * 0.006)))
+    for k in range(1, 6):
+        y = plate.top() + plate.height() * k / 9
+        p.drawLine(QPointF(plate.left() + w * 0.06, y), QPointF(plate.right() - w * 0.06, y))
+    p.setPen(QPen(body.lighter(140), max(0.8, w * 0.006)))  # the logo plate, left blank
+    p.setBrush(body.darker(125))
+    p.drawRoundedRect(QRectF(plate.left() + w * 0.2, plate.bottom() - h * 0.13, w * 0.5, h * 0.07),
+                      w * 0.01, w * 0.01)
 
 def _round(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
            detail: bool) -> None:
@@ -291,155 +256,9 @@ def _round(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], 
     p.drawEllipse(disc)
     _knob_row(p, r.adjusted(w * 0.25, 0, -w * 0.25, 0), r.top() + h * 0.28, knobs[:2], knob,
               text, detail, w * 0.09, 2)
-    _text(p, QRectF(r.left(), r.top() + h * 0.46, w, h * 0.14), title, text, h * 0.1)
+    _text(p, QRectF(r.left(), r.top() + h * 0.46, w, h * 0.14), g.logo_text or title, text, h * 0.1)
     _footswitch(p, QPointF(r.center().x(), r.top() + h * 0.72), w * 0.09)
     _led(p, QPointF(r.left() + w * 0.72, r.top() + h * 0.62), w * 0.025, on)
-
-
-def _micro(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-           detail: bool) -> None:
-    body, text = _c(g.body), _c(g.text)
-    knob = _knob_colour(g.knob, body)
-    _gradient_body(p, r, body, r.width() * 0.08)
-    w, h = r.width(), r.height()
-    shown = knobs[:6]
-    first, second = shown[:3], shown[3:]
-    inner = r.adjusted(w * 0.06, 0, -w * 0.06, 0)
-    _knob_row(p, inner, r.top() + h * 0.12, first, knob, text, detail, w * 0.13, 3)
-    if second:
-        _knob_row(p, inner, r.top() + h * 0.29, second, knob, text, detail, w * 0.13)
-    _led(p, QPointF(r.center().x(), r.top() + h * 0.43), w * 0.04, on)
-    _text(p, QRectF(r.left(), r.top() + h * 0.48, w, h * 0.13), title, text, w * 0.15)
-    _footswitch(p, QPointF(r.center().x(), r.top() + h * 0.8), w * 0.17)
-
-
-def _wah(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-         detail: bool) -> None:
-    body, text = _c(g.body), _c(g.text)
-    _gradient_body(p, r, body, r.width() * 0.12)
-    w, h = r.width(), r.height()
-    treadle = r.adjusted(w * 0.09, h * 0.05, -w * 0.09, -h * 0.12)
-    path = QPainterPath()
-    path.addRoundedRect(treadle, w * 0.08, w * 0.08)
-    p.setPen(QPen(QColor("#c9ced3"), max(1.5, w * 0.025)))
-    p.setBrush(QColor("#2a2a2a"))
-    p.drawPath(path)
-    p.setPen(QPen(QColor("#3c3c3c"), max(1.0, w * 0.012)))
-    for i in range(1, 16):
-        y = treadle.top() + treadle.height() * i / 16
-        p.drawLine(QPointF(treadle.left() + w * 0.08, y), QPointF(treadle.right() - w * 0.08, y))
-    _text(p, QRectF(treadle.left(), treadle.top() + treadle.height() * 0.42, treadle.width(),
-                    treadle.height() * 0.14), title, text, w * 0.14)
-    if g.knob.lower() not in ("#151515", ""):
-        _knob(p, QPointF(r.right() - w * 0.03, r.top() + h * 0.5), w * 0.06, _c(g.knob), 0.5, "",
-              text, False)
-    _led(p, QPointF(r.center().x(), r.bottom() - h * 0.06), w * 0.04, on)
-
-
-def _eq(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-        detail: bool) -> None:
-    body, text = _c(g.body), _c(g.text)
-    _gradient_body(p, r, body, r.width() * 0.07)
-    w, h = r.width(), r.height()
-    bands = knobs[:8] or [KnobState("", 0.5)] * 5
-    area = QRectF(r.left() + w * 0.1, r.top() + h * 0.07, w * 0.8, h * 0.42)
-    step = area.width() / len(bands)
-    for i, band in enumerate(bands):
-        x = area.left() + step * (i + 0.5)
-        p.setPen(QPen(QColor("#0d0d0d"), max(1.5, step * 0.12)))
-        p.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()))
-        y = area.bottom() - area.height() * band.fraction
-        cap = QRectF(x - step * 0.32, y - h * 0.018, step * 0.64, h * 0.036)
-        p.setPen(QPen(QColor("#111"), 1))
-        p.setBrush(QColor("#e8e8e8"))
-        p.drawRoundedRect(cap, 2, 2)
-    _led(p, QPointF(r.center().x(), r.top() + h * 0.56), w * 0.035, on)
-    _text(p, QRectF(r.left(), r.top() + h * 0.6, w, h * 0.12), title, text, w * 0.12)
-    _footswitch(p, QPointF(r.center().x(), r.top() + h * 0.83), w * 0.11)
-
-
-def _amp_panel(p: QPainter, panel: QRectF, g: Gear, knobs: list[KnobState], detail: bool) -> None:
-    colour = _c(g.panel, g.body)
-    p.setPen(QPen(colour.darker(150), 1))
-    grad = QLinearGradient(panel.topLeft(), panel.bottomLeft())
-    grad.setColorAt(0, colour.lighter(118))
-    grad.setColorAt(1, colour.darker(115))
-    p.setBrush(QBrush(grad))
-    p.drawRect(panel)
-    if g.diamond:
-        p.setPen(QPen(QColor(255, 255, 255, 60), 1))
-        step = max(4.0, panel.height() / 5)
-        x = panel.left()
-        while x < panel.right():
-            p.drawLine(QPointF(x, panel.top()), QPointF(x + step, panel.bottom()))
-            p.drawLine(QPointF(x + step, panel.top()), QPointF(x, panel.bottom()))
-            x += step
-    label = _contrast(colour)
-    inner = panel.adjusted(panel.width() * 0.04, 0, -panel.width() * 0.1, 0)
-    _knob_row(p, inner, panel.top() + panel.height() * (0.4 if detail else 0.5), knobs[:9],
-              _knob_colour(g.knob, colour), label, detail, panel.height() * 0.24, 6)
-    jewel = QPointF(panel.right() - panel.width() * 0.05, panel.center().y())
-    _led(p, jewel, panel.height() * 0.09, True)
-
-
-def _logo(p: QPainter, r: QRectF, title: str, background: QColor) -> None:
-    _text(p, r, title, _contrast(background), r.height() * 0.62)
-
-
-def _head(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-          detail: bool) -> None:
-    tolex, grille = _c(g.body), _c(g.grille, "#262626")
-    _gradient_body(p, r, tolex, r.height() * 0.08)
-    w, h = r.width(), r.height()
-    if g.stripes:
-        p.setPen(QPen(QColor("#e8e8e8"), max(1.0, h * 0.02)))
-        for i in range(5):
-            x = r.left() + w * (0.01 + i * 0.008)
-            p.drawLine(QPointF(x, r.top() + h * 0.1), QPointF(x + w * 0.02, r.bottom() - h * 0.1))
-    front = r.adjusted(w * 0.035, h * 0.1, -w * 0.035, -h * 0.08)
-    cloth = QRectF(front.left(), front.top(), front.width(), front.height() * 0.48)
-    _cloth(p, cloth, grille)
-    _logo(p, cloth.adjusted(cloth.width() * 0.25, cloth.height() * 0.22,
-                            -cloth.width() * 0.25, -cloth.height() * 0.22), title, grille)
-    panel = QRectF(front.left(), cloth.bottom() + h * 0.02, front.width(),
-                   front.bottom() - cloth.bottom() - h * 0.02)
-    _amp_panel(p, panel, g, knobs, detail)
-
-
-def _combo(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-           detail: bool) -> None:
-    tolex, grille = _c(g.body), _c(g.grille, "#262626")
-    _gradient_body(p, r, tolex, r.width() * 0.04)
-    w, h = r.width(), r.height()
-    front = r.adjusted(w * 0.04, h * 0.05, -w * 0.04, -h * 0.05)
-    panel = QRectF(front.left(), front.top(), front.width(), front.height() * 0.2)
-    _amp_panel(p, panel, g, knobs, detail)
-    cloth = QRectF(front.left(), panel.bottom() + h * 0.02, front.width(),
-                   front.bottom() - panel.bottom() - h * 0.02)
-    _cloth(p, cloth, grille)
-    _speakers(p, cloth.adjusted(w * 0.04, h * 0.06, -w * 0.04, -h * 0.04), g.speakers, grille)
-    _logo(p, QRectF(cloth.left() + cloth.width() * 0.3, cloth.top() + cloth.height() * 0.04,
-                    cloth.width() * 0.4, cloth.height() * 0.12), title, grille)
-
-
-def _cab(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
-         detail: bool) -> None:
-    tolex, grille = _c(g.body), _c(g.grille, "#262626")
-    _gradient_body(p, r, tolex, r.width() * 0.04)
-    w, h = r.width(), r.height()
-    cloth = r.adjusted(w * 0.05, h * 0.05, -w * 0.05, -h * 0.05)
-    _cloth(p, cloth, grille)
-    if g.slant:
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(255, 255, 255, 22))
-        p.drawRect(QRectF(cloth.left(), cloth.top(), cloth.width(), cloth.height() * 0.5))
-    if g.diamond:
-        p.setPen(QPen(QColor("#b8bcc0"), max(1.5, h * 0.02)))
-        p.setBrush(Qt.BrushStyle.NoBrush)
-        p.drawRect(cloth)
-    _speakers(p, cloth.adjusted(w * 0.03, h * 0.08, -w * 0.03, -h * 0.03), g.speakers, grille)
-    _logo(p, QRectF(cloth.left() + cloth.width() * 0.25, cloth.top() + cloth.height() * 0.01,
-                    cloth.width() * 0.5, cloth.height() * 0.08), title, grille)
 
 
 def _acoustic(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
@@ -477,7 +296,220 @@ def _acoustic(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState
     _text(p, QRectF(r.left(), lower.bottom() - h * 0.16, w, h * 0.08), title, text, w * 0.08)
 
 
-_PAINTERS = {
+def _jacks(p: QPainter, r: QRectF, y: float, size: float, top: bool = False) -> None:
+    """Input/output jacks sticking out of the sides (and DC jack on top)."""
+    p.setPen(QPen(QColor("#111"), max(0.6, size * 0.08)))
+    p.setBrush(QColor("#2b2b2b"))
+    for x in (r.left() - size * 0.55, r.right() - size * 0.45):
+        p.drawRoundedRect(QRectF(x, y - size * 0.5, size, size), size * 0.15, size * 0.15)
+    if top:
+        p.drawRoundedRect(QRectF(r.center().x() - size * 0.45, r.top() - size * 0.5, size * 0.9,
+                                 size * 0.8), size * 0.15, size * 0.15)
+
+
+def _name(p: QPainter, r: QRectF, title: str, colour: QColor, italic: bool = False) -> None:
+    """Pedal name in a heavy face (italic like Mooer's micro labels)."""
+    if not title:
+        return
+    font = QFont(p.font())
+    font.setWeight(QFont.Weight.Black)
+    font.setItalic(italic)
+    font.setPixelSize(100)
+    path = QPainterPath()
+    path.addText(0, 0, font, title)
+    box = path.boundingRect()
+    scale = min(r.width() * 0.92 / box.width(), r.height() * 0.85 / box.height())
+    if scale <= 0:
+        return
+    p.save()
+    p.translate(r.center())
+    p.scale(scale, scale)
+    p.translate(-box.center())
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(colour)
+    p.drawPath(path)
+    p.restore()
+
+
+_MAIN = ("TIME", "RATE", "SPEED", "DECAY", "DRIVE", "GAIN", "THRES", "THRESHOLD", "SENS", "MIX",
+         "LEVEL")
+
+
+def _main_first(knobs: list[KnobState]) -> list[KnobState]:
+    """The control a micro pedal puts on its big knob, then the others."""
+    for word in _MAIN:
+        for i, k in enumerate(knobs):
+            if k.name.upper().startswith(word):
+                return [k, *knobs[:i], *knobs[i + 1:]]
+    return list(knobs)
+
+
+def _micro(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
+           detail: bool) -> None:
+    """Mooer micro pedal: DC IN on top, two small knobs, one big knob, LED, italic name, big
+    footswitch and the MOOER wordmark, jacks on the sides."""
+    w, h = r.width(), r.height()
+    body = r.adjusted(w * 0.07, h * 0.02, -w * 0.07, 0)
+    bw = body.width()
+    colour, text = _c(g.body), _c(g.text)
+    _jacks(p, body, body.top() + h * 0.42, bw * 0.16, top=True)
+    _gradient_body(p, body, colour, bw * 0.09)
+    label = text
+    if g.panel:  # two-tone micros (E-Lady): dark panel behind the knobs
+        top = QRectF(body.left(), body.top(), bw, h * 0.47)
+        path = QPainterPath()
+        path.addRoundedRect(body, bw * 0.09, bw * 0.09)
+        p.save()
+        p.setClipPath(path)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(_c(g.panel))
+        p.drawRect(top)
+        p.restore()
+        label = _contrast(_c(g.panel))
+    knob = _knob_colour(g.knob, _c(g.panel) if g.panel else colour)
+    if detail:
+        _text(p, QRectF(body.left(), body.top() + h * 0.015, bw, h * 0.04), "DC IN", label,
+              bw * 0.07)
+    ordered = _main_first(knobs) or [KnobState("", 0.5)] * 3
+    big, small = ordered[0], ordered[1:3]
+    for i, state in enumerate(small):
+        x = body.left() + bw * (0.22 if i == 0 else 0.78)
+        _knob(p, QPointF(x, body.top() + h * 0.12), bw * 0.1, knob, state.fraction, state.name,
+              label, detail)
+    big_colour = _c(g.big_knob) if g.big_knob else knob
+    _knob(p, QPointF(body.center().x(), body.top() + h * 0.33), bw * 0.2, big_colour,
+          big.fraction, big.name, label, detail)
+    _led(p, QPointF(body.center().x(), body.top() + h * 0.515), bw * 0.045, on)
+    _name(p, QRectF(body.left() + bw * 0.1, body.top() + h * 0.56, bw * 0.8, h * 0.08),
+          g.logo_text or title, text, italic=True)
+    _footswitch(p, QPointF(body.center().x(), body.top() + h * 0.78), bw * 0.2)
+
+
+def _eq(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
+        detail: bool) -> None:
+    """Mooer Graphic micro: LEVEL knob, sliders, italic name, footswitch, MOOER."""
+    w, h = r.width(), r.height()
+    body = r.adjusted(w * 0.07, h * 0.02, -w * 0.07, 0)
+    bw = body.width()
+    colour, text = _c(g.body), _c(g.text)
+    _jacks(p, body, body.top() + h * 0.42, bw * 0.16, top=True)
+    _gradient_body(p, body, colour, bw * 0.09)
+    _knob(p, QPointF(body.center().x(), body.top() + h * 0.1), bw * 0.08,
+          _knob_colour(g.knob, colour), 0.5, "LEVEL" if detail else "", text, detail)
+    bands = knobs[:8] or [KnobState("", 0.5)] * 5
+    area = QRectF(body.left() + bw * 0.14, body.top() + h * 0.2, bw * 0.72, h * 0.3)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(0, 0, 0, 60))
+    p.drawRoundedRect(area.adjusted(-bw * 0.04, -h * 0.01, bw * 0.04, h * 0.01), 3, 3)
+    step = area.width() / len(bands)
+    for i, band in enumerate(bands):
+        x = area.left() + step * (i + 0.5)
+        p.setPen(QPen(QColor("#050505"), max(1.5, step * 0.2)))
+        p.drawLine(QPointF(x, area.top()), QPointF(x, area.bottom()))
+        y = area.bottom() - area.height() * band.fraction
+        cap = QRectF(x - step * 0.36, y - h * 0.014, step * 0.72, h * 0.028)
+        p.setPen(QPen(QColor("#111"), 1))
+        p.setBrush(QColor("#f0f0f0"))
+        p.drawRoundedRect(cap, 2, 2)
+    _led(p, QPointF(body.center().x(), body.top() + h * 0.545), bw * 0.045, on)
+    _name(p, QRectF(body.left() + bw * 0.12, body.top() + h * 0.58, bw * 0.76, h * 0.07),
+          g.logo_text or title, text, italic=True)
+    _footswitch(p, QPointF(body.center().x(), body.top() + h * 0.78), bw * 0.2)
+
+
+def _stomp(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
+           detail: bool) -> None:
+    """Standard die-cast pedal: knobs on top, LED, name (on an accent band if the pedal has
+    one), footswitch and side jacks. ``shape: slope`` gives the Marshall slanted top."""
+    w, h = r.width(), r.height()
+    body = r.adjusted(w * 0.05, 0, -w * 0.05, 0)
+    bw = body.width()
+    colour, text = _c(g.body), _c(g.text)
+    _jacks(p, body, body.top() + h * 0.36, bw * 0.12)
+    _gradient_body(p, body, colour, bw * 0.06)
+    knob = _knob_colour(g.knob, colour)
+    if g.knob_style == "chrome":
+        knob = QColor("#d7dbdf")
+    elif g.shape == "slope":  # black knobs along the top edge, like the real one
+        knob = _c(g.knob, "#151515")
+    shown = knobs[:5] if g.shape == "slope" else knobs[:4]
+    if g.shape == "slope":  # slanted top face holding the knobs and the gold name
+        face = QRectF(body.left(), body.top(), bw, h * 0.34)
+        grad = QLinearGradient(face.topLeft(), face.bottomLeft())
+        grad.setColorAt(0, colour.lighter(170))
+        grad.setColorAt(1, colour.lighter(115))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(grad))
+        p.drawRoundedRect(face, bw * 0.06, bw * 0.06)
+        _knob_row(p, body.adjusted(bw * 0.04, 0, -bw * 0.04, 0), body.top() + h * 0.09, shown,
+                  knob, _contrast(colour), detail, bw * 0.085)
+        _name(p, QRectF(body.left() + bw * 0.08, body.top() + h * 0.22, bw * 0.84, h * 0.09),
+              g.logo_text or title, text, italic=True)
+        _led(p, QPointF(body.center().x(), body.top() + h * 0.45), bw * 0.025, on)
+        _footswitch(p, QPointF(body.center().x(), body.top() + h * 0.6), bw * 0.1)
+        return
+    _knob_row(p, body.adjusted(bw * 0.08, 0, -bw * 0.08, 0), body.top() + h * 0.15, shown, knob,
+              text, detail, bw * 0.13)
+    _led(p, QPointF(body.center().x(), body.top() + h * 0.36), bw * 0.035, on)
+    band = QRectF(body.left(), body.top() + h * 0.42, bw, h * 0.2)
+    if g.accent:
+        path = QPainterPath()
+        path.moveTo(band.left(), band.bottom())
+        path.lineTo(band.left(), band.top() + band.height() * 0.35)
+        path.lineTo(band.right(), band.top() - band.height() * 0.15)
+        path.lineTo(band.right(), band.bottom() - band.height() * 0.4)
+        path.closeSubpath()
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(_c(g.accent))
+        p.drawPath(path)
+    _name(p, band.adjusted(bw * 0.08, 0, -bw * 0.08, 0), g.logo_text or title, text,
+          italic=bool(g.accent))
+    _footswitch(p, QPointF(body.center().x(), body.top() + h * 0.8), bw * 0.12)
+
+
+def _wah(p: QPainter, r: QRectF, g: Gear, title: str, knobs: list[KnobState], on: bool,
+         detail: bool) -> None:
+    """Wah seen from the front: wider cast base, rubber treadle with ridges, logo plate."""
+    w, h = r.width(), r.height()
+    colour, text = _c(g.body), _c(g.text)
+    base = QPainterPath()
+    base.moveTo(r.left() + w * 0.1, r.top() + h * 0.1)
+    base.lineTo(r.right() - w * 0.1, r.top() + h * 0.1)
+    base.lineTo(r.right(), r.bottom() - h * 0.04)
+    base.quadTo(r.right(), r.bottom(), r.right() - w * 0.05, r.bottom())
+    base.lineTo(r.left() + w * 0.05, r.bottom())
+    base.quadTo(r.left(), r.bottom(), r.left(), r.bottom() - h * 0.04)
+    base.closeSubpath()
+    grad = QLinearGradient(r.topLeft(), r.bottomLeft())
+    grad.setColorAt(0, colour.lighter(150))
+    grad.setColorAt(1, colour.darker(130))
+    p.setPen(QPen(colour.darker(200), max(1.0, w * 0.01)))
+    p.setBrush(QBrush(grad))
+    p.drawPath(base)
+    treadle = QRectF(r.left() + w * 0.06, r.top(), w * 0.88, h * 0.56)
+    p.setBrush(QColor("#1b1b1b"))
+    p.setPen(QPen(QColor("#050505"), max(1.0, w * 0.012)))
+    p.drawRoundedRect(treadle, w * 0.1, w * 0.1)
+    p.setPen(QPen(QColor("#303030"), max(1.0, h * 0.006)))
+    for i in range(1, 14):
+        y = treadle.top() + treadle.height() * i / 14
+        p.drawLine(QPointF(treadle.left() + w * 0.08, y), QPointF(treadle.right() - w * 0.08, y))
+    plate = QRectF(r.left() + w * 0.16, r.top() + h * 0.62, w * 0.68, h * 0.24)
+    p.setPen(QPen(QColor("#3a3a3a"), max(1.0, w * 0.01)))
+    p.setBrush(QColor("#0c0c0c"))
+    p.drawRoundedRect(plate, w * 0.03, w * 0.03)
+    _name(p, plate.adjusted(w * 0.04, h * 0.02, -w * 0.04, -h * 0.02), g.logo_text or title,
+          text)
+    if g.knob.lower() not in ("#151515", ""):  # the 535Q's red side knobs
+        _knob(p, QPointF(r.right() - w * 0.05, r.top() + h * 0.74), w * 0.06, _c(g.knob), 0.5,
+              "", text, False)
+    _led(p, QPointF(r.center().x(), r.bottom() - h * 0.05), w * 0.03, on)
+
+
+Painter = Callable[[QPainter, QRectF, Gear, str, list[KnobState], bool, bool], None]
+
+_PAINTERS: dict[str, Painter] = {
     "stomp": _stomp, "bigbox": _bigbox, "boss": _boss, "round": _round, "micro": _micro,
-    "wah": _wah, "eq": _eq, "head": _head, "combo": _combo, "cab": _cab, "acoustic": _acoustic,
+    "wah": _wah, "eq": _eq, "head": amp_art.head, "combo": amp_art.combo, "cab": amp_art.cab,
+    "acoustic": _acoustic,
 }
