@@ -1,0 +1,50 @@
+# Publish to PyPI with trusted publishing (no token): runs when a GitHub release is published,
+# or by hand from the Actions tab. PyPI: project "ge150-linux", owner "wh01s17", repository
+# "ge150-linux", workflow "publish.yml", environment "pypi".
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Absolute links in the README (PyPI cannot resolve repository paths)
+        run: |
+          base="https://github.com/${GITHUB_REPOSITORY}"
+          raw="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}"
+          sed -i -E \
+            -e "s#src=\"(docs/[^\"]+)\"#src=\"${raw}/\1\"#g" \
+            -e "s#\]\(((docs|src)/[^)]+|[A-Za-z]+\.md|LICENSE)\)#](${base}/blob/${GITHUB_SHA}/\1)#g" \
+            README.md
+      - name: Build the wheel and the source archive
+        run: |
+          python -m pip install --upgrade build twine
+          python -m build
+          python -m twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/ge150-linux
+    permissions:
+      id-token: write  # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1

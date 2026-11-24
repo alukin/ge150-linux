@@ -3,13 +3,24 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ge150"
+name = "ge150-linux"
 version = "0.2.1"
 description = "Linux editor and CLI for the Mooer GE150 multi-effects pedal"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [{ name = "wh01s17" }]
+keywords = ["mooer", "ge150", "guitar", "multi-effects", "pedal", "editor", "linux"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: Spanish",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Sound/Audio",
+]
 dependencies = []
 
 [project.optional-dependencies]
@@ -17,6 +28,12 @@ usb = ["pyusb>=1.2"]
 gui = ["PySide6>=6.5", "markdown-it-py>=3"]
 ai = ["mcp>=2.3,<3"]
 dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10"]
+
+[project.urls]
+Homepage = "https://github.com/wh01s17/ge150-linux"
+Repository = "https://github.com/wh01s17/ge150-linux"
+Changelog = "https://github.com/wh01s17/ge150-linux/blob/main/CHANGELOG.md"
+Issues = "https://github.com/wh01s17/ge150-linux/issues"
 
 [project.scripts]
 ge150ctl = "ge150.cli:main"
@@ -27,7 +44,7 @@ ge150-mcp = "ge150.mcp_server.server:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-ge150 = ["data/*.json", "data/*.svg", "data/photos/*"]
+ge150 = ["data/*.json", "data/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

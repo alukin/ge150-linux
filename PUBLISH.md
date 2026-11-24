@@ -8,7 +8,7 @@ y el paquete de AUR. Los comandos usan `X.Y.Z` como ejemplo; reemplázalo por la
 1. Pruebas en verde y verificación con la pedalera.
 2. Subir la versión en **3 archivos** y cerrar el `CHANGELOG.md`.
 3. Commit, tag `vX.Y.Z` y push del tag.
-4. Release en GitHub con las notas del changelog.
+4. Release en GitHub con las notas del changelog (publica en PyPI sola).
 5. Actualizar el paquete de AUR.
 6. Dejar el changelog listo para lo que viene.
 
@@ -98,13 +98,24 @@ awk -v version='X.Y.Z' 'index($0, "## [" version "] - ") == 1 {show=1; next}
     show {gsub(/\]\(docs\//, "](https://github.com/wh01s17/ge150-linux/blob/v" version "/docs/"); print}' \
     CHANGELOG.md > /tmp/notas-X.Y.Z.md
 gh release create vX.Y.Z --verify-tag \
-  dist/vX.Y.Z/ge150-X.Y.Z-py3-none-any.whl dist/vX.Y.Z/ge150-X.Y.Z.tar.gz \
+  dist/vX.Y.Z/ge150_linux-X.Y.Z-py3-none-any.whl dist/vX.Y.Z/ge150_linux-X.Y.Z.tar.gz \
   --title "ge150-linux X.Y.Z" --notes-file /tmp/notas-X.Y.Z.md
 ```
 
 Revisar la página de la release: notas bien formateadas y los dos archivos adjuntos.
 
-## 6. Paquete de AUR
+## 6. PyPI (automático)
+
+Al publicar la release de GitHub, el workflow [`publish.yml`](.github/workflows/publish.yml) construye el paquete
+y lo sube a PyPI como [`ge150-linux`](https://pypi.org/p/ge150-linux), con *trusted publishing* (sin tokens).
+Se puede relanzar a mano desde *Actions → Publish to PyPI → Run workflow*. Revisar que el job termine en verde y
+que la versión nueva aparezca en PyPI.
+
+Configuración (una sola vez): en PyPI, *Publishing → Add a new pending publisher → GitHub* con proyecto
+`ge150-linux`, propietario `wh01s17`, repositorio `ge150-linux`, workflow `publish.yml` y entorno `pypi`; en
+GitHub, el entorno `pypi` (*Settings → Environments*).
+
+## 7. Paquete de AUR
 
 El paquete es `ge150-linux-git`: compila desde el último commit de `main`, así que **no hace falta publicarlo en
 cada versión**; solo cuando cambia el `PKGBUILD` (dependencias, archivos instalados) o la primera vez.
@@ -127,7 +138,7 @@ git add PKGBUILD .SRCINFO && git commit -m "Update to X.Y.Z" && git push
 Comprobar: `yay -S ge150-linux-git` (o `paru`) en otra máquina o en un usuario limpio, conectar la pedalera y abrir
 `ge150`.
 
-## 7. Después de publicar
+## 8. Después de publicar
 
 - Agregar arriba del `CHANGELOG.md` la sección para lo que viene:
 

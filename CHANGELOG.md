@@ -6,6 +6,21 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Añadido
+
+- Disponible en PyPI como [`ge150-linux`](https://pypi.org/p/ge150-linux) (`pip install 'ge150-linux[gui,ai]'`); cada
+  release de GitHub se publica sola con *trusted publishing*.
+
+### Cambiado
+
+- Ya no se incluyen fotos: los 131 equipos se dibujan a partir del original, con un estilo uniforme. Los
+  amplificadores y gabinetes llevan el logo de su marca con su estilo (cursiva de Marshall y Fender, óvalo de EVH,
+  placa de Mesa…), su rejilla (tela, cesta, metal perforado, barras, rombos de VOX, franjas de EVH), manija,
+  esquineros y un panel con interruptores y piloto; los pedales MOOER micro tienen su diseño real (perilla grande,
+  DC IN, jacks y logo MOOER), los BOSS su placa, y los demás pedales su nombre impreso, su franja de color o su
+  forma (Cry Baby, ShredMaster, Direct Drive). Tu propia foto en `~/.local/share/ge150/photos/` sigue
+  reemplazando al dibujo.
+
 ## [0.2.1] - 2026-11-23
 
 ### Cambiado

@@ -29,6 +29,14 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
   conversaciones con la IA y cabinas de TONE3000.
 - Verificación automática con la pedalera real: `ge150ctl hw-check`.
 
+## Instalación con pip
+
+```bash
+pip install 'ge150-linux[gui,ai]'   # interfaz gráfica y asistente IA; sin extras, solo la CLI ge150ctl
+```
+
+Además hace falta la regla udev de abajo para usar la pedalera sin root.
+
 ## Instalación en Arch Linux
 
 ```bash
@@ -63,10 +71,9 @@ ge150 --sim      # con el simulador, sin hardware
   modelos para elegir y perillas: se giran arrastrando, con la rueda o con las flechas, y con doble clic se
   escribe el valor.
 - En las cabinas, el micrófono se arrastra frente al parlante para cambiar CENTER y DISTANCE.
-- Solo se incluyen fotos con licencia libre (Wikimedia Commons, en WebP; ver
-  [`CREDITS.md`](src/ge150/data/photos/CREDITS.md)); los demás equipos se dibujan. Fotos propias: pon `<id>.jpg`,
-  `.png` o `.webp` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en `src/ge150/data/gear.json`).
-  Tienen prioridad sobre las incluidas.
+- Cada equipo se dibuja a partir del original (marca, colores, rejilla, perillas). Si prefieres una foto propia,
+  pon `<id>.jpg`, `.png` o `.webp` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en
+  `src/ge150/data/gear.json`) y se muestra en lugar del dibujo.
 - Pestaña **TONE3000**: el catálogo de IR de cabinas de [TONE3000](https://www.tone3000.com) dentro de la app. Al
   elegir una IR aparece su ficha (imagen, autor, licencia, descripción y archivos) con la ranura de destino y
   **Agregar a la pedalera**. Necesita `qt6-webengine`; sin él, el catálogo se abre en el navegador.
