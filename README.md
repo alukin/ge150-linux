@@ -12,6 +12,27 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 
 <p align="center"><img src="docs/img/efectos.png" alt="Pestaña Efectos con el panel de IA" width="900"></p>
 
+## Índice
+
+- [Qué puede hacer](#qué-puede-hacer)
+- [Instalación](#instalación)
+  - [Con pipx (recomendada)](#con-pipx-recomendada)
+  - [Con pip en un entorno virtual](#con-pip-en-un-entorno-virtual)
+  - [Paquete de Arch Linux](#paquete-de-arch-linux)
+  - [Acceso a la pedalera sin root](#acceso-a-la-pedalera-sin-root)
+  - [Acceso directo en el menú](#acceso-directo-en-el-menú-opcional-pipxpip)
+  - [Para desarrollar](#para-desarrollar)
+- [Actualizar](#actualizar)
+- [Desinstalar](#desinstalar)
+- [Interfaz gráfica](#interfaz-gráfica)
+- [Línea de comandos](#línea-de-comandos)
+- [Asistente de tono con IA](#asistente-de-tono-con-ia)
+  - [Tus guitarras](#tus-guitarras)
+  - [La pedalera como servidor MCP](#la-pedalera-como-servidor-mcp)
+- [Cabinas de TONE3000](#cabinas-de-tone3000)
+- [Desarrollo](#desarrollo)
+- [Licencia](#licencia)
+
 ## Qué puede hacer
 
 - Leer los 200 presets, el preset actual decodificado (modelos y parámetros), los IR de usuario y el
@@ -29,33 +50,114 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
   conversaciones con la IA y cabinas de TONE3000.
 - Verificación automática con la pedalera real: `ge150ctl hw-check`.
 
-## Instalación con pip
+## Instalación
+
+Necesitas Linux y Python 3.11 o superior. Elige **una** de estas formas:
+
+### Con pipx (recomendada)
+
+[pipx](https://pipx.pypa.io/) instala la app en su propio entorno, sin tocar los paquetes del sistema. En Arch y
+otras distribuciones actuales, `pip install` fuera de un entorno virtual está bloqueado; pipx lo resuelve.
 
 ```bash
-pip install 'ge150-linux[gui,ai]'   # interfaz gráfica y asistente IA; sin extras, solo la CLI ge150ctl
+sudo pacman -S python-pipx                 # Arch; en Debian/Ubuntu: sudo apt install pipx
+pipx install 'ge150-linux[gui,ai]'         # ge150 (interfaz), ge150ctl (CLI) y ge150-mcp (IA)
+pipx ensurepath                            # agrega ~/.local/bin al PATH (abre otra terminal después)
 ```
 
-Además hace falta la regla udev de abajo para usar la pedalera sin root.
+Los extras son opcionales: `gui` instala la interfaz gráfica (PySide6) y `ai` el asistente IA (SDK de MCP). Con
+`pipx install ge150-linux` queda solo la CLI. El catálogo de TONE3000 dentro de la app necesita además
+`qt6-webengine` del sistema; sin él se abre en el navegador.
 
-## Instalación en Arch Linux
+### Con pip en un entorno virtual
 
 ```bash
-cd packaging && makepkg -si     # instala ge150, ge150ctl, la regla udev, el .desktop y el icono
+python3 -m venv ~/.local/share/ge150-venv
+~/.local/share/ge150-venv/bin/pip install 'ge150-linux[gui,ai]'
+~/.local/share/ge150-venv/bin/ge150        # o agrega esa carpeta bin al PATH
 ```
 
-## Instalación (desarrollo)
+### Paquete de Arch Linux
+
+Desde el repositorio clonado (instala también la regla udev, el acceso directo del menú y el ícono):
 
 ```bash
-python3 -m venv --system-site-packages .venv   # reutiliza PySide6 y pyusb del sistema
-.venv/bin/pip install -e '.[gui,dev]'          # PySide6 solo se instala si el sistema no lo tiene
+git clone https://github.com/wh01s17/ge150-linux.git
+cd ge150-linux/packaging && makepkg -si
 ```
 
-Acceso a la pedalera sin root (una sola vez):
+### Acceso a la pedalera sin root
+
+Una sola vez, y solo si no usaste el paquete de Arch (que ya la instala). Después, desconecta y vuelve a conectar
+la pedalera:
 
 ```bash
-sudo cp udev/70-mooer-ge150.rules /etc/udev/rules.d/
+curl -fsSL https://raw.githubusercontent.com/wh01s17/ge150-linux/main/udev/70-mooer-ge150.rules \
+  | sudo tee /etc/udev/rules.d/70-mooer-ge150.rules
 sudo udevadm control --reload && sudo udevadm trigger
 ```
+
+Para comprobar que la ve: `ge150ctl probe` (debe mostrar `MOOER_GE150` y el firmware).
+
+### Acceso directo en el menú (opcional, pipx/pip)
+
+```bash
+base=https://raw.githubusercontent.com/wh01s17/ge150-linux/main/packaging
+curl -fsSL $base/ge150.desktop -o ~/.local/share/applications/ge150.desktop
+mkdir -p ~/.local/share/icons/hicolor/scalable/apps
+curl -fsSL $base/ge150.svg -o ~/.local/share/icons/hicolor/scalable/apps/ge150.svg
+```
+
+### Para desarrollar
+
+```bash
+git clone https://github.com/wh01s17/ge150-linux.git && cd ge150-linux
+python3 -m venv --system-site-packages .venv   # reutiliza PySide6 y pyusb del sistema
+.venv/bin/pip install -e '.[gui,ai,dev]'       # PySide6 solo se instala si el sistema no lo tiene
+```
+
+## Actualizar
+
+| Instalación | Comando |
+|---|---|
+| pipx | `pipx upgrade ge150-linux` |
+| pip en entorno virtual | `~/.local/share/ge150-venv/bin/pip install -U 'ge150-linux[gui,ai]'` |
+| Paquete de Arch | `git pull` en el repositorio clonado y otra vez `cd packaging && makepkg -si` |
+| Desarrollo | `git pull` (con `pip install -e` los cambios del código se usan al instante) |
+
+Las novedades de cada versión están en [`CHANGELOG.md`](CHANGELOG.md). Tus presets viven en la pedalera y tus
+datos en tu carpeta personal: actualizar no los toca.
+
+## Desinstalar
+
+1. Quitar la app, según cómo la instalaste:
+
+   ```bash
+   pipx uninstall ge150-linux                 # pipx
+   rm -rf ~/.local/share/ge150-venv           # pip en entorno virtual
+   sudo pacman -Rns ge150-linux-git           # paquete de Arch (quita también la regla udev y el menú)
+   ```
+
+2. Si la registraste para Claude Code o Codex (`ge150ctl mcp-install`):
+
+   ```bash
+   claude mcp remove --scope user ge150
+   codex mcp remove ge150
+   ```
+
+3. Si instalaste a mano la regla udev o el acceso directo:
+
+   ```bash
+   sudo rm /etc/udev/rules.d/70-mooer-ge150.rules && sudo udevadm control --reload
+   rm ~/.local/share/applications/ge150.desktop ~/.local/share/icons/hicolor/scalable/apps/ge150.svg
+   ```
+
+4. Tus datos se conservan por si vuelves a instalar. Para borrarlos también (**incluye los backups automáticos de
+   la pedalera, las conversaciones con la IA y tus guitarras**):
+
+   ```bash
+   rm -rf ~/.config/ge150 ~/.local/share/ge150 ~/.cache/ge150
+   ```
 
 ## Interfaz gráfica
 
@@ -63,6 +165,10 @@ sudo udevadm control --reload && sudo udevadm trigger
 ge150            # con la pedalera conectada
 ge150 --sim      # con el simulador, sin hardware
 ```
+
+- En pantallas grandes (4K, 1440p) la interfaz se agranda sola si el sistema no la escala; para fijar otro tamaño:
+  *Ver → Tamaño de la interfaz* (se aplica al reiniciar). La variable `QT_SCALE_FACTOR`, si la defines, tiene
+  prioridad.
 
 - Abajo, siempre visible, la **cadena de efectos** (de IN a OUT): cada módulo con la imagen de su equipo, el
   modelo y su LED de encendido. Un clic abre su página.

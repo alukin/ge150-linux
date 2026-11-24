@@ -6,6 +6,15 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Añadido
+
+- La interfaz se adapta a la pantalla: en 4K o 1440p sin escalado del sistema se agranda sola (como 1080p, pero
+  nítida), y *Ver → Tamaño de la interfaz* permite elegir 100 %–250 %. También cabe en pantallas de 1366 × 768.
+
+### Cambiado
+
+- Las etiquetas de los pedales (DC IN, nombres de perillas) mantienen su tamaño real en la vista grande.
+
 ## [0.3.0] - 2026-11-23
 
 ### Añadido
