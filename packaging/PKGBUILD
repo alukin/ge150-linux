@@ -1,6 +1,6 @@
 # Maintainer: wh01s17
 pkgname=ge150-linux-git
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Linux editor (GUI and CLI) for the Mooer GE150 multi-effects pedal"
 arch=('any')
@@ -18,7 +18,7 @@ sha256sums=('SKIP')
 
 pkgver() {
   cd "$pkgname"
-  printf "0.3.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  printf "0.4.0.r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 build() {
