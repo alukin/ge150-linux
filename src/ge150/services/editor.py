@@ -10,12 +10,14 @@ from __future__ import annotations
 import contextlib
 import queue
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from ge150.model.catalog import ModuleInfo, Param, load_catalog
 from ge150.model.device_state import DeviceState
+from ge150.model.exp import ExpSettings
 from ge150.model.preset import (
     EXP_A,
+    EXP_B,
     EXP_KEYS,
     EXP_OFFSET,
     MODULES,
@@ -175,6 +177,28 @@ class Editor:
         frame_a, frame_b = msg.write_exp(words)
         self.session.send(frame_a if EXP_A.start <= position < EXP_A.stop else frame_b)
         self.state.set_edit_words(words)
+
+    def exp_settings(self) -> ExpSettings:
+        return ExpSettings.from_words(self._edit().words)
+
+    def set_exp_settings(self, settings: ExpSettings) -> None:
+        """Send the expression pedal settings (live: save the preset to keep them)."""
+        self.write_exp_words(settings.to_words(self._edit().words))
+
+    def write_exp_words(self, preset_words: Sequence[int]) -> None:
+        """Put the EXP settings of ``preset_words`` (72 words) in the edit buffer, sending
+        only the blocks that differ."""
+        edit = self._edit()
+        words = list(edit.words)
+        frames = msg.write_exp(list(preset_words))
+        changed = False
+        for part, frame in zip((EXP_A, EXP_B), frames, strict=True):
+            if words[part] != list(preset_words[part]):
+                self.session.send(frame)
+                words[part] = preset_words[part]
+                changed = True
+        if changed:
+            self.state.set_edit_words(words)
 
     def select(self, slot: int, refresh: bool = True) -> None:
         self.session.send(msg.select_preset(slot))
