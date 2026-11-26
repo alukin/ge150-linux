@@ -8,7 +8,15 @@ import os
 import sys
 from importlib import resources
 
-from PySide6.QtCore import QCoreApplication, QLoggingCategory, QStandardPaths, Qt, QTimer
+from PySide6.QtCore import (
+    QCoreApplication,
+    QLibraryInfo,
+    QLoggingCategory,
+    QStandardPaths,
+    Qt,
+    QTimer,
+    QTranslator,
+)
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -58,6 +66,12 @@ def main(argv: list[str] | None = None) -> int:
     # Qt WebEngine (TONE3000 tab) needs this before the QApplication exists.
     QCoreApplication.setAttribute(Qt.ApplicationAttribute.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv[:1])
+    if args.language != DEFAULT_LANGUAGE:
+        # Qt supplies the translations for standard dialog buttons.
+        qt_catalog = QTranslator(app)
+        qt_directory = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+        if qt_catalog.load(f"qtbase_{args.language}", qt_directory):
+            app.installTranslator(qt_catalog)
     scale.apply(app)  # may restart the process with a bigger interface (4K, 1440p)
     apply_theme(app)
     icon = resources.files("ge150.data").joinpath("ge150.svg")
