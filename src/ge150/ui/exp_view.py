@@ -675,16 +675,27 @@ class ExpPage(QFrame):
         if not (settings.function_on and settings.param_name) \
                 or (settings.module, settings.para) == keep:
             return
-        saved = self._before.pop((self.editor.state.current_slot, settings.module,
-                                  settings.para), None)
+        slot = self.editor.state.current_slot
+        saved = self._before.pop((slot, settings.module, settings.para), None)
+        why = "su valor antes del pedal"
+        if saved is None:
+            # Assigned in the stored preset (not on this page): the live value follows the
+            # pedal, the stored one does not, so that is the one to go back to.
+            stored = self.editor.state.presets.get(slot or 0)
+            if stored is not None:
+                block = stored.module(settings.module)
+                param = self._param_of(settings.module, settings.para)
+                if param is not None:
+                    saved = (block.type, block.words[param.word])
+                    why = "su valor guardado en el preset"
         param = self._param_of(settings.module, settings.para)
         block = self.editor.module(settings.module)
         if saved is None or param is None or saved[0] != block.type:
-            return  # assigned before this page saw it, or another model since: unknown
+            return  # another model since: the value would mean something else
         if block.words[param.word] != saved[1]:
             self.editor.set_word(settings.module, param.word, saved[1])
             self.message.emit(f"{param.name} del {MODULES[settings.module].name} vuelve a "
-                              f"{param.format(saved[1])}, su valor antes del pedal")
+                              f"{param.format(saved[1])}, {why}")
 
     def _choose_mode(self, mode: str) -> None:
         self.view = mode

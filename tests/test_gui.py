@@ -757,3 +757,27 @@ def test_loading_dots_move_until_the_pedal_is_read(window: MainWindow) -> None:
     assert seen[3] == "Conectando."  # and again
     assert wait(lambda: not window._loading.isActive() and window.central.isEnabled())
     assert window.name.text() != "Conectando."
+
+
+def test_a_stored_assignment_lets_go_back_to_the_saved_value(window: MainWindow) -> None:
+    # The user's case: the preset came with the pedal moving the chorus MIX; the pedal left
+    # MIX at 100 and switching to volume kept it there. It goes back to the saved value.
+    from ge150.model import exp
+    editor, page = window.editor, window.exp_page
+    chorus = next(i for i, m in enumerate(editor.catalog[6].models) if m.name == "ANA-CHORUS")
+    editor.set_type(6, chorus)
+    editor.set_switch(6, True)
+    editor.set_param(6, "MIX", 35)
+    settings = editor.exp_settings()
+    settings.module, settings.para = 6, exp.para_index(6, "MIX") or 0
+    settings.function_on, settings.volume_on = True, False
+    editor.set_exp_settings(settings)
+    editor.save()  # stored like that, assigned before the page ever saw it
+    editor.set_param(6, "MIX", 100)  # where the pedal left it
+    window.open_exp()
+    messages: list[str] = []
+    page.message.connect(messages.append)
+    page._choose_mode("volume")
+    mix = editor.find_param(6, "MIX")
+    assert mix.from_raw(editor.module(6).words[mix.word]) == 35
+    assert messages and "guardado en el preset" in messages[-1]

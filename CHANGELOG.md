@@ -6,6 +6,12 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Corregido
+
+- Pedal de expresión: al pasar a volumen (o a nada) un preset que ya venía con el pedal moviendo un parámetro,
+  ese parámetro se quedaba donde lo dejó el pedal (por ejemplo, el MIX del chorus en 100). Ahora vuelve al valor
+  guardado en el preset.
+
 ## [0.5.0] - 2026-11-26
 
 ### Añadido
