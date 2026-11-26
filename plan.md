@@ -310,6 +310,9 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
   **sí avisa por USB**) y, con la función activa, `0x03 MODULE_DS` con GAIN siguiendo la posición del pedal
   (100 → 0 → 100…, ~30 tramas): la posición del pedal se puede ver en vivo a través del parámetro asignado.
   Al apagar la función con la punta, el parámetro queda donde estaba el pedal (GAIN 0).
+  **En modo volumen no informa la posición [V hardware, 2026-11-26]**: preset con `FUN_SWITCH` 0 y `VOL_SWITCH` 1
+  (0..100), pedal movido de talón a punta varias veces durante ~2 min: no llegó ninguna trama (solo dos `0x16`
+  por cambiar de preset). La vista lateral solo puede seguir al pedal cuando mueve un parámetro.
   GUI (2026-11-26): vista lateral con la posición en vivo (desde el parámetro asignado). Sin botón de calibrar:
   la calibración solo se hace en la pedalera y no deja nada que la app pueda leer o mostrar.
 
