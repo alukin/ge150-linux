@@ -243,3 +243,4 @@ Comprobar: `yay -S ge150-linux-git` (o `paru`) en otra máquina o en un usuario 
 | 0.4.0 | 2026-11-23 | Interfaz escalada según la pantalla. |
 | 0.5.0 | 2026-11-26 | Ordenar presets arrastrándolos y página del pedal de expresión. |
 | 0.5.1 | 2026-11-26 | El parámetro que soltaba el pedal vuelve a su valor guardado. |
+| 0.6.0 | 2026-11-26 | Accesos directos automáticos para pipx/pip. |
