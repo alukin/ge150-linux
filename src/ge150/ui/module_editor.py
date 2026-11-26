@@ -182,7 +182,7 @@ class ModuleEditor(QFrame):
 
     def _show_switch(self, on: bool) -> None:
         self.switch.setChecked(on)
-        self.switch.setText("ON" if on else "OFF")
+        self.switch.setText(tr("ON" if on else "OFF"))
 
     def _update_view(self) -> None:
         gear, title, knobs, on = module_look(self.editor, self.index)
@@ -234,7 +234,7 @@ class ModuleEditor(QFrame):
         self._update_view()
 
     def _on_switch(self, on: bool) -> None:
-        self.switch.setText("ON" if on else "OFF")
+        self.switch.setText(tr("ON" if on else "OFF"))
         if self._loading or self.editor.state.edit is None:
             return
         self._flush()
