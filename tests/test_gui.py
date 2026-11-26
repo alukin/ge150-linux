@@ -781,3 +781,29 @@ def test_a_stored_assignment_lets_go_back_to_the_saved_value(window: MainWindow)
     mix = editor.find_param(6, "MIX")
     assert mix.from_raw(editor.module(6).words[mix.word]) == 35
     assert messages and "guardado en el preset" in messages[-1]
+
+
+def test_first_start_offers_shortcuts_once(window: MainWindow,
+                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    from ge150.services import shortcuts
+    monkeypatch.setattr(shortcuts, "_run", lambda *args: None)
+    monkeypatch.setenv("XDG_CURRENT_DESKTOP", "Hyprland")
+    asked: list[str] = []
+
+    def no(box: QMessageBox) -> int:  # «Ahora no»
+        asked.append(box.text())
+        return 0
+
+    monkeypatch.setattr(QMessageBox, "exec", no)
+    window.offer_shortcuts()
+    assert asked and "lanzador de aplicaciones de Hyprland" in asked[0]
+    assert not shortcuts.installed()
+    window.offer_shortcuts()  # asked once only
+    assert len(asked) == 1
+    window._refresh_shortcuts_action()  # still in Archivo
+    assert window.shortcuts_action.text() == "Crear accesos directos…"
+    window.toggle_shortcuts()
+    assert shortcuts.installed()
+    assert window.shortcuts_action.text() == "Quitar accesos directos"
+    window.toggle_shortcuts()  # QMessageBox.question is patched to Yes
+    assert not shortcuts.installed()

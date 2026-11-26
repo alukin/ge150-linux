@@ -7,7 +7,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt, QTimer
+from PySide6.QtCore import QSettings, QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -31,7 +31,7 @@ from ge150.formats import mbf, mo_json
 from ge150.model import device_state as ds
 from ge150.model.preset import NAME_LEN, is_valid_name
 from ge150.protocol.session import DeviceSession
-from ge150.services import auto_backup, bulk_edit, reader
+from ge150.services import auto_backup, bulk_edit, reader, shortcuts
 from ge150.services import backup as backup_service
 from ge150.services.editor import Editor
 from ge150.ui import scale
@@ -216,6 +216,13 @@ class MainWindow(QMainWindow):
         self._action("&Archivo", "Restaurar backup (.mbf)…", self.restore)
         self._action("&Archivo", "Abrir carpeta de backups automáticos",
                      self.open_auto_backups)
+        archive = self._menus["&Archivo"]
+        archive.addSeparator()
+        self.shortcuts_action = self._action("&Archivo", "Crear accesos directos…",
+                                             self.toggle_shortcuts)
+        archive.aboutToShow.connect(self._refresh_shortcuts_action)
+        self._refresh_shortcuts_action()
+        archive.addSeparator()
         self._action("&Archivo", "Salir", self.close, "Ctrl+Q")
         self._action("&Preset", "Guardar", self.save_current, "Ctrl+S")
         self._action("&Preset", "Guardar en otra ranura…", self.save_as, "Ctrl+Shift+S")
@@ -229,6 +236,67 @@ class MainWindow(QMainWindow):
         self._action("&Herramientas", "Volver a leer la pedalera", self.start_sync, "F5")
         self._build_size_menu()
         self._action("Ay&uda", "Acerca de", self.about)
+
+    # --- shortcuts to open the editor (pipx/pip installs bring none) -------------
+
+    SHORTCUTS_ASKED = "shortcuts/asked"
+
+    def offer_shortcuts(self) -> None:
+        """At the first start: offer the menu entry (and desktop icon) that fit this desktop.
+        Asked once; Archivo → Crear accesos directos stays for later."""
+        settings = QSettings("ge150", "editor")
+        if settings.value(self.SHORTCUTS_ASKED, False, bool) or shortcuts.installed():
+            return
+        settings.setValue(self.SHORTCUTS_ASKED, True)
+        plan = shortcuts.plan()
+        box = QMessageBox(self)
+        box.setWindowTitle("Accesos directos")
+        box.setIcon(QMessageBox.Icon.Question)
+        box.setText(f"¿Agregar {shortcuts.NAME} a {plan.describe()}?")
+        box.setInformativeText("Si no, puedes hacerlo cuando quieras desde Archivo → Crear "
+                               "accesos directos.")
+        create = box.addButton("Agregar", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Ahora no", QMessageBox.ButtonRole.RejectRole)
+        box.setDefaultButton(create)
+        box.exec()
+        if box.clickedButton() is create:
+            self._create_shortcuts()
+
+    def _own_shortcuts(self) -> bool:
+        return any(path.is_file() for path in (shortcuts.plan().menu, shortcuts.plan().desktop)
+                   if path is not None)
+
+    def _refresh_shortcuts_action(self) -> None:
+        plan = shortcuts.plan()
+        if plan.menu is None and plan.desktop is None:
+            self.shortcuts_action.setText("Accesos directos (ya los instaló el sistema)")
+            self.shortcuts_action.setEnabled(False)
+            return
+        self.shortcuts_action.setEnabled(True)
+        self.shortcuts_action.setText("Quitar accesos directos" if self._own_shortcuts()
+                                      else "Crear accesos directos…")
+
+    def toggle_shortcuts(self) -> None:
+        if not self._own_shortcuts():
+            self._create_shortcuts()
+        elif self._confirm(f"¿Quitar {shortcuts.NAME} de {shortcuts.plan().describe()}?"):
+            try:
+                shortcuts.remove()
+            except OSError as exc:
+                self._error(f"No se pudieron quitar los accesos directos: {exc}")
+                return
+            self.statusBar().showMessage("Accesos directos quitados", 5000)
+        self._refresh_shortcuts_action()
+
+    def _create_shortcuts(self) -> None:
+        plan = shortcuts.plan()
+        try:
+            shortcuts.install()
+        except OSError as exc:
+            self._error(f"No se pudieron crear los accesos directos: {exc}")
+            return
+        self.statusBar().showMessage(f"{shortcuts.NAME} ya está en {plan.describe()}", 8000)
+        self._refresh_shortcuts_action()
 
     def _build_size_menu(self) -> None:
         """Ver → Tamaño de la interfaz: automatic (from the screen) or a fixed scale."""

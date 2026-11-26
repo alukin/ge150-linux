@@ -12,3 +12,6 @@ def _private_folders(tmp_path_factory: pytest.TempPathFactory,
     base: Path = tmp_path_factory.mktemp("xdg")
     for name in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
         monkeypatch.setenv(name, str(base / name.lower()))
+    # Shortcuts look for ~/Desktop: never the user's real one.
+    (base / "home").mkdir()
+    monkeypatch.setenv("HOME", str(base / "home"))

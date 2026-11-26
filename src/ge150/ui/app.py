@@ -8,7 +8,7 @@ import os
 import sys
 from importlib import resources
 
-from PySide6.QtCore import QCoreApplication, QLoggingCategory, QStandardPaths, Qt
+from PySide6.QtCore import QCoreApplication, QLoggingCategory, QStandardPaths, Qt, QTimer
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
@@ -68,6 +68,7 @@ def main(argv: list[str] | None = None) -> int:
     window = MainWindow(Editor(session), session)
     window.show()
     window.start_sync()
+    QTimer.singleShot(0, window.offer_shortcuts)  # first start: menu entry and desktop icon
     try:
         code = app.exec()
     finally:
