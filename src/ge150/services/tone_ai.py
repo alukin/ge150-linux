@@ -20,7 +20,7 @@ from pathlib import Path
 
 from ge150.model.catalog import Model, ModuleInfo, Param
 from ge150.model.gear import MODULE_TAGS, gear_for
-from ge150.model.preset import MODULES, Preset
+from ge150.model.preset import EXP_B, MODULES, Preset
 from ge150.services.editor import Editor
 
 TIMEOUT_S = 240
@@ -430,13 +430,17 @@ def apply_to_words(words: Sequence[int], proposal: Proposal,
 
 
 def restore_words(editor: Editor, words: Sequence[int]) -> None:
-    """Put back a previous edit buffer, module by module (undo of a proposal)."""
+    """Put back a previous edit buffer, module by module, and its EXP settings (undo of a
+    proposal, or hearing a planned preset: the buffer must end up equal to ``words``, or it
+    looks like unsaved changes of the user's)."""
     for index in range(len(MODULES)):
         block = editor.module(index)
         old = list(words[block.layout.slice])
         if old != block.words:
             block.words[:] = old
             editor.write_module(block)
+    if len(words) >= EXP_B.stop:
+        editor.write_exp_words(words)
 
 
 class ToneAssistant:

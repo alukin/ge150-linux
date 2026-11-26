@@ -205,3 +205,21 @@ def test_kept_edits_are_checked_against_the_pedal(editor: Editor) -> None:
     assert back[1] is None
     assert back[2] is not None and back[2].blocked == bulk_edit.CHANGED
     assert bulk_edit.from_dict(editor, {"slot": "x"}) is None
+
+
+def test_hearing_a_copy_with_other_exp_settings_can_still_be_applied(editor: Editor) -> None:
+    # The EXP settings are preset words too: hearing the planned preset must load them, or
+    # the pedal looks like it has unsaved changes and applying skips it.
+    editor.select(23)
+    exp = list(editor.state.presets[23].words[66:72])
+    editor.set_exp("MODULE_CTRL", exp[0] + 1)
+    editor.save()
+    editor.select(22)
+    edit = bulk_edit.plan_edits(editor, [{"slot": 22, "copy_from": 23}])[0]
+    bulk_edit.preview(editor, edit)
+    assert editor.state.edit is not None and editor.state.edit.words == edit.after
+    assert not bulk_edit.own_changes(editor, 22, edit.after)
+    applied = bulk_edit.apply(editor, [edit])
+    assert applied.skipped == [] and editor.state.presets[22].words == edit.after
+    bulk_edit.preview(editor, edit, after=False)  # and back to the stored version
+    assert editor.state.edit.words == edit.before
