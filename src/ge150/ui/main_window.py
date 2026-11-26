@@ -66,7 +66,7 @@ class MainWindow(QMainWindow):
         self.ai_host.called.connect(
             lambda tool: self.statusBar().showMessage(tr(
                 "IA: {label}",
-                label=LABELS.get(tool, tool),
+                label=tr(LABELS.get(tool, tool)),
             ), 4000))
         self.setWindowTitle("GE150 Editor")
         self.resize(1280, 820)
