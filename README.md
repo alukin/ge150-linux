@@ -360,7 +360,8 @@ Mantén los nombres de los parámetros como `{slot}` en los mensajes traducidos.
 Las entradas que falten se muestran en español. Prueba el catálogo con
 `ge150 --sim --language fr`.
 
-El catálogo ucraniano se carga con `ge150 --language uk` y cubre el editor principal y el asistente.
+El catálogo ucraniano se carga con `ge150 --language uk` y cubre el editor principal, el
+asistente y los controles y diálogos de TONE3000.
 
 Regla del proyecto: ningún archivo de código supera 1000 líneas (ver `plan.md` §0).
 El material del fabricante (`reference/`) no se versiona.
