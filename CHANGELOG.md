@@ -4,7 +4,7 @@ Todos los cambios importantes de **ge150-linux**. El formato sigue [Keep a Chang
 y las versiones usan [SemVer](https://semver.org/lang/es/): mientras sea `0.x`, una versión menor puede traer cambios
 grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
-## [Sin publicar]
+## [0.5.1] - 2026-11-26
 
 ### Corregido
 
@@ -183,7 +183,7 @@ Primera versión de ge150-linux. Las pruebas con una **MOOER GE150 real, firmwar
 - La subida de capturas NR (`.amp`, AMP 56-65) existe solo en la línea de comandos y no se probó que suenen.
 - La interfaz está solo en español.
 
-[Sin publicar]: https://github.com/wh01s17/ge150-linux/compare/v0.5.0...HEAD
+[0.5.1]: https://github.com/wh01s17/ge150-linux/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/wh01s17/ge150-linux/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/wh01s17/ge150-linux/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/wh01s17/ge150-linux/compare/v0.2.1...v0.3.0
