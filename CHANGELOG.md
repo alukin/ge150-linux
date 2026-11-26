@@ -6,6 +6,13 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Añadido
+
+- Accesos directos al instalar con pipx o pip: en el primer inicio la app pregunta si agregarlos y los crea según tu
+  escritorio: la entrada del menú de aplicaciones (también para los lanzadores de Hyprland, Sway o i3) y, donde el
+  escritorio muestra íconos (KDE Plasma, Xfce, Cinnamon, MATE…), uno en el escritorio. Si dices que no, quedan en
+  *Archivo → Crear accesos directos*, que también sirve para quitarlos.
+
 ## [0.5.1] - 2026-11-26
 
 ### Corregido

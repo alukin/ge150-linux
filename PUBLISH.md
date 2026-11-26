@@ -109,7 +109,7 @@ Y el **`CHANGELOG.md`**:
 | Algo visible de la interfaz | `README.md` y sus capturas en `docs/img/` (sin datos privados: número de serie de la guitarra, IPs) |
 | Instalación, comandos o requisitos | `README.md` (*Instalación*, *Actualizar*, *Desinstalar*, *Línea de comandos*) |
 | Dependencias de Python | `pyproject.toml` (`dependencies` o el extra que corresponda) **y** `depends`/`optdepends` del `PKGBUILD` |
-| Archivos que se instalan (regla udev, `.desktop`, ícono) | `package()` del `PKGBUILD` y la sección de instalación del README |
+| Archivos que se instalan (regla udev, `.desktop`, ícono) | `package()` del `PKGBUILD` y la sección de instalación del README; el texto del `.desktop` también está en `entry_text()` de `src/ge150/services/shortcuts.py` (los accesos de pipx/pip) |
 | Datos incluidos en el paquete (`src/ge150/data/`) | `[tool.setuptools.package-data]` del `pyproject.toml` |
 | Dibujos de los equipos (`tools/build_gear.py`) | regenerar `src/ge150/data/gear.json` con `.venv/bin/python tools/build_gear.py` |
 | Protocolo, hallazgos en la pedalera | `plan.md` (tablas, etiquetas `[V]`/`[I]`/`[?]`, checklist de fases) |

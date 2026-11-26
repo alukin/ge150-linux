@@ -20,7 +20,7 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
   - [Con pip en un entorno virtual](#con-pip-en-un-entorno-virtual)
   - [Paquete de Arch Linux](#paquete-de-arch-linux)
   - [Acceso a la pedalera sin root](#acceso-a-la-pedalera-sin-root)
-  - [Acceso directo en el menú](#acceso-directo-en-el-menú-opcional-pipxpip)
+  - [Accesos directos](#accesos-directos-pipxpip)
   - [Para desarrollar](#para-desarrollar)
 - [Actualizar](#actualizar)
 - [Desinstalar](#desinstalar)
@@ -50,6 +50,7 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Ficha de tus guitarras (la IA la completa y la usa para ajustar el tono a tu guitarra), historial de
   conversaciones con la IA y cabinas de TONE3000.
 - Verificación automática con la pedalera real: `ge150ctl hw-check`.
+- Accesos directos al instalar con pipx o pip: la app los crea en el primer inicio según tu escritorio.
 
 ## Instalación
 
@@ -65,6 +66,9 @@ sudo pacman -S python-pipx                 # Arch; en Debian/Ubuntu: sudo apt in
 pipx install 'ge150-linux[gui,ai]'         # ge150 (interfaz), ge150ctl (CLI) y ge150-mcp (IA)
 pipx ensurepath                            # agrega ~/.local/bin al PATH (abre otra terminal después)
 ```
+
+Al abrir `ge150` por primera vez te ofrece crear los accesos directos para tu escritorio (ver
+[Accesos directos](#accesos-directos-pipxpip)).
 
 Los extras son opcionales: `gui` instala la interfaz gráfica (PySide6) y `ai` el asistente IA (SDK de MCP). Con
 `pipx install ge150-linux` queda solo la CLI. El catálogo de TONE3000 dentro de la app necesita además
@@ -100,14 +104,20 @@ sudo udevadm control --reload && sudo udevadm trigger
 
 Para comprobar que la ve: `ge150ctl probe` (debe mostrar `MOOER_GE150` y el firmware).
 
-### Acceso directo en el menú (opcional, pipx/pip)
+### Accesos directos (pipx/pip)
 
-```bash
-base=https://raw.githubusercontent.com/wh01s17/ge150-linux/main/packaging
-curl -fsSL $base/ge150.desktop -o ~/.local/share/applications/ge150.desktop
-mkdir -p ~/.local/share/icons/hicolor/scalable/apps
-curl -fsSL $base/ge150.svg -o ~/.local/share/icons/hicolor/scalable/apps/ge150.svg
-```
+pipx y pip no crean accesos directos, así que la primera vez que abres `ge150` la app pregunta si quieres
+agregarlos, según tu escritorio:
+
+- **Siempre**, la entrada del menú de aplicaciones (`~/.local/share/applications/ge150.desktop`) con su ícono. La
+  leen los menús de GNOME, KDE Plasma, Xfce, Cinnamon, MATE, LXQt o Budgie y los lanzadores de los gestores de
+  ventanas en mosaico (rofi, wofi, fuzzel… en Hyprland, Sway o i3).
+- **Además, un ícono en el escritorio** en los entornos que los muestran (KDE Plasma, Xfce, Cinnamon, MATE, LXQt,
+  LXDE, Budgie, Deepin), marcado como confiable para que abra sin advertencias. Nunca si tu carpeta Escritorio es
+  tu carpeta personal.
+
+Si dices que no, se crean o se quitan cuando quieras desde **Archivo → Crear accesos directos** (o *Quitar
+accesos directos*). El paquete de Arch ya instala su propio acceso en el menú y la app no lo duplica.
 
 ### Para desarrollar
 
@@ -139,6 +149,9 @@ datos en tu carpeta personal: actualizar no los toca.
    sudo pacman -Rns ge150-linux-git           # paquete de Arch (quita también la regla udev y el menú)
    ```
 
+   Antes de `pipx uninstall`, quita los accesos directos desde **Archivo → Quitar accesos directos** (o bórralos
+   a mano, ver el paso 4).
+
 2. Si la registraste para Claude Code o Codex (`ge150ctl mcp-install`):
 
    ```bash
@@ -146,14 +159,20 @@ datos en tu carpeta personal: actualizar no los toca.
    codex mcp remove ge150
    ```
 
-3. Si instalaste a mano la regla udev o el acceso directo:
+3. Si instalaste a mano la regla udev:
 
    ```bash
    sudo rm /etc/udev/rules.d/70-mooer-ge150.rules && sudo udevadm control --reload
-   rm ~/.local/share/applications/ge150.desktop ~/.local/share/icons/hicolor/scalable/apps/ge150.svg
    ```
 
-4. Tus datos se conservan por si vuelves a instalar. Para borrarlos también (**incluye los backups automáticos de
+4. Si quedaron accesos directos (el del escritorio solo existe en los entornos que muestran íconos ahí):
+
+   ```bash
+   rm -f ~/.local/share/applications/ge150.desktop ~/.local/share/icons/hicolor/scalable/apps/ge150.svg
+   rm -f "$(xdg-user-dir DESKTOP)/ge150.desktop"
+   ```
+
+5. Tus datos se conservan por si vuelves a instalar. Para borrarlos también (**incluye los backups automáticos de
    la pedalera, las conversaciones con la IA y tus guitarras**):
 
    ```bash

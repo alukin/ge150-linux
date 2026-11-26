@@ -691,6 +691,11 @@ ge150-linux/
 ### Fase 10 — Empaquetado (parcial)
 - [x] `packaging/ge150.desktop`, icono propio `packaging/ge150.svg` (también en `ge150/data` como icono de ventana),
       `packaging/PKGBUILD` (Arch, desde git: instala los scripts, la regla udev, el .desktop y el icono).
+- [x] Accesos directos para pipx/pip (`services/shortcuts.py`, 2026-11-26): en el primer inicio se ofrecen
+      (`QSettings` `shortcuts/asked`) y quedan en *Archivo*. Entrada de `$XDG_DATA_HOME/applications` con `Exec`
+      absoluto e ícono en `hicolor`; ícono en el escritorio solo donde se muestran (KDE, Xfce, Cinnamon, MATE,
+      LXQt, LXDE, Budgie, Deepin), ejecutable y con `metadata::trusted`/`xfce-exe-checksum`; nunca si el
+      escritorio es `$HOME`. No duplica una entrada del sistema (paquete de Arch).
 - [x] Licencia: **MIT** (`LICENSE`; declarada en `pyproject.toml` y en el PKGBUILD).
 - [ ] AUR, AppImage o Flatpak.
 
