@@ -12,6 +12,7 @@ from PySide6.QtCore import QCoreApplication, QLoggingCategory, QStandardPaths, Q
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from ge150.i18n import DEFAULT_LANGUAGE, languages, set_language, tr
 from ge150.protocol.session import DeviceSession
 from ge150.services.editor import Editor
 from ge150.ui import scale
@@ -34,12 +35,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sim", action="store_true", help="use the built-in simulator")
     parser.add_argument("--backend", choices=("auto", "hidraw", "usb"), default="auto")
     parser.add_argument("--device", help="hidraw node, e.g. /dev/hidraw4")
+    parser.add_argument("--language", choices=languages(), default=DEFAULT_LANGUAGE,
+                        help="interface language (default: %(default)s)")
     parser.add_argument("-v", "--verbose", action="store_true")
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    set_language(args.language)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.WARNING)
     # Before the QApplication exists: Qt registers the app ID with the desktop portal at
     # start-up, and setting it later makes a second registration that the portal rejects.
@@ -61,9 +65,11 @@ def main(argv: list[str] | None = None) -> int:
     try:
         session = DeviceSession(_transport(args)).start()
     except TransportError as exc:
-        QMessageBox.critical(None, "GE150 no disponible",
-                             f"No se pudo abrir la pedalera:\n{exc}\n\n"
-                             "Prueba «ge150 --sim» para usar el simulador.")
+        message = tr(
+            "No se pudo abrir la pedalera:\n{exc}\n\n"
+            "Prueba «ge150 --sim» para usar el simulador.", exc=exc,
+        )
+        QMessageBox.critical(None, tr("GE150 no disponible"), message)
         return 1
     window = MainWindow(Editor(session), session)
     window.show()
