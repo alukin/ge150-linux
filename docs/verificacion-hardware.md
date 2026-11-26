@@ -177,7 +177,36 @@ Con el delay encendido en el preset cargado:
 
 Notas:
 
-## 10. Cierre
+## 10. Ordenar presets arrastrándolos
+
+Con tres presets de prueba seguidos (por ejemplo 198, 199 y 200):
+
+- [ ] Arrastrar el 200 sobre el 198: pide confirmación, dice cuántos presets se reescriben y avisa del backup.
+- [ ] Mientras escribe: aviso con avance sobre la lista y no se puede cargar otro preset.
+- [ ] Después: el 198 tiene lo que era el 200 y los otros dos bajaron un puesto (nombre y sonido), en el editor y
+      en la pantalla de la pedalera; el resto de presets no cambió.
+- [ ] Si el preset que sonaba estaba en el rango, sigue sonando en su nuevo lugar.
+- [ ] Arrastrarlo de vuelta lo deja todo como estaba.
+
+Notas:
+
+## 11. Pedal de expresión
+
+En un preset de prueba, con la tarjeta **EXP** de la cadena:
+
+- [ ] **Un efecto** → un parámetro fácil de oír (MIX de un chorus, GAIN de un overdrive): la pantalla de la
+      pedalera muestra la asignación y aparece «Guarda el preset…».
+- [ ] Antes de guardar el pedal no lo mueve; después de **Guardar**, sí, y la vista lateral sigue al pedal.
+- [ ] Pisar la punta del pedal: se apaga el control (la pantalla dice «EXP FUNCTION») y la página lo refleja; otra
+      vez, vuelve.
+- [ ] Cambiar a **Volumen**: el parámetro vuelve a su valor de antes (aviso en la barra de estado) y, tras guardar,
+      el pedal controla el volumen entre el mínimo y el máximo elegidos.
+- [ ] Atajo **Wah** con otro efecto en el FX: pregunta antes de reemplazarlo; con un CRY WAH ya puesto, no.
+- [ ] Un efecto apagado en la cadena no se puede elegir; al encenderlo con su LED, sí.
+
+Notas:
+
+## 12. Cierre
 
 - [ ] Restaurar el **backup manual** del paso 0 si los presets de prueba quedaron distintos a como estaban.
 - [ ] Copiar aquí los problemas encontrados (o abrir un issue por cada uno):

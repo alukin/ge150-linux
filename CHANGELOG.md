@@ -6,6 +6,31 @@ grandes. Cómo publicar una versión: [`PUBLISH.md`](PUBLISH.md).
 
 ## [Sin publicar]
 
+### Añadido
+
+- Ordenar presets arrastrándolos en la lista de la izquierda: el preset toma el lugar donde lo sueltas y los de
+  entre medio se corren un puesto. Pide confirmación, hace antes un backup automático completo y el preset cargado
+  sigue sonando en su nueva posición. Mientras se escribe, un aviso sobre la lista muestra el avance y no se
+  puede cargar otro preset.
+- El pedal de expresión aparece en la cadena de efectos, aparte, con lo que controla («DS · GAIN», «VOLUMEN»…);
+  el efecto que mueve lleva la etiqueta EXP. Al elegirlo, su página (como la de un efecto) deja escoger qué
+  controla: el volumen (con su mínimo y máximo), un parámetro de un efecto de la cadena o de un modelo nuevo, o
+  nada, y tiene un atajo para wah. Reemplaza al diálogo de valores crudos de *Herramientas → Pedal de expresión*.
+  Muestra el pedal de costado inclinado según su posición en vivo (cuando mueve un parámetro: es lo único por lo que
+  la GE150 la informa), avisa si el cambio necesita guardarse, devuelve el parámetro a su valor al dejar de
+  moverlo y sigue el interruptor de punta.
+
+### Cambiado
+
+- La cadena de efectos ya no tiene texto de ayuda en la cabecera, e IN y OUT se ven más grandes.
+- Al iniciar, los puntos de «Conectando…» y «Leyendo la pedalera…» se mueven mientras se lee la pedalera.
+
+### Corregido
+
+- Asistente: un preset que se escuchaba antes de aplicarlo no se escribía si su copia tenía otros ajustes del pedal
+  de expresión. La vista previa no cargaba esos ajustes, así que el preset parecía tener cambios sin guardar y se
+  saltaba al aplicar. Ahora la vista previa, la comparación A/B y deshacer una propuesta también restauran el EXP.
+
 ## [0.4.0] - 2026-11-23
 
 ### Añadido

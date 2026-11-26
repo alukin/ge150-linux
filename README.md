@@ -38,8 +38,9 @@ Editor libre para Linux de la pedalera **Mooer GE150**: interfaz gráfica (`ge15
 - Leer los 200 presets, el preset actual decodificado (modelos y parámetros), los IR de usuario y el
   estado del pedal de expresión.
 - Editar en vivo: encender/apagar módulos, cambiar el modelo y mover parámetros.
-- Guardar, renombrar y copiar presets.
+- Guardar, renombrar y copiar presets, y ordenarlos arrastrándolos en la lista (con backup automático).
 - Ver y cambiar los ajustes de sistema (INPUT LEVEL, SCREEN, CAB SIM THRU, OTG LEVEL) y la caja de ritmos.
+- Asignar el pedal de expresión a un parámetro de cualquier efecto (o al volumen) desde la cadena de efectos.
 - Importar y exportar presets `.mo`, con el formato de la app oficial.
 - Cargar IR desde WAV a las ranuras de usuario (CAB 27-36), borrarlas y exportarlas a WAV.
 - Backup completo y restauración en formato `.mbf`, el de la app oficial.
@@ -172,11 +173,27 @@ ge150 --sim      # con el simulador, sin hardware
 
 - Abajo, siempre visible, la **cadena de efectos** (de IN a OUT): cada módulo con la imagen de su equipo, el
   modelo y su LED de encendido. Un clic abre su página.
-- Un clic en la lista de la izquierda carga el preset (si hay cambios sin guardar, pregunta antes).
+- Un clic en la lista de la izquierda carga el preset (si hay cambios sin guardar, pregunta antes). Para cambiar
+  el orden, **arrastra** un preset a su nuevo lugar: los de entre medio se corren un puesto. Pide confirmación,
+  hace antes un backup automático completo y muestra el avance mientras reescribe la pedalera.
 - La página del módulo muestra el equipo original en grande (foto o dibujo), una galería con todos los
   modelos para elegir y perillas: se giran arrastrando, con la rueda o con las flechas, y con doble clic se
   escribe el valor.
 - En las cabinas, el micrófono se arrastra frente al parlante para cambiar CENTER y DISTANCE.
+- **Pedal de expresión**: su tarjeta EXP está al final de la cadena, aparte (no procesa la señal), y el efecto que
+  mueve lleva la etiqueta EXP. En su página eliges qué controla: el **volumen** (con mínimo y máximo), **un
+  efecto** (cualquiera de los encendidos, o un modelo nuevo, y el parámetro) o **nada**, con un atajo para wah. A
+  la izquierda, el pedal visto de costado se inclina según su posición en vivo. Lo que hay que saber de la GE150:
+
+  - una asignación nueva **se activa al guardar el preset** (la página lo recuerda con un botón Guardar);
+  - mientras el pedal mueve un parámetro, ese parámetro sigue al pedal: al quitarle el control desde la página,
+    vuelve al valor que tenía antes;
+  - la pedalera solo informa la posición del pedal a través del parámetro que mueve: en volumen no se ve;
+  - el interruptor de punta del pedal activa y desactiva el control del parámetro, y la app lo sigue;
+  - la calibración se hace en la propia pedalera (menú EXP → CALIBRATE): no se puede iniciar ni leer por USB.
+
+<p align="center"><img src="docs/img/exp.png" alt="Página del pedal de expresión moviendo el POSITION de un CRY WAH" width="900"></p>
+
 - Cada equipo se dibuja a partir del original (marca, colores, rejilla, perillas). Si prefieres una foto propia,
   pon `<id>.jpg`, `.png` o `.webp` en `~/.local/share/ge150/photos/` (el `id` de cada equipo está en
   `src/ge150/data/gear.json`) y se muestra en lugar del dibujo.

@@ -283,6 +283,35 @@ Un preset ocupa 0xA0 B en la tabla interna: nombre 14 B (ASCII, se permite `a-z 
   el mínimo observado es 40). Enumerados = índice de la opción: SUB-D = OFF, 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D, confirmado en la pantalla [V 2026-11-23].
 - El orden EXP `MODULE_CTRL, PARA_CTRL, FUN_SWITCH, VOL_SWITCH, VOL_MIN, VOL_MAX` es el del escritor
   `.mo` (`FUN_00422e00`, palabras 66..71) **[V]**. Su reparto entre 0x98 y 0xB3 es **[I]**.
+- Significado del EXP (2026-11-25, `model/exp.py`) **[I]**: `MODULE_CTRL` = módulo 0..8 (FX … REVERB);
+  `PARA_CTRL` = índice en **una lista plana** de parámetros controlables, módulo tras módulo, la del menú EXP del
+  editor oficial (`FUN_00424c90`; el orden sale de la destrucción de los literales, inverso a su declaración):
+  FX 0-9 `POSITION Q RATE ATTACK RANGE SENS THRES PEAK RATIO LEVEL` · DS 10-12 `VOLUME TONE GAIN` · AMP 13-18
+  `GAIN BASS MID TREBLE PRES MST` · CAB 19-20 `CENTER DISTANCE` · NS 21-24 `THRES SENS ATTACK RELEASE` · EQ 25-38
+  `80HZ … 6.6KHZ` · MOD 39-50 `RATE PITCH RISE SAMPLE MIX DEPTH LEVEL FEEDBACK TONE Q RANGE BIT` · DELAY 51-56
+  `LEVEL FEEDBACK TIME "TIME A" THRES "TIME B"` · REVERB 57-60 `"PRE DELAY" LEVEL DECAY TONE`. Lo confirman su
+  etiqueta por defecto `EXP:FX/COMP - POSITION` (0/0), que cada lista es justo la unión de los parámetros
+  numéricos del módulo en el catálogo, y los 200 presets reales: todos los `PARA_CTRL` con `FUN_SWITCH`=1 caen en
+  un parámetro del modelo del preset (ANA-CHORUS→43 MIX, VIBRATO→44 DEPTH, CHURCH→59 DECAY, HUGEN→13 GAIN…).
+  `FUN_SWITCH` = control de parámetro activo; `VOL_SWITCH`/`VOL_MIN`/`VOL_MAX` = pedal de volumen,
+  independiente (hay presets con los dos en 1). **[V parcial, 2026-11-26]**: al escribir DS/OD 12 desde el editor
+  la pantalla de la pedalera muestra «DS/OD GAIN», y `FUN_SWITCH` = 0 escrito por `0x98` se relee igual.
+  **[V usuario, 2026-11-26]**: el pedal mueve el parámetro asignado (GAIN del 808), pero una asignación hecha en
+  vivo **solo se activa al guardar el preset**. Mientras lo mueve, el valor del parámetro sigue al pedal y la app
+  lo recibe; al quitarle el control queda donde lo dejó el pedal (GAIN 20 → 87) y Guardar lo conserva. Por eso
+  la página del EXP devuelve el parámetro a su valor previo al soltarlo. [ ] Falta: qué hace con `FUN_SWITCH`
+  y `VOL_SWITCH` en 1 a la vez, y si el interruptor de punta cambia `FUN_SWITCH` (la pantalla muestra «EXP
+  FUNCTION» y la app no se entera). La GUI trata volumen y parámetro como excluyentes.
+  **Calibración e interruptor de punta [V hardware, 2026-11-26]** (lectura completa antes y después de hacer EXP
+  CALIBRATE en la pedalera, escuchando el USB entre medio): los 613 reportes leídos son **idénticos** antes y
+  después (sistema completo incluido): la calibración no deja nada legible y no hay comando conocido para
+  iniciarla. Durante la sesión la pedalera solo envió: `0x34 PAGE` 01 → 10 → 05 (cambios de pantalla; 0x10
+  probablemente el menú EXP), `0x18 EXP_A` con `FUN_SWITCH` 0 → 1 y luego 1 → 0 (el interruptor de punta, que
+  **sí avisa por USB**) y, con la función activa, `0x03 MODULE_DS` con GAIN siguiendo la posición del pedal
+  (100 → 0 → 100…, ~30 tramas): la posición del pedal se puede ver en vivo a través del parámetro asignado.
+  Al apagar la función con la punta, el parámetro queda donde estaba el pedal (GAIN 0).
+  GUI (2026-11-26): vista lateral con la posición en vivo (desde el parámetro asignado). Sin botón de calibrar:
+  la calibración solo se hace en la pedalera y no deja nada que la app pueda leer o mostrar.
 
 ### 2.8 Subida y borrado de IR (`0xB5`) y NR (`0xB7`) [V]
 
@@ -567,6 +596,10 @@ ge150-linux/
       parámetros generado desde el catálogo (sliders agrupados en 40 ms → un `0x82+i`), barra de estado.
 - [x] Sincronización bidireccional por `StateBridge` (notificaciones `0x02..0x0A`, `0x16`, `0x17` → señales Qt).
 - [x] Aviso de cambios sin guardar (Guardar / Descartar / Cancelar al cambiar de preset), marca `*` y "(modificado)".
+- [x] Ordenar presets arrastrándolos en la lista (2026-11-25): `bulk_edit.move` reescribe el rango con
+      `copy_from` (backup automático `auto-…-mover.mbf` antes) y vuelve a cargar el preset que sonaba en su nuevo
+      lugar. Se niega si el preset cargado está en el rango con cambios sin guardar. Probado con el simulador;
+      [ ] falta probar el arrastre con el ratón y en la pedalera real.
 - [x] Diálogos: IR de usuario (cargar WAV, borrar, exportar) y pedal de expresión (valores crudos).
 - [x] Probada offscreen con el simulador (tests) y sincronizada con la pedalera real (2,9 s, solo lectura).
 - [x] Interfaz renovada (5b) sincronizada con la pedalera real en modo offscreen (solo lectura, preset 22): presets,
@@ -595,6 +628,9 @@ ge150-linux/
 
 ### Fase 6 — Ajustes de sistema, EXP y Rhythm
 - [x] EXP en vivo (`0x98`/`0xB3`) en el `Editor`, la CLI (`exp`) y la GUI.
+- [x] Tarjeta EXP en la cadena (aparte, tras un divisor; el efecto que mueve lleva la etiqueta EXP) y su página
+      en la zona de módulos: Volumen (mín/máx) / Un efecto (de la cadena o un modelo nuevo, parámetro, atajo Wah)
+      / Nada, en `ui/exp_view.py` (2026-11-26). Sustituye al diálogo de valores crudos. [ ] Probar en la pedalera.
 - [x] Bloques de sistema `0x24..0x27` y Rhythm `0x0C` identificados en hardware (§2.11); escritura verificada
       (SCREEN 18 → 19 y restauración de los valores originales). `model/settings.py`, CLI `system-set`/`rhythm-set`.
 - [x] BPM 40..260 confirmado en la pedalera.
