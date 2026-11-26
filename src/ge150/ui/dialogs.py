@@ -9,19 +9,16 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
-    QFormLayout,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QMessageBox,
     QPushButton,
-    QSpinBox,
     QVBoxLayout,
     QWidget,
 )
 
 from ge150.formats import wav_ir
-from ge150.model.preset import EXP_KEYS
 from ge150.protocol import messages as msg
 from ge150.protocol.opcodes import Op
 from ge150.services.editor import Editor
@@ -194,28 +191,3 @@ class IrSlotPicker(QDialog):
             return 0
         return int(self.slots[self.list.currentRow()]["slot"])
 
-
-class ExpDialog(QDialog):
-    """Raw expression-pedal words of the current preset (meaning partly unknown)."""
-
-    def __init__(self, editor: Editor, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.editor = editor
-        self.setWindowTitle("Pedal de expresión (preset actual)")
-        layout = QFormLayout(self)
-        self.spins: dict[str, QSpinBox] = {}
-        exp = editor.state.edit.exp if editor.state.edit else {}
-        for key in EXP_KEYS:
-            spin = QSpinBox()
-            spin.setRange(0, 0xFFFF)
-            spin.setValue(exp.get(key, 0))
-            spin.setKeyboardTracking(False)
-            spin.valueChanged.connect(lambda v, k=key: self.editor.set_exp(k, v))
-            self.spins[key] = spin
-            layout.addRow(key, spin)
-        info = QLabel("Valores crudos. Se envían en vivo; guarda el preset para conservarlos.")
-        info.setWordWrap(True)
-        layout.addRow(info)
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        buttons.rejected.connect(self.reject)
-        layout.addRow(buttons)

@@ -207,6 +207,44 @@ def test_kept_edits_are_checked_against_the_pedal(editor: Editor) -> None:
     assert bulk_edit.from_dict(editor, {"slot": "x"}) is None
 
 
+def test_move_specs_shift_the_presets_in_between() -> None:
+    assert bulk_edit.move_specs(5, 5) == []
+    assert bulk_edit.move_specs(5, 8) == [{"slot": 5, "copy_from": 6}, {"slot": 6, "copy_from": 7},
+                                          {"slot": 7, "copy_from": 8}, {"slot": 8, "copy_from": 5}]
+    assert bulk_edit.move_specs(8, 6) == [{"slot": 6, "copy_from": 8}, {"slot": 7, "copy_from": 6},
+                                          {"slot": 8, "copy_from": 7}]
+    assert [bulk_edit.moved_slot(s, 8, 6) for s in (5, 6, 7, 8, 9)] == [5, 7, 8, 6, 9]
+    assert [bulk_edit.moved_slot(s, 6, 8) for s in (5, 6, 7, 8, 9)] == [5, 8, 6, 7, 9]
+
+
+def test_move_reorders_and_keeps_the_loaded_preset(editor: Editor) -> None:
+    editor.select(24)
+    presets = editor.state.presets
+    before = {s: (presets[s].name, list(presets[s].words)) for s in range(20, 27)}
+    calls: list[int] = []
+    applied = bulk_edit.move(editor, 24, 21, backup=lambda: calls.append(1) or None)  # type: ignore[func-returns-value]
+    assert calls == [1]
+    order = [24, 21, 22, 23]  # what slots 21..24 hold now
+    assert {s: (presets[s].name, presets[s].words) for s in range(21, 25)} == {
+        slot: before[old] for slot, old in zip(range(21, 25), order, strict=True)}
+    assert all((presets[s].name, presets[s].words) == before[s] for s in (20, 25, 26))
+    assert sorted(p.slot for p in applied.previous) == [21, 22, 23, 24]
+    assert editor.state.current_slot == 21  # the loaded preset followed its new place
+    bulk_edit.move(editor, 21, 24)  # and back
+    assert all((presets[s].name, presets[s].words) == before[s] for s in range(20, 27))
+
+
+def test_move_refuses_unsaved_changes_in_the_range(editor: Editor) -> None:
+    editor.select(23)
+    _, param = _number_param(editor, 23)
+    editor.set_param(REVERB, param.name, param.max)
+    assert editor.state.dirty
+    stored = {s: list(editor.state.presets[s].words) for s in (22, 23, 24)}
+    with pytest.raises(bulk_edit.EditorError, match="sin guardar"):
+        bulk_edit.move(editor, 24, 22)
+    assert {s: list(editor.state.presets[s].words) for s in (22, 23, 24)} == stored
+
+
 def test_hearing_a_copy_with_other_exp_settings_can_still_be_applied(editor: Editor) -> None:
     # The EXP settings are preset words too: hearing the planned preset must load them, or
     # the pedal looks like it has unsaved changes and applying skips it.

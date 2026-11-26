@@ -160,7 +160,13 @@ QFrame#moduleTile[hover="true"] {{ border-color: #8a5a2e; background: #2b2722; }
 QFrame#moduleTile[selected="true"] {{ border-color: {ACCENT}; background: #2d2620; }}
 QLabel#tileName {{ font-weight: 800; color: {MUTED}; font-size: 11px; letter-spacing: 1px; }}
 QFrame#moduleTile[on="true"] QLabel#tileName {{ color: {TEXT}; }}
-QLabel#jackLabel {{ color: {MUTED}; font-size: 10px; font-weight: 800; letter-spacing: 1px; }}
+QLabel#jackLabel {{ color: {MUTED}; font-size: 12px; font-weight: 800; letter-spacing: 1px; }}
+QLabel#expTag {{
+    color: {ACCENT}; border: 1px solid #8a5a2e; border-radius: 4px;
+    font-size: 9px; font-weight: 700;
+}}
+QFrame#unsavedNotice {{ background: #2d2620; border: 1px solid #8a5a2e; border-radius: 8px; }}
+QFrame#chainDivider {{ background: {BORDER}; margin: 6px 0; }}
 QLabel#modelLabel {{ font-size: 11px; }}
 QLabel#modelLabel:disabled {{ color: {MUTED}; }}
 QPushButton#power {{
@@ -186,6 +192,7 @@ QToolButton#iconButton {{
 }}
 QToolButton#iconButton:hover, QToolButton#iconButton:checked {{ background: {RAISED}; }}
 QScrollArea#historyScroll, QWidget#historyBody {{ background: transparent; }}
+QScrollArea#expScroll, QWidget#expBody {{ background: transparent; }}
 QFrame#historyEntry {{ border-radius: 8px; border-left: 2px solid transparent; }}
 QFrame#historyEntry:hover {{ background: {RAISED}; }}
 QFrame#historyEntry[current="true"] {{ border-left: 2px solid {ACCENT}; }}
@@ -232,6 +239,8 @@ QPushButton#segment {{
 }}
 QPushButton#segment:hover {{ color: {TEXT}; border-color: #8a5a2e; }}
 QPushButton#segment:checked {{ background: #3a2a1a; border-color: {ACCENT}; color: {ACCENT}; }}
+QPushButton#segment[browsing="true"] {{ border-color: #8a5a2e; color: {TEXT}; }}
+QPushButton#segment:disabled {{ background: {PANEL}; color: #4d5562; border-style: dashed; }}
 QWidget#assistantPage QComboBox {{ padding: 6px 28px 6px 10px; }}
 QWidget#assistantPage QComboBox:hover {{ border-color: #8a5a2e; }}
 QWidget#assistantPage QComboBox:disabled {{ color: {MUTED}; }}
@@ -278,6 +287,11 @@ QListWidget {{
     background: {PANEL}; border: none; border-radius: 10px; padding: 4px; outline: none;
 }}
 QListWidget::item {{ padding: 5px 8px; border-radius: 6px; }}
+#workBanner {{ background: {RAISED}; border: 1px solid {ACCENT}; border-radius: 8px; }}
+#workBanner QProgressBar {{ background: {BORDER}; border-radius: 3px; }}
+#workBanner QProgressBar::chunk {{ border-radius: 3px; }}
+QListWidget::item:disabled {{ color: {MUTED}; }}
+QListWidget::item:selected:disabled {{ background: {BORDER}; color: {MUTED}; }}
 QListWidget::item:selected {{ background: {ACCENT}; color: #1a1208; }}
 QListWidget::item:hover:!selected {{ background: {RAISED}; }}
 QGroupBox {{

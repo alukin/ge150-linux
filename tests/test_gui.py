@@ -561,3 +561,199 @@ def test_about_dialog_shows_the_project_and_the_system(window: MainWindow) -> No
     assert {name for name, _, _ in folders()} >= {"Backups automáticos", "Conversaciones con la IA"}
     assert "github.com/wh01s17/ge150-linux" in REPO
     dialog.deleteLater()
+
+
+def test_drop_target_follows_the_indicator() -> None:
+    from ge150.ui.preset_list import Indicator, drop_target
+    assert drop_target(28, 10, Indicator.AboveItem) == 10
+    assert drop_target(28, 10, Indicator.BelowItem) == 11
+    assert drop_target(5, 10, Indicator.AboveItem) == 9
+    assert drop_target(5, 10, Indicator.BelowItem) == 10
+    assert drop_target(5, 10, Indicator.OnItem) == 10
+
+
+def test_dragging_a_preset_moves_it_on_the_pedal(window: MainWindow) -> None:
+    presets = window.state.presets
+    before = {s: presets[s].name for s in range(10, 14)}
+    window.presets.list.moved.emit(13, 10)
+    # While it is written: a banner says so and no other preset can be clicked.
+    assert window.presets.working and not window.presets.list.isEnabled()
+    assert wait(lambda: presets[10].name == before[13] and not window.runner.busy)
+    assert not window.presets.working and window.presets.list.isEnabled()
+    assert [presets[s].name for s in range(10, 14)] == [before[s] for s in (13, 10, 11, 12)]
+    assert window.presets.list.item(9).text().endswith(before[13])
+    from ge150.services.auto_backup import backup_dir
+    assert len(list(backup_dir().glob("auto-*-mover.mbf"))) == 1
+
+
+def test_exp_tile_shows_its_page_to_assign_the_pedal(window: MainWindow) -> None:
+    editor = window.editor
+    window.chain.exp.clicked.emit()
+    dialog = window.exp_page
+    assert window.pages.currentWidget() is dialog
+    assert window.chain.exp.property("selected")
+    dialog._choose_module(6)  # MOD
+    settings_mod_type = editor.module(6).type
+    buttons = dialog.params.buttons()
+    assert buttons and all(b.text() for b in buttons)
+    dialog._choose_mode("volume")  # the user's case: volume first, then a parameter
+    assert editor.exp_settings().volume_on and dialog.mode_buttons["volume"].isChecked()
+    dialog._choose_mode("effect")  # nothing written until a parameter is picked
+    assert editor.exp_settings().volume_on
+    assert dialog.mode_buttons["effect"].property("browsing")
+    first = dialog.params.buttons()[0]
+    first.click()
+    settings = editor.exp_settings()
+    assert (settings.module, settings.function_on, settings.volume_on) == (6, True, False)
+    assert dialog.mode_buttons["effect"].isChecked()
+    assert not dialog.mode_buttons["volume"].isChecked()
+    assert "volumen" not in dialog.now.text()
+    assert settings.param_name == first.text().upper()
+    device = window.sim.device  # type: ignore[attr-defined]
+    assert wait(lambda: device._edit.words[66:69] == [6, settings.para, 1])
+    window.chain.refresh()
+    assert window.chain.exp.label.text().startswith(f"MOD · {first.text()}")
+    tagged = [t.index for t in window.chain.tiles if not t.exp_tag.isHidden()]
+    assert tagged == [6]  # the tile the pedal moves wears an «EXP» tag
+    window.chain.exp.hovered.emit(True)  # hovering EXP lights the effect it moves
+    assert window.chain.tiles[6].property("hover")
+    window.chain.exp.hovered.emit(False)
+    assert not window.chain.tiles[6].property("hover")
+    yellow = next(i for i, m in enumerate(editor.catalog[0].models) if m.name == "YELLOW COMP")
+    editor.set_type(0, yellow)
+    dialog.refresh()
+    assert "reemplaza" in dialog.wah_button.text() and "YELLOW COMP" in dialog.wah_button.text()
+    asked: list[str] = []
+
+    def answer(button: QMessageBox.StandardButton) -> Callable[..., QMessageBox.StandardButton]:
+        return lambda _parent, _title, text, *a, **k: asked.append(text) or button
+
+    QMessageBox.question = answer(QMessageBox.StandardButton.No)  # type: ignore[method-assign]
+    dialog._wah()  # said no: the compressor stays
+    assert len(asked) == 1 and editor.module(0).type == yellow
+    QMessageBox.question = answer(QMessageBox.StandardButton.Yes)  # type: ignore[method-assign]
+    dialog._wah()
+    fx = editor.module(0)
+    assert fx.switch and editor.catalog[0].models[fx.type].name == "CRY WAH"
+    assert editor.exp_settings().param_name == "POSITION"
+    assert editor.module(6).type == settings_mod_type  # the rest of the chain is untouched
+    assert dialog.wah_button.text() == "Wah: el POSITION del CRY WAH"
+    assert dialog.wah_button.isChecked() and dialog.modules.button(0).isChecked()
+    dialog._wah()  # already a wah: nothing to replace, nothing asked
+    assert len(asked) == 2
+    dialog._choose_mode("volume")
+    settings = editor.exp_settings()
+    assert (settings.function_on, settings.volume_on) == (False, True)
+    # Volume: only its range shows, and no effect looks assigned.
+    assert dialog.mode_buttons["volume"].isChecked() and dialog.effect_box.isHidden()
+    assert not dialog.volume_box.isHidden()
+    assert not any(b.isChecked() for b in dialog.modules.buttons())
+    dialog._choose_mode("none")
+    settings = editor.exp_settings()
+    assert (settings.function_on, settings.volume_on) == (False, False)
+    assert dialog.mode_buttons["none"].isChecked()
+    dialog._choose_mode("volume")
+    window.chain.refresh()
+    assert window.chain.exp.label.text() == "VOLUMEN"
+    # An effect that is off cannot be chosen until it is switched on in the chain.
+    dialog._choose_module(6)
+    window.chain._on_toggle(2, False)  # AMP off with its LED
+    assert wait(lambda: not dialog.modules.button(2).isEnabled())
+    assert "apagado" in dialog.modules.button(2).toolTip()
+    window.chain._on_toggle(2, True)
+    assert wait(lambda: dialog.modules.button(2).isEnabled())
+    # The effect being looked at is switched off: the selection moves to one that is on.
+    dialog._choose_module(2)
+    window.chain._on_toggle(2, False)
+    assert wait(lambda: dialog.module != 2)
+    assert not dialog.modules.button(2).isChecked()
+    assert dialog.module is not None and editor.module(dialog.module).switch
+    window.chain._on_toggle(2, True)
+    # The pedal moves a parameter of an effect that is off: a warning, never a selection.
+    dialog._choose_module(6)
+    dialog.params.buttons()[0].click()
+    window.chain._on_toggle(6, False)
+    assert wait(lambda: not dialog.off_row.isHidden())
+    assert dialog.module != 6 and not dialog.modules.button(6).isChecked()
+    dialog._turn_on()
+    assert editor.module(6).switch and dialog.module == 6 and dialog.off_row.isHidden()
+    # Another preset starts on its own assignment, not on what was looked at before.
+    dialog._choose_module(7)
+    window.load_preset(30)
+    assert wait(lambda: window.state.current_slot == 30 and not window.runner.busy)
+    assert wait(lambda: dialog.module != 7 or editor.exp_settings().module == 7)
+    on = [i for i in range(9) if editor.module(i).switch]
+    assigned = editor.exp_settings().module
+    assert dialog.module == (assigned if assigned in on else (on[0] if on else None))
+    window.chain.select(2)  # back to a module page
+    assert window.pages.currentWidget() is window.module_editor
+    assert not window.chain.exp.property("selected")
+
+
+def test_a_parameter_the_pedal_lets_go_of_goes_back_to_its_value(window: MainWindow) -> None:
+    # The user's case: GAIN of the DS moved by the pedal up to 87, then the pedal set back to
+    # volume: GAIN must not stay where the pedal left it.
+    editor, page = window.editor, window.exp_page
+    window.open_exp()
+    editor.set_switch(1, True)
+    page._choose_module(1)
+    gain = next(p for p in page.params.buttons() if p.text() == "GAIN")
+    before = editor.find_param(1, "GAIN")
+    original = editor.module(1).words[before.word]
+    messages: list[str] = []
+    page.message.connect(messages.append)
+    gain.click()
+    assert editor.exp_settings().param_name == "GAIN"
+    editor.set_param(1, "GAIN", 87)  # what the pedal does while it moves GAIN
+    page._choose_mode("volume")
+    assert editor.module(1).words[before.word] == original
+    assert messages and "GAIN del DS/OD vuelve a" in messages[-1]
+    # Moving another parameter also gives this one back, once.
+    page._choose_module(1)
+    next(p for p in page.params.buttons() if p.text() == "GAIN").click()
+    editor.set_param(1, "GAIN", 87)
+    next(p for p in page.params.buttons() if p.text() == "TONE").click()
+    assert editor.module(1).words[before.word] == original
+    assert editor.exp_settings().param_name == "TONE"
+
+
+def test_exp_page_says_when_the_change_needs_saving(window: MainWindow) -> None:
+    editor, page = window.editor, window.exp_page
+    window.open_exp()
+    assert page.unsaved.isHidden()  # as stored
+    page._choose_mode("none" if editor.exp_settings().volume_on else "volume")
+    assert not page.unsaved.isHidden()  # the pedal only uses it once saved
+    page.save_requested.emit()
+    assert wait(lambda: page.unsaved.isHidden() and not window.runner.busy)
+    stored = window.state.presets[window.state.current_slot or 0]
+    assert stored.words[66:72] == editor.state.edit.words[66:72]  # type: ignore[union-attr]
+
+
+def test_exp_page_shows_the_pedal_position_live(window: MainWindow) -> None:
+    editor, page = window.editor, window.exp_page
+    window.open_exp()
+    editor.set_switch(1, True)
+    page._choose_mode("effect")
+    assert page.volume_box.isHidden() and not page.effect_box.isHidden()  # only its options
+    page._choose_module(1)
+    next(p for p in page.params.buttons() if p.text() == "GAIN").click()
+    editor.set_param(1, "GAIN", 87)  # what the pedal reports while it moves GAIN
+    assert wait(lambda: page.side.position is not None and abs(page.side.position - 0.87) < 0.01)
+    assert "GAIN" in page.side.label
+    page._choose_mode("volume")  # the pedal reports no position in volume mode
+    assert page.side.position is None
+    assert page.effect_box.isHidden() and not page.volume_box.isHidden()
+
+
+def test_loading_dots_move_until_the_pedal_is_read(window: MainWindow) -> None:
+    assert not window._loading.isActive()  # the fixture's sync is over
+    window.start_sync()
+    assert window._loading.isActive()
+    seen = []
+    for _ in range(4):
+        seen.append(window.name.text())
+        window._loading_tick()
+    assert seen[:3] == ["Conectando.", "Conectando..", "Conectando..."]
+    assert seen[3] == "Conectando."  # and again
+    assert wait(lambda: not window._loading.isActive() and window.central.isEnabled())
+    assert window.name.text() != "Conectando."

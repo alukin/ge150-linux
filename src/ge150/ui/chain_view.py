@@ -1,6 +1,6 @@
 """«Cadena de efectos», always visible at the bottom: from the guitar (IN) to the amp (OUT),
 one tile per module with a picture of its gear, its model and an LED to switch it on or off.
-Clicking a tile opens that module.
+Clicking a tile opens that module. Apart, after OUT, the expression pedal and what it moves.
 
 Animations only answer the user: hovering a tile makes its pedal hop and lights the cables
 in and out of it (the signal going through), switching a module fades its picture and its
@@ -23,6 +23,8 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
+    QFont,
+    QFontMetrics,
     QHideEvent,
     QMouseEvent,
     QPainter,
@@ -37,7 +39,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -45,6 +46,7 @@ from PySide6.QtWidgets import (
 from ge150.model.gear import MODULE_TAGS
 from ge150.model.preset import MODULES
 from ge150.services.editor import Editor
+from ge150.ui.exp_view import ExpTile
 from ge150.ui.gear_view import GearView, module_look
 from ge150.ui.icons import icon
 from ge150.ui.theme import ACCENT, MUTED
@@ -56,6 +58,7 @@ TAP_ON = QColor("#ff4d3d")
 WIRE, WIRE_LIT = QColor("#6b5236"), QColor(ACCENT)
 OFF_OPACITY = 0.35
 HOVER_ZOOM = 1.08
+JACK_ICON = 28
 
 
 def _mix(a: QColor, b: QColor, t: float) -> QColor:
@@ -230,6 +233,17 @@ class ModuleTile(QFrame):
         self.power = LedButton()
         self.power.toggled.connect(lambda on: self.toggled.emit(self.index, on))
         top.addWidget(self.name)
+        self.exp_tag = QLabel("EXP")  # the expression pedal moves one of its parameters
+        self.exp_tag.setObjectName("expTag")
+        tag_font = QFont(self.exp_tag.font())
+        tag_font.setPixelSize(9)
+        tag_font.setBold(True)
+        self.exp_tag.setFont(tag_font)
+        self.exp_tag.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        metrics = QFontMetrics(tag_font)  # sized here: the style sheet's padding is not counted
+        self.exp_tag.setFixedSize(metrics.horizontalAdvance("EXP") + 10, metrics.height() + 4)
+        self.exp_tag.hide()
+        top.addWidget(self.exp_tag)
         self.tap: TapLed | None = None
         if index == DELAY:
             self.tap = TapLed()
@@ -363,7 +377,7 @@ class _Jack(QWidget):
         layout.setSpacing(2)
         layout.addStretch(1)
         picture = QLabel()
-        picture.setPixmap(icon(icon_name, MUTED, 20).pixmap(20, 20))
+        picture.setPixmap(icon(icon_name, MUTED, JACK_ICON).pixmap(JACK_ICON, JACK_ICON))
         picture.setAlignment(Qt.AlignmentFlag.AlignCenter)
         label = QLabel(text)
         label.setObjectName("jackLabel")
@@ -371,11 +385,12 @@ class _Jack(QWidget):
         layout.addWidget(picture)
         layout.addWidget(label)
         layout.addStretch(1)
-        self.setFixedWidth(40)
+        self.setFixedWidth(52)
 
 
 class ChainView(QFrame):
     module_selected = Signal(int)
+    exp_requested = Signal()  # the EXP tile was clicked
     error = Signal(str)
 
     def __init__(self, editor: Editor, parent: QWidget | None = None) -> None:
@@ -390,15 +405,10 @@ class ChainView(QFrame):
         head = QHBoxLayout()
         title = QLabel("Cadena de efectos")
         title.setObjectName("cardTitle")
-        hint = QLabel("La señal va de la guitarra al amplificador, de izquierda a derecha. "
-                      "Clic en un efecto para editarlo; el LED lo enciende o apaga.")
-        hint.setObjectName("note")
-        hint.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         self.count = QLabel()
         self.count.setObjectName("countBadge")
         head.addWidget(title)
-        head.addSpacing(10)
-        head.addWidget(hint, 1)
+        head.addStretch(1)
         head.addWidget(self.count)
         outer.addLayout(head)
 
@@ -416,6 +426,18 @@ class ChainView(QFrame):
             row.addWidget(tile, 1)
         row.addWidget(self.wires[-1])
         row.addWidget(_Jack("speaker", "OUT", "Salida: amplificador, interfaz o audífonos"))
+        # The expression pedal is not in the signal path: apart, past a divider (it sits on
+        # the right of the real pedal too). The tile it moves wears an «EXP» tag.
+        row.addSpacing(10)
+        divider = QFrame()
+        divider.setObjectName("chainDivider")
+        divider.setFixedWidth(1)
+        row.addWidget(divider)
+        row.addSpacing(10)
+        self.exp = ExpTile()
+        self.exp.clicked.connect(self.exp_requested)
+        self.exp.hovered.connect(self._exp_hovered)
+        row.addWidget(self.exp, 1)
         outer.addLayout(row, 1)
 
         self.tiles[0].set_selected(True)
@@ -424,9 +446,15 @@ class ChainView(QFrame):
 
     def select(self, index: int) -> None:
         self.tiles[self.selected].set_selected(False)
+        self.exp.set_selected(False)
         self.selected = index
         self.tiles[index].set_selected(True)
         self.module_selected.emit(index)
+
+    def select_exp(self) -> None:
+        """Highlight the EXP tile (its page is shown instead of a module's)."""
+        self.tiles[self.selected].set_selected(False)
+        self.exp.set_selected(True)
 
     def refresh(self) -> None:
         if self.editor.state.edit is None:
@@ -435,6 +463,13 @@ class ChainView(QFrame):
             block = self.editor.module(tile.index)
             tile.set_state(block.switch, self.editor.model_label(tile.index, block.type))
             tile.view.set_gear(*module_look(self.editor, tile.index))
+        settings = self.editor.exp_settings()
+        self.exp.set_settings(settings)
+        name = settings.param_name if settings.function_on else None
+        for tile in self.tiles:
+            moved = bool(name) and settings.module == tile.index
+            tile.exp_tag.setVisible(moved)
+            tile.exp_tag.setToolTip(f"El pedal de expresión mueve su {name}" if moved else "")
         self._refresh_tap()
         self._count()
 
@@ -456,6 +491,12 @@ class ChainView(QFrame):
     def _count(self) -> None:
         on = sum(bool(t.power.isChecked()) for t in self.tiles)
         self.count.setText(f"{on} de {len(self.tiles)} encendidos")
+
+    def _exp_hovered(self, on: bool) -> None:
+        """Hovering the EXP tile lights the effect it moves, as if it were hovered."""
+        for tile in self.tiles:
+            if not tile.exp_tag.isHidden():
+                tile._set_hover(on)
 
     def _hovered(self, index: int, on: bool) -> None:
         self.wires[index].light(on)

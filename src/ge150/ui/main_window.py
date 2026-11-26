@@ -7,7 +7,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import QSize, Qt
+from PySide6.QtCore import QSize, Qt, QTimer
 from PySide6.QtGui import QAction, QActionGroup, QCloseEvent, QIcon, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QSplitter,
+    QStackedWidget,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -30,8 +31,8 @@ from ge150.formats import mbf, mo_json
 from ge150.model import device_state as ds
 from ge150.model.preset import NAME_LEN, is_valid_name
 from ge150.protocol.session import DeviceSession
+from ge150.services import auto_backup, bulk_edit, reader
 from ge150.services import backup as backup_service
-from ge150.services import reader
 from ge150.services.editor import Editor
 from ge150.ui import scale
 from ge150.ui.ai_host import LABELS, AiHost
@@ -39,7 +40,8 @@ from ge150.ui.ai_panel import AIPanel
 from ge150.ui.assistant_page import AssistantPage
 from ge150.ui.bridge import StateBridge
 from ge150.ui.chain_view import ChainView
-from ge150.ui.dialogs import ExpDialog, IrDialog
+from ge150.ui.dialogs import IrDialog
+from ge150.ui.exp_view import ExpPage
 from ge150.ui.icons import icon
 from ge150.ui.module_editor import ModuleEditor
 from ge150.ui.preset_list import PresetList
@@ -47,6 +49,9 @@ from ge150.ui.settings_dialog import SettingsDialog
 from ge150.ui.theme import TEXT
 from ge150.ui.tone3000_page import Tone3000Page
 from ge150.ui.worker import TaskRunner
+
+LOADING_DOT_MS = 400  # like the AI's «trabajando...» (working.py)
+BACKUP_STEPS = 3  # what backup_service.create_backup reports
 
 
 class MainWindow(QMainWindow):
@@ -70,6 +75,11 @@ class MainWindow(QMainWindow):
         self.number.setObjectName("presetNumber")
         self.name = QLabel("Conectando…")
         self.name.setObjectName("presetName")
+        # While the pedal is read at start, the dots move: «Conectando.», «..», «...».
+        self._dots = 0
+        self._loading = QTimer(self)
+        self._loading.setInterval(LOADING_DOT_MS)
+        self._loading.timeout.connect(self._loading_tick)
         self.dirty_badge = QLabel("MODIFICADO")
         self.dirty_badge.setObjectName("dirtyBadge")
         self.dirty_badge.hide()
@@ -110,9 +120,13 @@ class MainWindow(QMainWindow):
 
         self.chain = ChainView(editor)
         self.module_editor = ModuleEditor(editor)
+        self.exp_page = ExpPage(editor)
+        self.pages = QStackedWidget()  # a module's page, or the expression pedal's
+        self.pages.addWidget(self.module_editor)
+        self.pages.addWidget(self.exp_page)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.addWidget(self.presets)
-        splitter.addWidget(self.module_editor)
+        splitter.addWidget(self.pages)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([260, 1020])
         middle = QWidget()
@@ -165,13 +179,19 @@ class MainWindow(QMainWindow):
         self._build_menus()
         self.presets.activated.connect(self.load_preset)
         self.presets.action_requested.connect(self._preset_action)
-        self.chain.module_selected.connect(self.module_editor.show_module)
+        self.presets.move_requested.connect(self.move_preset)
+        self.chain.module_selected.connect(self._show_module)
+        self.chain.exp_requested.connect(self.open_exp)
+        self.exp_page.error.connect(self._error)
+        self.exp_page.message.connect(lambda text: self.statusBar().showMessage(text, 8000))
+        self.exp_page.save_requested.connect(self.save_current)
         self.chain.error.connect(self._error)
         self.module_editor.error.connect(self._error)
         self.bridge.changed.connect(self._on_change)
         self.bridge.disconnected.connect(self._on_disconnect)
         self.bridge.progress.connect(self._on_progress)
         self.runner.busy_changed.connect(lambda busy: self.progress.setVisible(busy))
+        self.runner.busy_changed.connect(self.presets.set_busy)
         self.central.setEnabled(False)
 
     # --- menus ---------------------------------------------------------------
@@ -244,11 +264,25 @@ class MainWindow(QMainWindow):
     # --- sync ------------------------------------------------------------------
 
     def start_sync(self) -> None:
-        self.statusBar().showMessage("Leyendo la pedalera…")
         self.central.setEnabled(False)
+        self._dots = 0
+        self._loading_tick()
+        self._loading.start()
         self.runner.run(self.editor.sync, self._synced, self._error)
 
+    def _loading_tick(self) -> None:
+        self._dots = self._dots % 3 + 1
+        dots = "." * self._dots
+        self.name.setText(f"Conectando{dots}")
+        self.statusBar().showMessage(f"Leyendo la pedalera{dots}")
+
+    def _stop_loading(self) -> None:
+        if self._loading.isActive():
+            self._loading.stop()
+            self.statusBar().clearMessage()
+
     def _synced(self, _: object) -> None:
+        self._stop_loading()
         info = self.state.info
         version = f"{info.name} {info.firmware}" if info else "?"
         self.status_label.setText(f"{version}  ·  {self.session.transport.description}")
@@ -270,6 +304,8 @@ class MainWindow(QMainWindow):
             self.assistant.reload_presets()
         elif kind == ds.KIND_PRESET:
             self.presets.update_slot(slot)
+            if slot == self.state.current_slot and self.pages.currentWidget() is self.exp_page:
+                self.exp_page.refresh()  # saved: the unsaved-change notice goes
             self.assistant.update_slot(slot)
             self.ai_panel.refresh_context()
             self.assistant.chat.refresh_context()
@@ -283,6 +319,8 @@ class MainWindow(QMainWindow):
             self.module_editor.show_module(self.module_editor.index)
         elif kind in (ds.KIND_MODULE, ds.KIND_EXP):
             self.chain.refresh()
+            if self.pages.currentWidget() is self.exp_page:
+                self.exp_page.refresh()
             if module in (-1, self.module_editor.index):
                 self.module_editor.refresh()
             self._refresh_header()
@@ -292,6 +330,8 @@ class MainWindow(QMainWindow):
     def _refresh_current(self) -> None:
         self.chain.refresh()
         self.module_editor.refresh()
+        if self.pages.currentWidget() is self.exp_page:
+            self.exp_page.refresh()
         self.presets.mark_current()
         self._refresh_header()
 
@@ -307,6 +347,7 @@ class MainWindow(QMainWindow):
         self.discard_button.setVisible(self.state.dirty)
 
     def _on_disconnect(self, reason: str) -> None:
+        self._stop_loading()
         self.central.setEnabled(False)
         self.status_label.setText("Desconectada")
         QMessageBox.warning(self, "Pedalera desconectada",
@@ -314,6 +355,7 @@ class MainWindow(QMainWindow):
                             "Vuelve a conectarla y reinicia el editor.")
 
     def _error(self, message: str) -> None:
+        self._stop_loading()
         self.statusBar().showMessage(f"Error: {message}", 8000)
         QMessageBox.warning(self, "Error", message)
 
@@ -404,6 +446,59 @@ class MainWindow(QMainWindow):
             self.export_mo(slot)
         elif action == "import":
             self.import_mo(slot)
+
+    def move_preset(self, source: int, target: int) -> None:
+        """Dragged in the list: ``source`` takes slot ``target`` and the presets in between
+        shift one place (all of them are rewritten, after an automatic backup)."""
+        moving = self.state.presets.get(source)
+        if self.runner.busy or moving is None:
+            return
+        low, high = sorted((source, target))
+        shift = "bajan" if source > target else "suben"
+        if not self._confirm(
+                f"¿Mover el preset {source:03d} «{moving.name}» a la posición {target:03d}?\n\n"
+                f"Los presets entre medio {shift} un lugar: se reescriben {high - low + 1} "
+                "presets en la pedalera. Antes se hace un backup automático completo."):
+            return
+        current = self.state.current_slot
+        if current is not None and low <= current <= high and not self._resolve_dirty():
+            return
+
+        count = high - low + 1
+        steps = BACKUP_STEPS + count
+
+        def backup_step(_label: str, step: int, _total: int) -> None:
+            self._progress("Haciendo un backup de la pedalera…", step, steps)
+
+        def write_step(slot: str, step: int, _total: int) -> None:
+            self._progress(f"Escribiendo preset {slot} ({step + 1} de {count})…",
+                           BACKUP_STEPS + step, steps)
+
+        def work() -> bulk_edit.Applied:
+            if self.state.dirty and current is not None:  # changes discarded: reload it
+                self.editor.select(current)
+            return bulk_edit.move(
+                self.editor, source, target,
+                lambda: auto_backup.save_before(self.editor, "mover", backup_step), write_step)
+
+        def failed(message: str) -> None:
+            self.presets.end_work()
+            self._error(message)
+
+        def done(result: bulk_edit.Applied) -> None:
+            self.presets.end_work()
+            saved = f" Backup previo: {auto_backup.short(result.backup)}" if result.backup else ""
+            self.statusBar().showMessage(
+                f"Preset «{moving.name}» movido a la posición {target:03d}.{saved}", 8000)
+            failed = [f"{slot:03d}: {why}" for slot, why in result.skipped
+                      if why != "sin cambios"]
+            if failed:
+                self._error("No se reescribieron todos los presets:\n" + "\n".join(failed))
+
+        text = f"Moviendo «{moving.name}» a la posición {target:03d}…"
+        self.presets.start_work(text)
+        self.statusBar().showMessage(text)
+        self.runner.run(work, done, failed)
 
     # --- files ---------------------------------------------------------------
 
@@ -537,15 +632,25 @@ class MainWindow(QMainWindow):
         self.progress.setRange(0, total)
         self.progress.setValue(step)
         self.statusBar().showMessage(label)
+        if self.presets.working:
+            self.presets.work.step(label, step, total)
 
     # --- tools -----------------------------------------------------------------
 
     def open_ir(self) -> None:
         IrDialog(self.editor, self.runner, self).exec()
 
+    def _show_module(self, index: int) -> None:
+        self.pages.setCurrentWidget(self.module_editor)
+        self.module_editor.show_module(index)
+
     def open_exp(self) -> None:
-        if self.state.edit is not None:
-            ExpDialog(self.editor, self).exec()
+        """The EXP tile (or Herramientas → Pedal de expresión): its page in the module area."""
+        if self.state.edit is None:
+            return
+        self.chain.select_exp()
+        self.exp_page.load()
+        self.pages.setCurrentWidget(self.exp_page)
 
     def open_settings(self) -> None:
         SettingsDialog(self.editor, self).exec()

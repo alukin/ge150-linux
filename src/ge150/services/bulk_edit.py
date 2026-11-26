@@ -19,7 +19,7 @@ from typing import Any
 from ge150.model.gear import MODULE_TAGS
 from ge150.model.preset import MODULES, NAME_LEN, Preset, is_valid_name
 from ge150.services import tone_ai
-from ge150.services.editor import Editor
+from ge150.services.editor import Editor, EditorError, Progress
 
 DIRTY = "es el preset cargado y tiene cambios sin guardar: guárdalos o descártalos primero"
 
@@ -231,17 +231,20 @@ class Applied:
     backup: Path | None = None
 
 
-def apply(editor: Editor, edits: Sequence[PresetEdit],
-          backup: Backup | None = None) -> Applied:
+def apply(editor: Editor, edits: Sequence[PresetEdit], backup: Backup | None = None,
+          progress: Progress | None = None) -> Applied:
     """Write the edits that are not blocked; returns the previous versions. ``backup`` runs
-    before anything is written (if it raises, nothing is)."""
+    before anything is written (if it raises, nothing is). ``progress`` gets
+    ``("012", i, total)`` before writing each preset."""
     state = editor.state
     previous: list[Preset] = []
     skipped: list[tuple[int, str]] = []
     reload = False
     saved = _run_backup(backup) if backup is not None and any(
         e.changed and not e.blocked for e in edits) else None
-    for edit in edits:
+    for done, edit in enumerate(edits):
+        if progress is not None:
+            progress(f"{edit.slot:03d}", done, len(edits))
         stored = state.presets.get(edit.slot)
         if edit.blocked or stored is None or not edit.changed:
             skipped.append((edit.slot, edit.blocked or "sin cambios"))
@@ -258,6 +261,47 @@ def apply(editor: Editor, edits: Sequence[PresetEdit],
     if reload and state.current_slot is not None:
         editor.select(state.current_slot)
     return Applied(previous, skipped, saved)
+
+
+def move_specs(source: int, target: int) -> list[dict[str, int]]:
+    """Specs that move preset ``source`` to ``target`` and shift the ones in between by one
+    place, as when dragging it in a list: every preset in that range is rewritten."""
+    if source == target:
+        return []
+    step = 1 if source < target else -1
+    specs = [{"slot": slot, "copy_from": slot + step} for slot in range(source, target, step)]
+    specs.append({"slot": target, "copy_from": source})
+    return sorted(specs, key=lambda spec: spec["slot"])
+
+
+def moved_slot(slot: int, source: int, target: int) -> int:
+    """Where the preset now at ``slot`` ends up after moving ``source`` to ``target``."""
+    if slot == source:
+        return target
+    low, high = sorted((source, target))
+    if not low <= slot <= high:
+        return slot
+    return slot - 1 if source < target else slot + 1
+
+
+def move(editor: Editor, source: int, target: int, backup: Backup | None = None,
+         progress: Progress | None = None) -> Applied:
+    """Move preset ``source`` to ``target`` (see :func:`move_specs`). The preset loaded on
+    the pedal stays loaded at its new place. Refused while it is in the range and has unsaved
+    changes: skipping it would leave the order half done."""
+    state = editor.state
+    current = state.current_slot
+    low, high = sorted((source, target))
+    if current is not None and low <= current <= high and state.dirty:
+        raise EditorError(f"el preset {current:03d} {DIRTY}")
+    edits = plan_edits(editor, move_specs(source, target))
+    blocked = [f"{e.slot:03d}: {e.blocked}" for e in edits if e.blocked]
+    if blocked:
+        raise EditorError("no se puede mover: " + "; ".join(blocked))
+    applied = apply(editor, edits, backup, progress)
+    if current is not None and (new := moved_slot(current, source, target)) != current:
+        editor.select(new)
+    return applied
 
 
 def restore(editor: Editor, previous: Sequence[Preset],

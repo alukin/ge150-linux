@@ -15,7 +15,7 @@ from pathlib import Path
 
 from ge150.formats import mbf
 from ge150.services import backup as backup_service
-from ge150.services.editor import Editor
+from ge150.services.editor import Editor, Progress
 
 KEEP = 20
 PREFIX = "auto-"
@@ -26,9 +26,9 @@ def backup_dir() -> Path:
     return Path(base) / "ge150" / "backups"
 
 
-def save_before(editor: Editor, reason: str) -> Path:
+def save_before(editor: Editor, reason: str, progress: Progress | None = None) -> Path:
     """Read the whole pedal and save it; raises if the backup is not complete."""
-    data = backup_service.create_backup(editor)
+    data = backup_service.create_backup(editor, progress)
     directory = backup_dir()
     directory.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
