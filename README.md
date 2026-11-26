@@ -188,8 +188,8 @@ ge150 --language en   # menús y editor de presets en inglés
 ```
 
 El inglés cubre el editor principal, la cadena de efectos, el pedal de expresión, los ajustes,
-las IR de usuario, las ventanas de información y la interfaz del asistente. La pestaña
-TONE3000 conserva textos en español por ahora.
+las IR de usuario, las ventanas de información, la interfaz del asistente y los controles y
+diálogos de TONE3000. El catálogo web y las descripciones proceden de TONE3000.
 
 - En pantallas grandes (4K, 1440p) la interfaz se agranda sola si el sistema no la escala; para fijar otro tamaño:
   *Ver → Tamaño de la interfaz* (se aplica al reiniciar). La variable `QT_SCALE_FACTOR`, si la defines, tiene
