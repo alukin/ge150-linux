@@ -184,7 +184,12 @@ datos en tu carpeta personal: actualizar no los toca.
 ```bash
 ge150            # con la pedalera conectada
 ge150 --sim      # con el simulador, sin hardware
+ge150 --language en   # menús y editor de presets en inglés
 ```
+
+El inglés cubre el editor principal, la cadena de efectos, el pedal de expresión, los ajustes,
+las IR de usuario, las ventanas de información y la interfaz del asistente. La pestaña
+TONE3000 conserva textos en español por ahora.
 
 - En pantallas grandes (4K, 1440p) la interfaz se agranda sola si el sistema no la escala; para fijar otro tamaño:
   *Ver → Tamaño de la interfaz* (se aplica al reiniciar). La variable `QT_SCALE_FACTOR`, si la defines, tiene
